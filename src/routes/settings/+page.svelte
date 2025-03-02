@@ -1,0 +1,112 @@
+<script>
+	import NavActions from '$lib/components/nav/NavActions.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
+	import { version } from '$app/environment';
+	import { useSettingsContext } from '$lib/state/settings.svelte';
+	import { useConditionsContext } from '$lib/state/conditions.svelte';
+
+	const settingsContext = useSettingsContext();
+	let settings = $derived(settingsContext.getSettings());
+
+	const conditionsContext = useConditionsContext();
+	let conditions = $derived(conditionsContext.getConditions());
+
+	function purgeAll() {
+		settingsContext.resetSettings();
+		conditionsContext.resetConditions();
+		// TODO: Clear token list as well
+	}
+</script>
+
+<svelte:head>
+	<title>Trezur · Settings</title>
+	<meta name="description" content="Trezur app" />
+</svelte:head>
+
+<header class="mb-6 flex items-center gap-4">
+	<NavActions backButton={{ to: '/' }} />
+	<h1 class="text-2xl font-medium">Settings</h1>
+</header>
+
+<main>
+	<div class="space-y-6">
+		<section>
+			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Backup</h2>
+			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
+				<div class="flex items-center justify-between p-4">
+					<span>iCloud Backup <sup class="text-xs text-zinc-500">Coming Soon</sup></span>
+					<Switch
+						disabled
+						checked={settings.iCloudBackupEnabled}
+						class="data-[state=on]:bg-[#EB3912]"
+					/>
+				</div>
+				<div class="flex hidden items-center justify-between p-4">
+					<span>Last Synced</span>
+					<span class="text-zinc-500">Never</span>
+				</div>
+			</div>
+			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
+				<div class="flex items-center justify-between p-4">
+					<span>Google Drive Backup <sup class="text-xs text-zinc-500">Coming Soon</sup></span>
+					<Switch
+						disabled
+						checked={settings.gDriveBackupEnabled}
+						class="data-[state=on]:bg-[#EB3912]"
+					/>
+				</div>
+				<div class="flex hidden items-center justify-between p-4">
+					<span>Last Synced</span>
+					<span class="text-zinc-500">Never</span>
+				</div>
+			</div>
+
+			<div class="mt-4 space-y-2">
+				<button class="w-full rounded-lg bg-zinc-900 p-4 text-left text-blue-500"> Import </button>
+				<button class="w-full rounded-lg bg-zinc-900 p-4 text-left text-blue-500"> Export </button>
+			</div>
+		</section>
+
+		<section>
+			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Preferences</h2>
+			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
+				<div class="flex hidden items-center justify-between p-4">
+					<span>Use biometrics to unlock</span>
+					<Switch
+						disabled={conditions.isAppLocked}
+						checked={settings.useBiometricUnlock}
+						onCheckedChange={(/** @type {boolean} */ checked) => {
+							settingsContext.updateSetting('useBiometricUnlock', checked);
+						}}
+						class="data-[state=on]:bg-[#EB3912]"
+					/>
+				</div>
+				<div class="flex items-center justify-between p-4">
+					<span>Show next token</span>
+					<Switch
+						disabled={conditions.isAppLocked}
+						checked={settings.showNextCode}
+						onCheckedChange={(/** @type {boolean} */ checked) => {
+							settingsContext.updateSetting('showNextCode', checked);
+						}}
+						class="data-[state=on]:bg-[#EB3912]"
+					/>
+				</div>
+			</div>
+		</section>
+
+		<div class="space-y-2">
+			<button
+				class="hidden w-full rounded-lg bg-zinc-900 p-4 text-blue-500"
+				onclick={() => (conditions.isAppLocked = !conditions.isAppLocked)}
+			>
+				{conditions.isAppLocked ? 'Unlock' : 'Lock'}
+			</button>
+			<button class="w-full rounded-lg bg-zinc-900 p-4 text-red-500" onclick={purgeAll}>
+				Delete all data
+			</button>
+		</div>
+
+		<p class="text-center text-sm text-zinc-500">Trezur app v{version}</p>
+	</div>
+</main>

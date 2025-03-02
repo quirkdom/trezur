@@ -17,7 +17,7 @@ Trezur is almost entirely written in JavaScript, with JSDoc type hints used for 
       Repro: With no search, not the code of the first few tokens. Now search for tokens: the account and issuer names change to match the search query, but the codes are those of the first few tokens.
       Temporarily solved using Keyed Each loops.
 
-### Immediate needsp
+### Immediate needs
 
 - [ ] Add drawer to add new tokens
 - [ ] Interact with existing tokens
@@ -25,9 +25,10 @@ Trezur is almost entirely written in JavaScript, with JSDoc type hints used for 
   - [ ] Copy token to clipboard
   - [ ] Generate QR codes of tokens
 - [ ] Implement preferences page
+- [x] Implement sorting
 
 - [ ] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
-- [ ] Store tokens encypted in browser storage (probably using [WebCrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) and [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API))
+- [x] Store tokens encypted in browser storage (probably using [WebCrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) and [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API))
 
 ### Next steps
 
