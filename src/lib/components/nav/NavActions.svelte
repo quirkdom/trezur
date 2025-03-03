@@ -1,6 +1,6 @@
 <script>
 	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { ArrowLeft, ArrowUpDown, Plus, ArrowDownZA, ArrowDownAZ, ArrowUp } from 'lucide-svelte';
+	import { ArrowLeft, ArrowUpDown, Plus, ArrowDownZA, ArrowDownAZ } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 
 	const { backButton = undefined, sortButton = false, newTokenButton = false } = $props();
@@ -8,6 +8,7 @@
 	const settingsContext = useSettingsContext();
 	const sortOrder = $derived(sortButton ? settingsContext.getSettings().sortOrder : null);
 
+	// TODO: Move this function out to config in sortButton prop
 	function cycleSortOrder() {
 		if (!sortButton || !sortOrder) return;
 

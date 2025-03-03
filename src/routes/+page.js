@@ -8,18 +8,17 @@ export async function load() {
 	if (browser) {
 		const encryptedLocalStorage = new EncryptedLocalStorage('secret-passcode-woohoo'); // TODO: As is, only for testing. Should eventually be replaced with a proper passcode check.
 
-		storedTokens = await encryptedLocalStorage.get('tokens');
+		storedTokens = (await encryptedLocalStorage.get('tokens')) || storedTokens;
 
-		if (!storedTokens) {
-			// Only for testing purposes //
-			const { tokens } = await fetch('/temp/Chronos_20-02-2025.json').then((response) =>
-				response.json()
-			);
-			await encryptedLocalStorage.set('tokens', tokens);
-			// Only for testing purposes //
+		// if (!storedTokens) {
+		// 	// Only for testing purposes
+		// 	const { tokens } = await fetch('/temp/Chronos_20-02-2025.json').then((response) =>
+		// 		response.json()
+		// 	);
+		// 	await encryptedLocalStorage.set('tokens', tokens);
 
-			storedTokens = await encryptedLocalStorage.get('tokens');
-		}
+		// 	storedTokens = await encryptedLocalStorage.get('tokens');
+		// }
 	}
 
 	return { tokens: storedTokens };
