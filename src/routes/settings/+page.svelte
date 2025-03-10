@@ -24,7 +24,7 @@
 </svelte:head>
 
 <header class="mb-6 flex items-center gap-4">
-	<NavActions backButton={{ to: '/' }} />
+	<NavActions backButtonTo="/" />
 	<h1 class="text-2xl font-medium">Settings</h1>
 </header>
 

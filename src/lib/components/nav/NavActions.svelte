@@ -1,31 +1,29 @@
 <script>
-	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { ArrowLeft, ArrowUpDown, Plus, ArrowDownZA, ArrowDownAZ } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 
-	const { backButton = undefined, sortButton = false, newTokenButton = false } = $props();
+	let {
+		/** @type {string | undefined} */ backButtonTo = undefined,
+		/** @type {{ sortOrder?: 'asc' | 'desc' | 'none', onSortChange?: (order: 'asc' | 'desc' | 'none') => void } | undefined} */ sortButton = undefined,
+		/** @type {function | undefined} */ addButton = undefined
+	} = $props();
 
-	const settingsContext = useSettingsContext();
-	const sortOrder = $derived(sortButton ? settingsContext.getSettings().sortOrder : null);
+	const sortOrder = $derived(sortButton?.sortOrder);
 
-	// TODO: Move this function out to config in sortButton prop
 	function cycleSortOrder() {
 		if (!sortButton || !sortOrder) return;
 
-		if (sortOrder === 'asc') {
-			settingsContext.updateSetting('sortOrder', 'desc');
-		} else if (sortOrder === 'desc') {
-			settingsContext.updateSetting('sortOrder', 'none');
-		} else {
-			settingsContext.updateSetting('sortOrder', 'asc');
-		}
+		const nextSortOrder = sortOrder === 'asc' ? 'desc' : sortOrder === 'desc' ? 'none' : 'asc';
+		sortButton.onSortChange?.(nextSortOrder);
 	}
+
+	// $inspect(sortOrder);
 </script>
 
 <!-- TODO: Add new token modal -->
 <nav class="flex gap-4">
-	{#if backButton}
-		<a href={backButton.to}>
+	{#if backButtonTo}
+		<a href={backButtonTo}>
 			<button class="text-primary align-middle">
 				<ArrowLeft size={24} />
 				<span class="sr-only">Go back</span>
@@ -48,12 +46,12 @@
 				</div>
 			{/if}
 			<span class="sr-only">
-				Sort {sortOrder === 'asc' ? 'ascending' : sortOrder === 'desc' ? 'descending' : 'none'}
+				Sort {sortOrder === 'asc' ? 'descending' : sortOrder === 'desc' ? 'naturally' : 'ascending'}
 			</span>
 		</button>
 	{/if}
-	{#if newTokenButton}
-		<button class="text-primary">
+	{#if addButton}
+		<button class="text-primary" onclick={addButton}>
 			<Plus size={24} />
 			<span class="sr-only">Add Token</span>
 		</button>

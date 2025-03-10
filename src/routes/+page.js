@@ -1,25 +1,20 @@
-import { browser } from '$app/environment';
-import EncryptedLocalStorage from '$lib/utils/EncryptedLS';
+/**
+ * @typedef {import('$lib/types').Token} Token
+ */
 
-/** @type {import('./$types').PageLoad} */
+/**
+ * @type {import('./$types').PageLoad}
+ * @returns {Promise<{tokens: Token[]}>}
+ */
 export async function load() {
-	let storedTokens = [];
-
-	if (browser) {
-		const encryptedLocalStorage = new EncryptedLocalStorage('secret-passcode-woohoo'); // TODO: As is, only for testing. Should eventually be replaced with a proper passcode check.
-
-		storedTokens = (await encryptedLocalStorage.get('tokens')) || storedTokens;
-
-		// if (!storedTokens) {
-		// 	// Only for testing purposes
-		// 	const { tokens } = await fetch('/temp/Chronos_20-02-2025.json').then((response) =>
-		// 		response.json()
-		// 	);
-		// 	await encryptedLocalStorage.set('tokens', tokens);
-
-		// 	storedTokens = await encryptedLocalStorage.get('tokens');
-		// }
-	}
-
-	return { tokens: storedTokens };
+	return {
+		tokens: [
+			// {         // TODO: Remove this. Only for testing
+			// 	id: '1',
+			// 	issuer: 'Server Test',
+			// 	account: 'account1',
+			// 	secret: 'secrethaha'
+			// }
+		]
+	};
 }

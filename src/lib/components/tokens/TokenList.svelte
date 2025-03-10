@@ -9,7 +9,7 @@
 	const filteredTokens = $derived.by(() => {
 		let filtered = tokens.filter(
 			(/** @type {import('$lib/types').Token} */ token) =>
-				token.issuer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				token.issuer?.toLowerCase().includes(searchQuery.toLowerCase()) ||
 				token.account.toLowerCase().includes(searchQuery.toLowerCase())
 		);
 

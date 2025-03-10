@@ -1,19 +1,23 @@
 /**
  * Store user's preferences. Persisted browser-side in localStorage.
  * @module Settings
+ * @typedef {import("$lib/types").Settings} Settings
  */
 import { browser } from '$app/environment';
 import { getContext, hasContext, setContext } from 'svelte';
 
 const T_SETTINGS = 'T_settings';
 
-/** @type {import("$lib/types").Settings} */
+/** @type {Settings} */
 const DEFAULT_SETTINGS = {
 	showNextCode: false,
 	useBiometricUnlock: false,
 	sortOrder: 'none'
 };
 
+/**
+ * @returns {Settings | undefined} Settings from storage or undefined if not found
+ */
 function load() {
 	if (browser) {
 		const item = localStorage.getItem(T_SETTINGS);
@@ -22,7 +26,7 @@ function load() {
 }
 
 /**
- * @param {import("$lib/types").Settings} settings
+ * @param {Settings} settings
  */
 function persist(settings) {
 	if (browser) {
@@ -36,17 +40,20 @@ function purge() {
 	}
 }
 
-class Settings {
+class SettingsCtx {
 	state = $state(DEFAULT_SETTINGS);
 
 	/**
-	 * @param {import("$lib/types").Settings | undefined} initialSettings
+	 * @param {Settings | undefined} initialSettings
 	 */
-	constructor(initialSettings, alsoPersist = true) {
+	constructor(initialSettings) {
 		if (initialSettings) {
 			this.state = initialSettings;
-			if (alsoPersist) persist($state.snapshot(this.state));
-		} else this.state = load();
+			persist($state.snapshot(this.state)); // always persist because initial settings are provided and may be different from default settings
+		} else {
+			const loaded = load();
+			if (loaded) this.state = loaded;
+		}
 	}
 
 	getSettings() {
@@ -54,12 +61,12 @@ class Settings {
 	}
 
 	/**
-	 * @param {string} key
-	 * @param {any} value
-	 * @param {boolean} shouldPersist
+	 * @param {keyof Settings} key
+	 * @param {Settings[keyof Settings]} value
 	 */
 	updateSetting(key, value, shouldPersist = true) {
-		this.state[key] = value;
+		// Using a type assertion to fix the type checking issue
+		this.state = { ...this.state, [key]: value };
 		if (shouldPersist) persist($state.snapshot(this.state));
 	}
 
@@ -70,17 +77,17 @@ class Settings {
 }
 
 /**
- * @param {import("$lib/types").Settings | undefined} initialSettings
- * @returns {Settings}
+ * @param {Settings | undefined} initialSettings
+ * @returns {SettingsCtx}
  */
-function createSettingsContext(initialSettings, alsoPersist = true) {
-	const settings = new Settings(initialSettings, alsoPersist);
+function createSettingsContext(initialSettings) {
+	const settings = new SettingsCtx(initialSettings);
 	setContext(T_SETTINGS, settings);
 	return settings;
 }
 
 /**
- * @returns {Settings}
+ * @returns {SettingsCtx}
  */
 function useSettingsContext() {
 	if (!hasContext(T_SETTINGS))
