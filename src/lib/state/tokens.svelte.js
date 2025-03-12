@@ -1,88 +1,166 @@
+/**
+ * @typedef {import('$lib/types').Token} Token
+ * @typedef {import('$lib/types').EncryptedStorage} EncryptedStorage
+ */
 import { browser } from '$app/environment';
-import { getContext, hasContext, setContext } from 'svelte';
+import { getContext, hasContext, onMount, setContext } from 'svelte';
 
+const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
 const T_TOKENS = 'T_tokens';
 
 class TokensCtx {
 	storage;
-	/** @type {import('$lib/types').Token[]} */
-	state = $state([]);
+	/** @type {Token[]} */
+	#tokens = [];
 
 	/**
-	 * @param {import('$lib/types').EncryptedStorage} storage
+	 * @param {EncryptedStorage} storage
+	 * @param {symbol} [initToken]
+	 * @param {Token[] | null} [tokens]
 	 */
-	constructor(storage) {
-		if (!browser) {
-			throw new Error('TokenService constructor called on server side');
-		}
+	constructor(storage, initToken, tokens) {
+		if (initToken !== ANTI_CTOR_TOKEN)
+			throw new Error('Cannot construct TokensCtx directly; await TokensCtx.make() instead.');
+		if (!browser) throw new Error('TokenCtx can only be used in the browser');
+
 		this.storage = storage;
+		if (tokens) this.#tokens.push(...tokens);
 	}
 
-	async init() {
-		this.state = (await this.storage.get(T_TOKENS)) || [
-			{
-				// TODO: remove this; only for testing
-				id: '33',
-				secret: 'secretpoop',
-				account: 'account',
-				issuer: 'Client Test'
-			}
-		];
-		return this.state;
+	/**
+	 * @param {EncryptedStorage} storage
+	 * @param {Token[] | null} [initialTokens] initial bunch of tokens to be added to context state. This is independent of any tokens that can be loaded from storage.
+	 */
+	static async make(storage, initialTokens) {
+		const instance = new TokensCtx(storage, ANTI_CTOR_TOKEN, initialTokens);
+		await instance.#load();
+		return instance;
+	}
+
+	/**
+	 * @todo TODO: Update merge algorithm with ID checks and other validations
+	 */
+	async #load() {
+		const loadedTokens = (await this.storage.get(T_TOKENS)) || [];
+
+		this.#tokens.push(...loadedTokens);
+
+		console.log('Final tokens after load:', $state.snapshot(this.#tokens));
+
+		await this.#persist();
 	}
 
 	async #persist() {
-		await this.storage.set(T_TOKENS, this.state);
+		if (!this.#tokens.length) return;
+		await this.storage.set(T_TOKENS, $state.snapshot(this.#tokens));
+		localStorage.setItem(T_TOKENS, JSON.stringify($state.snapshot(this.#tokens))); // TODO: remove this; only for debugging
+	}
+
+	async #clear() {
+		await this.storage.delete(T_TOKENS);
+		localStorage.removeItem(T_TOKENS); // TODO: remove this; only for debugging
 	}
 
 	getTokens() {
-		return this.state;
+		return this.#tokens;
 	}
 
 	/**
-	 * @param {import('$lib/types').Token} token
+	 * @param {Token} token
 	 */
 	addToken(token) {
-		this.state = [...this.state, token];
+		this.#tokens.push(token);
 		this.#persist();
-		return this.getTokens();
 	}
 
 	/**
-	 * @param {any} id
-	 * @param {any} updatedToken
+	 * @typedef {import('$lib/types').Tokenable} Tokenable
+	 * @param {string} id
+	 * @param {Partial<{[key in keyof Tokenable]: Tokenable[key]}>} updates
+	 * @todo TODO: check if this can be merged with addToken()
 	 */
-	updateToken(id, updatedToken) {
-		this.state = this.state.map((t) => (t.id === id ? updatedToken : t));
+	updateToken(id, updates) {
+		this.#tokens = this.#tokens.map((t) => (t.id === id ? { ...t, ...updates } : t)); // TODO: might be cleaner to change specific token directly.
 		this.#persist();
-		return this.getTokens();
 	}
 
 	/**
-	 * @param {any} id
+	 * @param {string} id
 	 */
 	removeToken(id) {
-		this.state = this.state.filter((t) => t.id !== id);
+		this.#tokens = this.#tokens.filter((t) => t.id !== id);
 		this.#persist();
-		return this.getTokens();
+	}
+
+	clearTokens() {
+		this.#tokens = [];
+		this.#clear();
 	}
 }
 
 /**
- * @param {import("$lib/types").EncryptedStorage} storage
+ * Reactive container to hold a token context instance; can be updated when underlying storage engine changes.
+ * @typedef {Object} TokensContextContainer
+ * @property {TokensCtx | null} current
+ * @property {function(EncryptedStorage): Promise<TokensCtx>} makeMerge
  */
-function createTokensContext(storage) {
-	const tokensCtx = new TokensCtx(storage);
-	setContext(T_TOKENS, tokensCtx);
-	tokensCtx.init();
-	return tokensCtx;
+const tokensContext = $state({
+	/** @type {TokensCtx | null} */
+	current: null,
+
+	/**
+	 * Make a new Tokens context by merging any existing tokens into ones loaded newly from storage
+	 * @param {EncryptedStorage} storage
+	 */
+	async makeMerge(storage) {
+		const currentTokens = this.current && $state.snapshot(this.current.getTokens());
+		return (this.current = await TokensCtx.make(storage, currentTokens));
+	}
+
+	/**
+	 * Make a new Tokens context by loading tokens from storage. Any existing tokens are cleared.
+	 * @param {EncryptedStorage} storage
+	 */
+	// async makeNew(storage) {
+	// 	this.current?.clearTokens();
+	// 	return this.makeMerge(storage);
+	// }
+});
+
+/**
+ *
+ * @returns {TokensContextContainer}
+ */
+function createTokensContext() {
+	// Store the ref in context, not the instance directly
+	setContext(T_TOKENS, tokensContext);
+
+	// Return the ref and the updater function
+	return tokensContext;
 }
 
+/**
+ * @returns {TokensContextContainer}
+ */
 function useTokensContext() {
 	if (!hasContext(T_TOKENS)) {
 		throw new Error('Tokens context not found. Did you forget to call createTokensContext()?');
 	}
+
 	return getContext(T_TOKENS);
 }
 
-export { createTokensContext, useTokensContext };
+/**
+ * Creates a new Token from a Tokenable object.
+ * @param {Tokenable} tokenable
+ * @returns {Token}
+ */
+function tokenize(tokenable) {
+	// TODO: Validate generated token object. Also fill in default values.
+	return {
+		id: crypto.randomUUID(),
+		...tokenable
+	};
+}
+
+export { createTokensContext, useTokensContext, tokenize };

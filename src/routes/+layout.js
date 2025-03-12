@@ -8,8 +8,6 @@ export async function load() {
 		conditions: loadConditions() ?? {
 			...DEFAULT_CONDITIONS,
 			clientId: crypto.randomUUID()
-		},
-		/** @type {import('$lib/types').EncryptedStorage | undefined} */
-		encryptedStorage: undefined
+		}
 	};
 }

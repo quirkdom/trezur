@@ -5,26 +5,29 @@
 	import NavActions from '$lib/components/nav/NavActions.svelte';
 	import AddTokenForm from '$lib/components/tokens/AddTokenForm.svelte';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { createTokensContext } from '$lib/state/tokens.svelte';
+	import { useTokensContext } from '$lib/state/tokens.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { browser } from '$app/environment';
+	import { untrack } from 'svelte';
 
 	const { data } = $props();
-	const settingsContext = useSettingsContext();
 
-	let tokensContext = $derived.by(() => {
+	const settingsContext = useSettingsContext();
+	const tokensContext = useTokensContext();
+
+	$inspect('clientId changes:', data.conditions.clientId);
+
+	$effect(() => {
+		$inspect.trace();
 		if (browser && encryptedLocalStorage.current) {
-			let ctx = createTokensContext(encryptedLocalStorage.current);
-			// ctx.init(); // async function; not awaited
-			return ctx;
+			const storage = encryptedLocalStorage.current;
+			untrack(() => tokensContext.makeMerge(storage));
 		}
 	});
 
-	// let tokens = $derived(tokensContext?.getTokens() || data.tokens);
-	let tokens = $derived(data.tokens);
+	let tokens = $derived.by(() => tokensContext.current?.getTokens() || data.tokens);
 
-	// $inspect(tokensContext, tokens);
-	// $inspect('Tokens', tokens);
+	$inspect(tokensContext, tokens);
 
 	let isAddTokenFormOpen = $state(false);
 	let searchQuery = $state('');

@@ -12,23 +12,21 @@ const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
  */
 export class AESGCMEncryptedStorage {
 	/** @type {AsyncStorageEngine} */
-	#storageEngine;
+	storageEngine;
 	/** @type {CryptoKey | undefined}*/
 	#cryptoKey;
 
 	/**
 	 * @param {AsyncStorageEngine} engine
-	 * @param {string} passkey
 	 * @param {symbol} [initToken]
 	 */
-	constructor(engine, passkey, initToken) {
+	constructor(engine, initToken) {
 		if (initToken !== ANTI_CTOR_TOKEN)
 			throw new Error(
 				'Cannot construct EncryptedStorage directly; await EncryptedStorage.make() instead.'
 			);
 
-		this.#storageEngine = engine;
-		this.passkey = passkey;
+		this.storageEngine = engine;
 	}
 
 	/**
@@ -36,7 +34,7 @@ export class AESGCMEncryptedStorage {
 	 * @param {string} passkey
 	 */
 	static async make(engine, passkey) {
-		const instance = new AESGCMEncryptedStorage(engine, passkey, ANTI_CTOR_TOKEN);
+		const instance = new AESGCMEncryptedStorage(engine, ANTI_CTOR_TOKEN);
 		instance.#cryptoKey = await instance.#makeCryptoKey(passkey);
 		return instance;
 	}
@@ -91,7 +89,7 @@ export class AESGCMEncryptedStorage {
 			data: Array.from(new Uint8Array(encrypted))
 		};
 
-		await this.#storageEngine.setItem(cip('T_ES_' + key), JSON.stringify(storageValue));
+		await this.storageEngine.setItem(cip('T_ES_' + key), JSON.stringify(storageValue));
 	}
 
 	/**
@@ -99,7 +97,7 @@ export class AESGCMEncryptedStorage {
 	 * @returns {Promise<any>}
 	 */
 	async get(key) {
-		const stored = await this.#storageEngine.getItem(cip('T_ES_' + key));
+		const stored = await this.storageEngine.getItem(cip('T_ES_' + key));
 		if (!stored) return null;
 
 		if (!this.#cryptoKey)
@@ -124,14 +122,14 @@ export class AESGCMEncryptedStorage {
 	 * @param {string} key
 	 */
 	async delete(key) {
-		await this.#storageEngine.removeItem(cip('T_ES_' + key));
+		await this.storageEngine.removeItem(cip('T_ES_' + key));
 	}
 
 	async purge() {
-		const keys = await this.#storageEngine.keys();
+		const keys = await this.storageEngine.keys();
 		keys.forEach((key) => {
 			if (key.startsWith(cip('T_ES_'))) {
-				this.#storageEngine.removeItem(key);
+				this.storageEngine.removeItem(key);
 			}
 		});
 	}

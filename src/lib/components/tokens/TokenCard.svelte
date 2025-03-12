@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import Editable from '../ui/Editable.svelte';
 
-	const { digits, account, secret, period, issuer, algorithm, showNextCode } = $props();
+	const { id, digits, account, secret, period, issuer, algorithm, showNextCode } = $props();
 
 	// Generate code, and setup ticker for every period
 	const token = new TOTP({
@@ -19,9 +19,6 @@
 	let code = $state(token.generate());
 	let nextCode = $state(token.generate({ timestamp: Date.now() + period * 1000 }));
 	let remaining = $state(token.period - (Math.floor(Date.now() / 1000) % token.period));
-
-	// $inspect('account / issuer update', account, issuer);
-	// $inspect('code update', code, nextCode);
 
 	onMount(() => {
 		const secondsTicker = setInterval(() => {

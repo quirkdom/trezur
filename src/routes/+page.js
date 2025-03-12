@@ -8,13 +8,6 @@
  */
 export async function load() {
 	return {
-		tokens: [
-			// {         // TODO: Remove this. Only for testing
-			// 	id: '1',
-			// 	issuer: 'Server Test',
-			// 	account: 'account1',
-			// 	secret: 'secrethaha'
-			// }
-		]
+		tokens: []
 	};
 }

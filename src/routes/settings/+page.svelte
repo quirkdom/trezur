@@ -1,9 +1,11 @@
 <script>
 	import NavActions from '$lib/components/nav/NavActions.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
-	import { version } from '$app/environment';
+	import { dev, version } from '$app/environment';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
+	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
+	import { goto, invalidate, invalidateAll } from '$app/navigation';
 
 	const settingsContext = useSettingsContext();
 	let settings = $derived(settingsContext.getSettings());
@@ -11,10 +13,27 @@
 	const conditionsContext = useConditionsContext();
 	let conditions = $derived(conditionsContext.getConditions());
 
+	const tokensContext = useTokensContext();
+
 	function purgeAll() {
 		settingsContext.resetSettings();
 		conditionsContext.resetConditions();
-		// TODO: Clear token list as well
+		tokensContext?.current?.clearTokens();
+
+		invalidateAll().then(() => goto('/'));
+	}
+
+	function loadSampleData() {
+		if (dev)
+			tokensContext?.current?.addToken({
+				// TODO: remove this; only for testing
+				id: '33',
+				secret: 'secretpoop',
+				account: 'account',
+				issuer: 'Client Test'
+			});
+
+		goto('/');
 	}
 </script>
 
@@ -105,6 +124,11 @@
 			<button class="w-full rounded-lg bg-zinc-900 p-4 text-red-500" onclick={purgeAll}>
 				Delete all data
 			</button>
+			{#if dev}
+				<button class="w-full rounded-lg bg-zinc-900 p-4 text-red-500" ondblclick={loadSampleData}>
+					[[DEV]] Load Sample Data
+				</button>
+			{/if}
 		</div>
 
 		<p class="text-center text-sm text-zinc-500">Trezur app v{version}</p>

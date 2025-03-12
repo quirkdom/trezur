@@ -14,8 +14,16 @@ Trezur is almost entirely written in JavaScript, with JSDoc type hints used for 
 ### Bugs
 
 - [x] In TokenList, on search, the token code shown is always that of the first ones.
-      Repro: With no search, not the code of the first few tokens. Now search for tokens: the account and issuer names change to match the search query, but the codes are those of the first few tokens.
-      Temporarily solved using Keyed Each loops.
+    - Repro: With no search, not the code of the first few tokens. Now search for tokens: the account and issuer names change to match the search query, but the codes are those of the first few tokens.
+    - [x] Temporarily solved using Keyed Each loops.
+- [ ] When Data is purged from Settings page, it wipes out the persisted conditions.clientId, and also undefines in-memory state of conditions.clientId.
+    - Yes, invalidate() can be called, and while that triggers layout load(), the context is not updated with the new data from this load(). Context had already been set during +layout.svelte initialization
+    once and it doesn't get re-initialized again. Valuable discussion [here](https://github.com/sveltejs/kit/discussions/10819).
+    - [ ] When doing conditions.resetConditions(), or during +layout.svelte initialization, conditions.clientId needs to be set again from data.conditions.clientId
+- [ ] When [in DEV mode] sample data load button is clicked in settings page, it adds data into tokensContext state, and then immediately persists it. However after navigating to '/', the $effect to make
+tokens context in +page.svelte re-runs, which causes #load to run, and that blindly merges persisted data (i.e. tokens that were just persisted) and existing tokens in memory state, resulting in duplicate tokens.
+    - [ ] Can be possibly solved by de-duping against IDs. But is that a good idea?
+    - [ ] What should be a good long term solution to sync persisted data with in-memory state?
 
 ### Immediate needs
 

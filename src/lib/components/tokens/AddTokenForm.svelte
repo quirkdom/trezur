@@ -1,6 +1,6 @@
 <script>
 	import { CameraIcon, Eye, EyeOff } from 'lucide-svelte';
-	import Drawer from '$lib/components/ui/Drawer.svelte';
+	import Drawer from '../ui/Drawer.svelte';
 
 	let { onAddToken, open = $bindable(false) } = $props();
 
