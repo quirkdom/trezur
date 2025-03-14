@@ -3,8 +3,11 @@
 	import { TOTP } from 'otpauth';
 	import { onMount } from 'svelte';
 	import Editable from '../ui/Editable.svelte';
+	import { useTokensContext } from '$lib/state/tokens.svelte';
 
 	const { id, digits, account, secret, period, issuer, algorithm, showNextCode } = $props();
+
+	const tokensContext = useTokensContext();
 
 	// Generate code, and setup ticker for every period
 	const token = new TOTP({
@@ -39,17 +42,15 @@
 		<div>
 			<Editable
 				value={issuer}
-				onEdit={(/** @type {string} */ val) => {
-					console.log('Issuer updated', val); // TODO
-				}}
+				onEdit={(/** @type {string} */ val) =>
+					tokensContext.current?.updateToken(id, { issuer: val })}
 				class="max-w-[300px] truncate text-lg font-medium text-white"
 			/>
 			{#if account.length > 40}
 				<Editable
 					value={account}
-					onEdit={(/** @type {string} */ val) => {
-						console.log('Account updated', val); // TODO
-					}}
+					onEdit={(/** @type {string} */ val) =>
+						tokensContext.current?.updateToken(id, { account: val })}
 					class="max-w-[300px] overflow-hidden"
 				>
 					<div class="animate-marquee text-sm whitespace-nowrap text-zinc-500">
@@ -59,9 +60,8 @@
 			{:else}
 				<Editable
 					value={account}
-					onEdit={(/** @type {string} */ val) => {
-						console.log('Account updated', val); // TODO
-					}}
+					onEdit={(/** @type {string} */ val) =>
+						tokensContext.current?.updateToken(id, { account: val })}
 					class="text-sm text-zinc-500"
 				/>
 			{/if}

@@ -4,8 +4,9 @@
 	import { dev, version } from '$app/environment';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
-	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
-	import { goto, invalidate, invalidateAll } from '$app/navigation';
+	import { useTokensContext } from '$lib/state/tokens.svelte';
+	import { goto, invalidate } from '$app/navigation';
+	import { nanoid } from 'nanoid/non-secure';
 
 	const settingsContext = useSettingsContext();
 	let settings = $derived(settingsContext.getSettings());
@@ -20,18 +21,23 @@
 		conditionsContext.resetConditions();
 		tokensContext?.current?.clearTokens();
 
-		invalidateAll().then(() => goto('/'));
+		invalidate('app:conditions').then(() => goto('/'));
 	}
 
-	function loadSampleData() {
-		if (dev)
-			tokensContext?.current?.addToken({
-				// TODO: remove this; only for testing
-				id: '33',
-				secret: 'secretpoop',
-				account: 'account',
-				issuer: 'Client Test'
-			});
+	async function loadSampleData() {
+		if (dev) {
+			const response = await fetch('/temp/Chronos_20-02-2025.json?url');
+			const { tokens: chronosTokens } = await response.json();
+
+			const tokensToLoad = chronosTokens.map(
+				(/** @type {import('$lib/types').Tokenable} */ token) => ({
+					id: nanoid(10),
+					...token
+				})
+			);
+
+			tokensContext?.current?.addTokens(...tokensToLoad);
+		}
 
 		goto('/');
 	}

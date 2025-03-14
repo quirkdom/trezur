@@ -3,9 +3,9 @@
 Trezur is a fast, simple, light-weight web-app to generate TOTP and HOTP tokens.
 
 ## Stack
-- [x] [Svelte](https://svelte.dev/) + SvelteKit
-- [x] [TailwindCSS](https://tailwindcss.com/)
-- [x] [Vite](https://vitejs.dev/) (through SvelteKit)
+- [Svelte](https://svelte.dev/) + SvelteKit
+- [TailwindCSS](https://tailwindcss.com/)
+- [Vite](https://vitejs.dev/) (through SvelteKit)
 
 Trezur is almost entirely written in JavaScript, with JSDoc type hints used for type checking and documentation.
 
@@ -16,25 +16,29 @@ Trezur is almost entirely written in JavaScript, with JSDoc type hints used for 
 - [x] In TokenList, on search, the token code shown is always that of the first ones.
     - Repro: With no search, not the code of the first few tokens. Now search for tokens: the account and issuer names change to match the search query, but the codes are those of the first few tokens.
     - [x] Temporarily solved using Keyed Each loops.
-- [ ] When Data is purged from Settings page, it wipes out the persisted conditions.clientId, and also undefines in-memory state of conditions.clientId.
+- [x] When Data is purged from Settings page, it wipes out the persisted conditions.clientId, and also undefines in-memory state of conditions.clientId.
     - Yes, invalidate() can be called, and while that triggers layout load(), the context is not updated with the new data from this load(). Context had already been set during +layout.svelte initialization
     once and it doesn't get re-initialized again. Valuable discussion [here](https://github.com/sveltejs/kit/discussions/10819).
-    - [ ] When doing conditions.resetConditions(), or during +layout.svelte initialization, conditions.clientId needs to be set again from data.conditions.clientId
+    - [x] When doing conditions.resetConditions(), or during +layout.svelte initialization, conditions.clientId needs to be set again from data.conditions.clientId
 - [ ] When [in DEV mode] sample data load button is clicked in settings page, it adds data into tokensContext state, and then immediately persists it. However after navigating to '/', the $effect to make
 tokens context in +page.svelte re-runs, which causes #load to run, and that blindly merges persisted data (i.e. tokens that were just persisted) and existing tokens in memory state, resulting in duplicate tokens.
-    - [ ] Can be possibly solved by de-duping against IDs. But is that a good idea?
+    - [x] Can be possibly solved by de-duping against IDs. But is that a good idea?
+        - Currently solved this by deduping on `id` and `secret`. But this should only be a short term solution.
     - [ ] What should be a good long term solution to sync persisted data with in-memory state?
 
 ### Immediate needs
 
 - [ ] Add drawer to add new tokens
-- [ ] Interact with existing tokens
-  - [ ] Edit or delete tokens
+    - [ ] Wire up QR code scanner
+    - [ ] Wire up add new token form data -> Tokenable -> Add to TokenContext
+- [x] Interact with existing tokens
+  - [x] Edit or delete tokens
   - [ ] Copy token to clipboard
   - [ ] Generate QR codes of tokens
 - [ ] Implement preferences page
 - [x] Implement sorting
 
+- [ ] Move settings and conditions to exported global states. Contexts are overkill for that.
 - [ ] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
 - [x] Store tokens encypted in browser storage (probably using [WebCrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) and [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API))
 

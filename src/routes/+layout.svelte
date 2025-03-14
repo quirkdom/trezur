@@ -6,6 +6,7 @@
 	import { browser } from '$app/environment';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { createTokensContext } from '$lib/state/tokens.svelte';
+	import { untrack } from 'svelte';
 
 	const { children, data } = $props();
 
@@ -15,13 +16,18 @@
 	const conditionsContext = createConditionsContext(data.conditions);
 	const conditions = $derived(conditionsContext.getConditions());
 
-	$effect(() => {
-		if (browser && conditions.clientId && !encryptedLocalStorage.current) {
-			encryptedLocalStorage.init(conditions.clientId); // async function; not awaited
-		}
-	});
+	$effect.root(() => {
+		$effect(() => {
+			if (browser && data.conditions)
+				untrack(() => conditionsContext.updateConditions(data.conditions)); // we have to untrack this to avoid infinite loop
+		});
 
-	// $inspect('encryptedLocalStorage', encryptedLocalStorage);
+		$effect(() => {
+			if (browser && conditions.clientId) {
+				encryptedLocalStorage.init(conditions.clientId); // async function; not awaited
+			}
+		});
+	});
 </script>
 
 <div class="min-h-screen bg-black p-4 text-white">

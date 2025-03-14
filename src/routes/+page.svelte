@@ -1,5 +1,5 @@
 <script>
-	import { PlusIcon, Settings } from 'lucide-svelte';
+	import { FileLock, PlusIcon, Settings } from 'lucide-svelte';
 	import TokenList from '$lib/components/tokens/TokenList.svelte';
 	import SearchBar from '$lib/components/ui/SearchBar.svelte';
 	import NavActions from '$lib/components/nav/NavActions.svelte';
@@ -15,10 +15,11 @@
 	const settingsContext = useSettingsContext();
 	const tokensContext = useTokensContext();
 
-	$inspect('clientId changes:', data.conditions.clientId);
-
 	$effect(() => {
-		$inspect.trace();
+		/*
+		TODO: This is hacky (see buglist); This runs on every navigation, which shouldn't be necessary because
+		  encryptedLocalStorage.current has not changed and merge into current tokens context isn't necessary.
+		*/
 		if (browser && encryptedLocalStorage.current) {
 			const storage = encryptedLocalStorage.current;
 			untrack(() => tokensContext.makeMerge(storage));
@@ -27,7 +28,7 @@
 
 	let tokens = $derived.by(() => tokensContext.current?.getTokens() || data.tokens);
 
-	$inspect(tokensContext, tokens);
+	// $inspect(tokensContext, tokens);
 
 	let isAddTokenFormOpen = $state(false);
 	let searchQuery = $state('');
@@ -96,6 +97,17 @@
 						<Settings class="inline-block h-[1em] w-[1em]" />
 					</a> page.
 				</p>
+				<!-- TODO: Remove this; only for testing -->
+				<!-- <button
+					class="mx-auto transition-colors duration-300 hover:text-[#EB3912]"
+					onclick={() =>
+						conditionsContext.updateCondition(
+							'isAppLocked',
+							!conditionsContext.getConditions().isAppLocked
+						)}
+				>
+					<FileLock class="h-20 w-20 opacity-70" />
+				</button> -->
 			</div>
 		</div>
 	{/if}

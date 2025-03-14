@@ -74,6 +74,15 @@ class ConditionsCtx {
 		persist($state.snapshot(this.state));
 	}
 
+	/**
+	 * @param {Partial<{[key in keyof Conditions]: Conditions[key]}>} conditions
+	 */
+	updateConditions(conditions) {
+		console.trace('Updating conditions:', conditions);
+		this.state = { ...this.state, ...conditions };
+		persist($state.snapshot(this.state));
+	}
+
 	resetConditions() {
 		this.state = DEFAULT_CONDITIONS;
 		purge();

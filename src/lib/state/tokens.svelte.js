@@ -3,7 +3,8 @@
  * @typedef {import('$lib/types').EncryptedStorage} EncryptedStorage
  */
 import { browser } from '$app/environment';
-import { getContext, hasContext, onMount, setContext } from 'svelte';
+import { nanoid } from 'nanoid';
+import { getContext, hasContext, setContext } from 'svelte';
 
 const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
 const T_TOKENS = 'T_tokens';
@@ -11,7 +12,7 @@ const T_TOKENS = 'T_tokens';
 class TokensCtx {
 	storage;
 	/** @type {Token[]} */
-	#tokens = [];
+	#tokens = $state([]);
 
 	/**
 	 * @param {EncryptedStorage} storage
@@ -43,7 +44,27 @@ class TokensCtx {
 	async #load() {
 		const loadedTokens = (await this.storage.get(T_TOKENS)) || [];
 
-		this.#tokens.push(...loadedTokens);
+		// Use a map to track tokens by id and secret for deduplication
+		const tokenMap = new Map();
+
+		// First add existing tokens to the map (these have priority)
+		for (const token of this.#tokens) {
+			const key = `${token.id}:${token.secret}`;
+			tokenMap.set(key, token);
+		}
+
+		// Then process loaded tokens, only adding ones that don't exist yet
+		// or updating the map if a newer duplicate is found
+		for (const token of loadedTokens) {
+			const key = `${token.id}:${token.secret}`;
+			// Only add if not already in map (preserving this.#tokens priority)
+			if (!tokenMap.has(key)) {
+				tokenMap.set(key, token);
+			}
+		}
+
+		// Replace tokens array with deduped result
+		this.#tokens = [...tokenMap.values()];
 
 		console.log('Final tokens after load:', $state.snapshot(this.#tokens));
 
@@ -66,10 +87,10 @@ class TokensCtx {
 	}
 
 	/**
-	 * @param {Token} token
+	 * @param {Token[]} tokens
 	 */
-	addToken(token) {
-		this.#tokens.push(token);
+	addTokens(...tokens) {
+		this.#tokens.push(...tokens);
 		this.#persist();
 	}
 
@@ -158,7 +179,7 @@ function useTokensContext() {
 function tokenize(tokenable) {
 	// TODO: Validate generated token object. Also fill in default values.
 	return {
-		id: crypto.randomUUID(),
+		id: nanoid(10),
 		...tokenable
 	};
 }

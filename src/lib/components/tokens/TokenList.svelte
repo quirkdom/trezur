@@ -24,7 +24,7 @@
 </script>
 
 <div class="space-y-4">
-	{#each filteredTokens as token (token)}
+	{#each filteredTokens as token (token.id)}
 		<TokenCard {...token} showNextCode={settings.showNextCode} />
 	{/each}
 </div>
