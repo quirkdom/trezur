@@ -1,5 +1,5 @@
 <script>
-	import { CameraIcon, Eye, EyeOff } from 'lucide-svelte';
+	import { Eye, EyeOff, ScanQrCode } from 'lucide-svelte';
 	import Drawer from '../ui/Drawer.svelte';
 
 	let { onAddToken, open = $bindable(false) } = $props();
@@ -65,7 +65,7 @@
 			class="mb-6 flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-800 py-4 text-white transition-colors hover:bg-zinc-700"
 			onclick={startCamera}
 		>
-			<CameraIcon size={20} />
+			<ScanQrCode size={20} />
 			<span>Scan QR Code</span>
 		</button>
 	{/if}

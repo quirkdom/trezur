@@ -12,7 +12,8 @@ const PERSISTABLE_KEYS = ['clientId'];
 /** @type Conditions */
 const DEFAULT_CONDITIONS = {
 	isUserPasscodeSet: false,
-	isAppLocked: false
+	isAppLocked: false,
+	isAppleDevice: false
 };
 
 /**
@@ -78,7 +79,6 @@ class ConditionsCtx {
 	 * @param {Partial<{[key in keyof Conditions]: Conditions[key]}>} conditions
 	 */
 	updateConditions(conditions) {
-		console.trace('Updating conditions:', conditions);
 		this.state = { ...this.state, ...conditions };
 		persist($state.snapshot(this.state));
 	}

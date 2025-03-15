@@ -1,19 +1,23 @@
 <script>
-	import { FileLock, PlusIcon, Settings } from 'lucide-svelte';
-	import TokenList from '$lib/components/tokens/TokenList.svelte';
-	import SearchBar from '$lib/components/ui/SearchBar.svelte';
+	import { browser } from '$app/environment';
 	import NavActions from '$lib/components/nav/NavActions.svelte';
 	import AddTokenForm from '$lib/components/tokens/AddTokenForm.svelte';
+	import TokenList from '$lib/components/tokens/TokenList.svelte';
+	import SearchBar from '$lib/components/ui/SearchBar.svelte';
+	import { useConditionsContext } from '$lib/state/conditions.svelte.js';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { useTokensContext } from '$lib/state/tokens.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { browser } from '$app/environment';
+	import { useTokensContext } from '$lib/state/tokens.svelte';
+	import { Cog, PlusIcon, Settings } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 
 	const { data } = $props();
 
 	const settingsContext = useSettingsContext();
+	const conditionsContext = useConditionsContext();
 	const tokensContext = useTokensContext();
+
+	let isAppleDevice = $derived(conditionsContext.getConditions().isAppleDevice);
 
 	$effect(() => {
 		/*
@@ -44,6 +48,12 @@
 		console.log('Add token', tokenable);
 		// Implement token addition logic here
 	}
+
+	/** @type {import('./$types').Snapshot<string>} */
+	export const snapshot = {
+		capture: () => searchQuery,
+		restore: (value) => (searchQuery = value)
+	};
 </script>
 
 <svelte:head>
@@ -67,7 +77,7 @@
 
 <main>
 	{#if tokens.length > 0}
-		<SearchBar bind:searchQuery />
+		<SearchBar bind:searchQuery {isAppleDevice} />
 		<TokenList {tokens} {searchQuery} />
 	{:else}
 		<div class="flex h-[60vh] flex-col items-center justify-center text-center">
@@ -89,25 +99,18 @@
 					</button> button.
 				</p>
 				<p class="text-md mx-auto max-w-xs">
-					Or import tokens from another app at the Settings
+					Or import tokens from another app in the <a href="/settings">Settings </a>
 					<a
 						href="/settings"
 						class="inline-flex items-center align-middle transition duration-800 ease-in-out hover:rotate-90 hover:text-[#EB3912]"
 					>
-						<Settings class="inline-block h-[1em] w-[1em]" />
+						{#if isAppleDevice}
+							<Cog class="inline-block h-[1em] w-[1em]" />
+						{:else}
+							<Settings class="inline-block h-[1em] w-[1em]" />
+						{/if}
 					</a> page.
 				</p>
-				<!-- TODO: Remove this; only for testing -->
-				<!-- <button
-					class="mx-auto transition-colors duration-300 hover:text-[#EB3912]"
-					onclick={() =>
-						conditionsContext.updateCondition(
-							'isAppLocked',
-							!conditionsContext.getConditions().isAppLocked
-						)}
-				>
-					<FileLock class="h-20 w-20 opacity-70" />
-				</button> -->
 			</div>
 		</div>
 	{/if}

@@ -31,6 +31,7 @@ export interface Conditions {
 	// [key: string]: any;
 	isUserPasscodeSet: boolean;
 	isAppLocked: boolean;
+	isAppleDevice: boolean;
 	clientId?: string;
 }
 

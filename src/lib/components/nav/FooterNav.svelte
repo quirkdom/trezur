@@ -1,14 +1,15 @@
 <script>
 	import { page } from '$app/state';
-	import { Lock, LockOpen, Settings } from 'lucide-svelte';
+	import { Cog, Lock, LockOpen, Settings } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 
-	let { isLocked } = $props();
-
+	let { isLocked, isAppleDevice } = $props();
 	let currentTab = $derived(page.url.pathname === '/settings' ? 'settings' : 'tokens');
 </script>
 
-<nav class="fixed inset-x-0 bottom-8 flex items-center justify-center gap-32">
+<nav
+	class="fixed inset-x-0 bottom-6 mx-auto flex max-w-sm items-center justify-center gap-32 rounded-3xl border-b-2 border-[#EB3912] bg-black/50 p-4 backdrop-blur-sm"
+>
 	<a href="/">
 		<button
 			class="flex flex-col items-center"
@@ -38,31 +39,13 @@
 			class:text-zinc-500={currentTab !== 'settings'}
 		>
 			<div class="transition duration-800 ease-in-out hover:rotate-90">
-				<Settings size={24} />
+				{#if isAppleDevice}
+					<Cog size={24} />
+				{:else}
+					<Settings size={24} />
+				{/if}
 			</div>
 			<span class="mt-1 text-sm">Settings</span>
 		</button>
 	</a>
-
-	<!-- <button class="border-4 p-3" onclick={() => (isUnlocked = !isUnlocked)}>
-		{isUnlocked ? '🔒' : '🔓'}
-	</button> -->
 </nav>
-
-<!-- <style lang="postcss">
-	@reference "../../../app.css";
-
-	@theme {
-		--animate-wiggle: wiggle 1s ease-in-out infinite;
-
-		@keyframes wiggle {
-			0%,
-			100% {
-				transform: rotate(-30deg);
-			}
-			50% {
-				transform: rotate(30deg);
-			}
-		}
-	}
-</style> -->

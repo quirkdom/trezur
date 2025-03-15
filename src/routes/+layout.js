@@ -3,14 +3,15 @@ import { DEFAULT_CONDITIONS, load as loadConditions } from '$lib/state/condition
 import { nanoid } from 'nanoid';
 
 /** @type {import('./$types').LayoutLoad} */
-export async function load({ depends }) {
+export async function load({ depends, data }) {
 	depends('app:conditions');
 
 	return {
 		settings: loadSettings() ?? DEFAULT_SETTINGS,
 		conditions: {
 			...(loadConditions() ?? DEFAULT_CONDITIONS),
-			clientId: loadConditions()?.clientId || nanoid()
+			clientId: loadConditions()?.clientId || nanoid(),
+			isAppleDevice: data.isAppleDevice
 		}
 	};
 }

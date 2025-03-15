@@ -13,6 +13,9 @@
 
 	const conditionsContext = useConditionsContext();
 	let conditions = $derived(conditionsContext.getConditions());
+	let nonAppleSwitchTheme = $derived.by(() =>
+		conditions.isAppleDevice ? '' : 'data-[state=on]:bg-[#EB3912]'
+	);
 
 	const tokensContext = useTokensContext();
 
@@ -57,30 +60,22 @@
 	<div class="space-y-6">
 		<section>
 			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Backup</h2>
-			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
+			<div class="mb-4 divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<span>iCloud Backup <sup class="text-xs text-zinc-500">Coming Soon</sup></span>
-					<Switch
-						disabled
-						checked={settings.iCloudBackupEnabled}
-						class="data-[state=on]:bg-[#EB3912]"
-					/>
+					<Switch disabled checked={settings.iCloudBackupEnabled} class={nonAppleSwitchTheme} />
 				</div>
-				<div class="flex hidden items-center justify-between p-4">
+				<div class="flex items-center justify-between p-4">
 					<span>Last Synced</span>
 					<span class="text-zinc-500">Never</span>
 				</div>
 			</div>
-			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
+			<div class="mb-4 divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<span>Google Drive Backup <sup class="text-xs text-zinc-500">Coming Soon</sup></span>
-					<Switch
-						disabled
-						checked={settings.gDriveBackupEnabled}
-						class="data-[state=on]:bg-[#EB3912]"
-					/>
+					<Switch disabled checked={settings.gDriveBackupEnabled} class={nonAppleSwitchTheme} />
 				</div>
-				<div class="flex hidden items-center justify-between p-4">
+				<div class="flex items-center justify-between p-4">
 					<span>Last Synced</span>
 					<span class="text-zinc-500">Never</span>
 				</div>
@@ -103,7 +98,7 @@
 						onCheckedChange={(/** @type {boolean} */ checked) => {
 							settingsContext.updateSetting('useBiometricUnlock', checked);
 						}}
-						class="data-[state=on]:bg-[#EB3912]"
+						class={nonAppleSwitchTheme}
 					/>
 				</div>
 				<div class="flex items-center justify-between p-4">
@@ -114,7 +109,7 @@
 						onCheckedChange={(/** @type {boolean} */ checked) => {
 							settingsContext.updateSetting('showNextCode', checked);
 						}}
-						class="data-[state=on]:bg-[#EB3912]"
+						class={nonAppleSwitchTheme}
 					/>
 				</div>
 			</div>
@@ -132,11 +127,11 @@
 			</button>
 			{#if dev}
 				<button class="w-full rounded-lg bg-zinc-900 p-4 text-red-500" ondblclick={loadSampleData}>
-					[[DEV]] Load Sample Data
+					[DEV] Load Sample Data
 				</button>
 			{/if}
 		</div>
 
-		<p class="text-center text-sm text-zinc-500">Trezur app v{version}</p>
+		<p class="text-center text-sm text-zinc-500">Trezur app v{version} {dev ? '[DEV]' : ''}</p>
 	</div>
 </main>

@@ -65,9 +65,6 @@ class TokensCtx {
 
 		// Replace tokens array with deduped result
 		this.#tokens = [...tokenMap.values()];
-
-		console.log('Final tokens after load:', $state.snapshot(this.#tokens));
-
 		await this.#persist();
 	}
 

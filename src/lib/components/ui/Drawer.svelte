@@ -33,7 +33,7 @@
 			<div class="mb-6 flex items-center justify-between">
 				<h2 class="text-2xl font-medium text-white">{title}</h2>
 				<button
-					class="rounded-full p-1 text-gray-400 hover:bg-zinc-800 hover:text-white"
+					class="p-1 text-gray-400 hover:text-[#EB3912]"
 					onclick={handleClose}
 					aria-label="Close"
 				>
