@@ -6,11 +6,11 @@ export interface Tokenable {
 	digits?: number;
 	account: string;
 	secret: string;
-	period?: number;
+	period?: number; // only used for TOTP
 	issuer?: string;
 	type: 'HOTP' | 'TOTP';
 	algorithm?: string;
-	counter?: number;
+	counter?: number; // only used for HOTP
 }
 
 /**

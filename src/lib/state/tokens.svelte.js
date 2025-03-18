@@ -2,7 +2,7 @@
  * @typedef {import('$lib/types').Token} Token
  * @typedef {import('$lib/types').EncryptedStorage} EncryptedStorage
  */
-import { browser } from '$app/environment';
+import { browser, dev } from '$app/environment';
 import { nanoid } from 'nanoid';
 import { getContext, hasContext, setContext } from 'svelte';
 
@@ -69,14 +69,16 @@ class TokensCtx {
 	}
 
 	async #persist() {
-		if (!this.#tokens.length) return;
+		if (!this.#tokens.length) await this.#clear();
 		await this.storage.set(T_TOKENS, $state.snapshot(this.#tokens));
-		localStorage.setItem(T_TOKENS, JSON.stringify($state.snapshot(this.#tokens))); // TODO: remove this; only for debugging
+
+		if (dev) localStorage.setItem(T_TOKENS, JSON.stringify($state.snapshot(this.#tokens))); // TODO: remove this; only for debugging
 	}
 
 	async #clear() {
 		await this.storage.delete(T_TOKENS);
-		localStorage.removeItem(T_TOKENS); // TODO: remove this; only for debugging
+
+		if (dev) localStorage.removeItem(T_TOKENS); // TODO: remove this; only for debugging
 	}
 
 	getTokens() {
@@ -169,14 +171,18 @@ function useTokensContext() {
 }
 
 /**
- * Creates a new Token from a Tokenable object.
+ * Creates a new Token from a Tokenable.
  * @param {Tokenable} tokenable
  * @returns {Token}
  */
 function tokenize(tokenable) {
-	// TODO: Validate generated token object. Also fill in default values.
 	return {
 		id: nanoid(10),
+		digits: 6,
+		period: 30,
+		issuer: '',
+		counter: 0,
+		algorithm: 'SHA1',
 		...tokenable
 	};
 }

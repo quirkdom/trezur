@@ -7,7 +7,7 @@
 	import { useConditionsContext } from '$lib/state/conditions.svelte.js';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { useTokensContext } from '$lib/state/tokens.svelte';
+	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
 	import { Cog, PlusIcon, Settings } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 
@@ -34,19 +34,18 @@
 
 	// $inspect(tokensContext, tokens);
 
-	let isAddTokenFormOpen = $state(false);
+	let showAddTokenForm = $state(false);
 	let searchQuery = $state('');
 
 	function openAddTokenForm() {
-		isAddTokenFormOpen = true;
+		showAddTokenForm = true;
 	}
 
 	/**
 	 * @param {import('$lib/types').Tokenable} tokenable
 	 */
 	function handleAddToken(tokenable) {
-		console.log('Add token', tokenable);
-		// Implement token addition logic here
+		tokensContext.current?.addTokens(tokenize(tokenable));
 	}
 
 	/** @type {import('./$types').Snapshot<string>} */
@@ -60,8 +59,6 @@
 	<title>Trezur</title>
 	<meta name="description" content="Trezur app" />
 </svelte:head>
-
-<AddTokenForm bind:open={isAddTokenFormOpen} onAddToken={handleAddToken} />
 
 <header class="mb-6 flex items-center justify-between">
 	<h1 class="text-2xl font-medium">Trezur</h1>
@@ -77,8 +74,10 @@
 
 <main>
 	{#if tokens.length > 0}
-		<SearchBar bind:searchQuery {isAppleDevice} />
-		<TokenList {tokens} {searchQuery} />
+		<div class="space-y-6">
+			<SearchBar bind:searchQuery {isAppleDevice} />
+			<TokenList {tokens} {searchQuery} />
+		</div>
 	{:else}
 		<div class="flex h-[60vh] flex-col items-center justify-center text-center">
 			<div class="space-y-4 text-gray-400">
@@ -115,3 +114,5 @@
 		</div>
 	{/if}
 </main>
+
+<AddTokenForm bind:open={showAddTokenForm} onAddToken={handleAddToken} />

@@ -32,11 +32,9 @@
 
 <div class="min-h-screen bg-black p-4 text-white">
 	<div class="mx-auto max-w-md">
-		<div class="pb-20">
-			{@render children()}
-		</div>
+		{@render children()}
 
-		<footer>
+		<footer class="mt-24">
 			<FooterNav isLocked={conditions.isAppLocked} isAppleDevice={conditions.isAppleDevice} />
 		</footer>
 	</div>

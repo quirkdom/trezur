@@ -20,26 +20,32 @@
 	const tokensContext = useTokensContext();
 
 	function purgeAll() {
+		if (
+			prompt(
+				'Are you sure? This will delete all data and reset the app. All security tokens will be lost! Please type "YES" to confirm this action.',
+				'NO'
+			) !== 'YES'
+		)
+			return;
+
 		settingsContext.resetSettings();
 		conditionsContext.resetConditions();
-		tokensContext?.current?.clearTokens();
+		tokensContext.current?.clearTokens();
 
 		invalidate('app:conditions').then(() => goto('/'));
 	}
 
 	async function loadSampleData() {
 		if (dev) {
-			const response = await fetch('/temp/Chronos_20-02-2025.json?url');
-			const { tokens: chronosTokens } = await response.json();
+			const { default: chronosTokens } = await import('$lib/temp/Chronos_20-02-2025.json');
 
-			const tokensToLoad = chronosTokens.map(
-				(/** @type {import('$lib/types').Tokenable} */ token) => ({
-					id: nanoid(10),
-					...token
-				})
-			);
+			const tokensToLoad = chronosTokens.tokens.map((token) => ({
+				id: nanoid(10),
+				...token,
+				type: token.type === 'HOTP' ? 'HOTP' : 'TOTP'
+			}));
 
-			tokensContext?.current?.addTokens(...tokensToLoad);
+			tokensContext.current?.addTokens(...tokensToLoad);
 		}
 
 		goto('/');
@@ -62,7 +68,7 @@
 			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Backup</h2>
 			<div class="mb-4 divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
-					<span>iCloud Backup <sup class="text-xs text-zinc-500">Coming Soon</sup></span>
+					<span>iCloud Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
 					<Switch disabled checked={settings.iCloudBackupEnabled} class={nonAppleSwitchTheme} />
 				</div>
 				<div class="flex items-center justify-between p-4">
@@ -72,7 +78,9 @@
 			</div>
 			<div class="mb-4 divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
-					<span>Google Drive Backup <sup class="text-xs text-zinc-500">Coming Soon</sup></span>
+					<span
+						>Google Drive Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span
+					>
 					<Switch disabled checked={settings.gDriveBackupEnabled} class={nonAppleSwitchTheme} />
 				</div>
 				<div class="flex items-center justify-between p-4">
@@ -82,15 +90,19 @@
 			</div>
 
 			<div class="mt-4 space-y-2">
-				<button class="w-full rounded-lg bg-zinc-900 p-4 text-left text-blue-500"> Import </button>
-				<button class="w-full rounded-lg bg-zinc-900 p-4 text-left text-blue-500"> Export </button>
+				<button class="w-full rounded-lg bg-zinc-900 p-4 text-left text-blue-500">
+					Import <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup>
+				</button>
+				<button class="w-full rounded-lg bg-zinc-900 p-4 text-left text-blue-500">
+					Export <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup>
+				</button>
 			</div>
 		</section>
 
 		<section>
 			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Preferences</h2>
 			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
-				<div class="flex hidden items-center justify-between p-4">
+				<!-- <div class="flex items-center justify-between p-4">
 					<span>Use biometrics to unlock</span>
 					<Switch
 						disabled={conditions.isAppLocked}
@@ -100,7 +112,7 @@
 						}}
 						class={nonAppleSwitchTheme}
 					/>
-				</div>
+				</div> -->
 				<div class="flex items-center justify-between p-4">
 					<span>Show next token</span>
 					<Switch

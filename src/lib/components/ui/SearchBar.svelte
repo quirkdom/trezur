@@ -9,6 +9,7 @@
 	let isInputFocused = $state(false);
 
 	onMount(() => {
+		// TODO: Check using Svelte actions to handle focus and blur events
 		const handleKeyDown = (/** @type {KeyboardEvent} */ event) => {
 			// Check for Meta+K (Mac) or Ctrl+K (Windows/Linux)
 			if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
@@ -30,7 +31,7 @@
 	});
 </script>
 
-<div class="sticky top-6 z-20 mb-6">
+<div class="sticky top-6 z-1">
 	<div class="absolute inset-y-0 left-3 flex items-center text-zinc-500">
 		<Search size={20} />
 	</div>

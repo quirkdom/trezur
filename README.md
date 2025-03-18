@@ -30,13 +30,22 @@ tokens context in +page.svelte re-runs, which causes #load to run, and that blin
 
 - [ ] Add drawer to add new tokens
     - [ ] Wire up QR code scanner
-    - [ ] Wire up add new token form data -> Tokenable -> Add to TokenContext
+    - [x] Wire up add new token form data -> Tokenable -> Add to TokenContext
 - [x] Interact with existing tokens
   - [x] Edit or delete tokens
   - [ ] Copy token to clipboard
-  - [ ] Generate QR codes of tokens
-- [ ] Implement preferences page
+  - [x] Generate QR codes of tokens
+- [x] Implement preferences page
 - [x] Implement sorting
+
+- [ ] Better UX for touch devices
+    - [ ] [BUG] Hover actions on token card don't work on touch devices
+    - [ ] Implement swipe gestures for token actions
+    - [ ] Implement long press for token actions
+    - Some resources for that:
+        - [MDN contextmenu](https://developer.mozilla.org/en-US/docs/Web/API/Element/contextmenu_event)
+        - [Detect touch screens](https://stackoverflow.com/a/63666289/2844164)
+        - [Svelte Gestures package](https://github.com/Rezi/svelte-gestures)
 
 - [ ] Move settings and conditions to exported global states. Contexts are overkill for that.
 - [ ] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
@@ -50,6 +59,9 @@ tokens context in +page.svelte re-runs, which causes #load to run, and that blin
 
 ### Next Gen
 
+- [ ] Experiments: HDR-supported *ultra-bright* QR codes.
+    - [Demo](https://notes.dt.in.th/HDRQRCode)
+    - [SO answer to detect HDR capable displays](https://stackoverflow.com/a/75213217/2844164)
 - [ ] Add HOTP token support
 - [ ] Service worker for background sync
 - [ ] Allow S3 compatible backup

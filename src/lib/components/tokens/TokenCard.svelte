@@ -37,21 +37,17 @@
 		return () => clearInterval(secondsTicker);
 	});
 
-	function handleQR() {
-		// Logic to show QR code
-		console.log('Show QR code for', issuer);
-		// Dispatch an event or call a method to handle QR display
-		// dispatch('showQR', { id, issuer });
-	}
+	let showTokenQRModal = $state(false);
 
 	function handleDelete() {
-		tokensContext.current?.removeToken(id);
+		confirm(`Are you sure you want to delete the ${issuer || account} token?`) &&
+			tokensContext.current?.removeToken(id);
 	}
 </script>
 
-<div class="relative mb-4 rounded-xl bg-zinc-900 p-4">
-	<!-- Show token details -->
-	<div class="mb-2 flex items-start justify-between">
+<div class="relative space-y-2 rounded-xl bg-zinc-900 p-4">
+	<!-- Row-1 : Show token details & countdown -->
+	<div class="flex items-start justify-between">
 		<div>
 			<Editable
 				value={issuer}
@@ -82,62 +78,72 @@
 		{@render CircleTimer()}
 	</div>
 
-	<!-- Show the actual codes -->
-	<div class="font-mono text-3xl tracking-wider">
-		<NumberFlowGroup>
-			<NumberFlow
-				format={{ minimumIntegerDigits: token.digits, useGrouping: false }}
-				value={code}
-			/>
-			{#if showNextCode}
-				<span
-					class={[
-						'transition-colors duration-1500 ease-linear',
-						remaining > 10 ? 'text-gray-400' : 'animate-pulse text-[#EB3912]'
-					]}>≪</span
-				>
+	<!-- Row-2: Show token code & options -->
+	<div class="flex items-end justify-between">
+		<!-- Show the actual codes -->
+		<div class="font-mono text-3xl tracking-wider">
+			<NumberFlowGroup>
 				<NumberFlow
 					format={{ minimumIntegerDigits: token.digits, useGrouping: false }}
-					value={nextCode}
-					class="text-2xl text-gray-400"
+					value={code}
 				/>
-			{/if}
-		</NumberFlowGroup>
-	</div>
+				{#if showNextCode}
+					<span
+						class={[
+							'transition-colors duration-1500 ease-linear',
+							remaining > 10 ? 'text-gray-400' : 'animate-pulse text-[#EB3912]'
+						]}>≪</span
+					>
+					<NumberFlow
+						format={{ minimumIntegerDigits: token.digits, useGrouping: false }}
+						value={nextCode}
+						class="text-2xl text-gray-400"
+					/>
+				{/if}
+			</NumberFlowGroup>
+		</div>
 
-	<!-- Actions button group with hover effect -->
-	<div class="group absolute right-4 bottom-4">
-		<!-- Main button (Ellipsis) - hidden on hover -->
-		<button
-			class="rounded-lg p-1.5 text-zinc-500 opacity-50 transition duration-300 group-hover:invisible group-hover:opacity-0"
-		>
-			<EllipsisVertical size={20} />
-			<span class="sr-only">Edit {issuer} token</span>
-		</button>
-		<!-- Expanded buttons (QR and Delete) - visible on hover -->
-		<div
-			class="absolute right-0 bottom-0 flex text-zinc-500 opacity-0 transition duration-500 ease-in-out group-hover:opacity-100"
-		>
+		<!-- Actions button group with hover effect -->
+		<div class="group relative mb-1">
+			<!-- Main button (Ellipsis) - hidden on hover -->
 			<button
-				class="rounded-l-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
-				onclick={handleQR}
+				class="rounded-lg p-1.5 text-zinc-500 opacity-50 transition duration-300 group-hover:invisible group-hover:opacity-0"
 			>
-				<QrCode size={20} />
-				<span class="sr-only">Show QR code for {issuer} token</span>
+				<EllipsisVertical size={20} />
+				<span class="sr-only">Edit {issuer} token</span>
 			</button>
-			<button
-				class="rounded-r-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
-				onclick={handleDelete}
+			<!-- Expanded buttons (QR and Delete) - visible on hover -->
+			<div
+				class="absolute right-0 bottom-0 flex text-zinc-500 opacity-0 transition duration-500 ease-in-out group-hover:opacity-100"
 			>
-				<Trash2 size={20} />
-				<span class="sr-only">Delete {issuer} token</span>
-			</button>
+				<button
+					class="rounded-l-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
+					onclick={() => (showTokenQRModal = true)}
+				>
+					<QrCode size={20} />
+					<span class="sr-only">Show QR code for {issuer} token</span>
+				</button>
+				<button
+					class="rounded-r-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
+					onclick={handleDelete}
+				>
+					<Trash2 size={20} />
+					<span class="sr-only">Delete {issuer} token</span>
+				</button>
+			</div>
 		</div>
 	</div>
+
+	<!-- QR Code Modal -->
+	{#if showTokenQRModal}
+		{#await import('./TokenQRCode.svelte') then { default: TokenQRCode }}
+			<TokenQRCode bind:open={showTokenQRModal} {token} />
+		{/await}
+	{/if}
 </div>
 
 {#snippet CircleTimer()}
-	<div class="relative h-8 w-8">
+	<div class="relative mt-1 h-8 w-8">
 		<svg class="h-full w-full -rotate-90 transform">
 			<circle
 				cx="16"

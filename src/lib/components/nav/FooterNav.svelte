@@ -8,7 +8,7 @@
 </script>
 
 <nav
-	class="fixed inset-x-0 bottom-6 mx-auto flex max-w-sm items-center justify-center gap-32 rounded-3xl border-b-2 border-[#EB3912] bg-black/50 p-4 backdrop-blur-sm"
+	class="fixed inset-x-0 bottom-6 mx-auto flex max-w-sm justify-center gap-32 rounded-3xl border-b-2 border-[#EB3912] bg-black/50 p-4 backdrop-blur-sm"
 >
 	<a href="/">
 		<button

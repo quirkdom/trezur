@@ -1,7 +1,10 @@
 <script>
-	import { Eye, EyeOff, ScanQrCode } from 'lucide-svelte';
+	import { Eye, EyeOff, ScanQrCodeIcon } from 'lucide-svelte';
 	import Drawer from '../ui/Drawer.svelte';
 
+	/**
+	 * @type {{ onAddToken: (tokenable: import('$lib/types').Tokenable) => void, open: boolean }}
+	 */
 	let { onAddToken, open = $bindable(false) } = $props();
 
 	let showCamera = $state(false);
@@ -49,7 +52,7 @@
 	 */
 	function handleSubmit(event) {
 		event.preventDefault();
-		onAddToken?.({ issuer, account, secret });
+		onAddToken?.({ issuer, account, secret, type: 'TOTP' });
 		close();
 	}
 </script>
@@ -65,7 +68,7 @@
 			class="mb-6 flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-800 py-4 text-white transition-colors hover:bg-zinc-700"
 			onclick={startCamera}
 		>
-			<ScanQrCode size={20} />
+			<ScanQrCodeIcon size={20} />
 			<span>Scan QR Code</span>
 		</button>
 	{/if}
@@ -101,8 +104,10 @@
 				<input
 					id="secret"
 					type={showSecret ? 'text' : 'password'}
+					pattern={'([A-Z2-7=]{8})+'}
 					required
 					placeholder="Enter token secret"
+					title="A valid Base32 encoded secret"
 					bind:value={secret}
 					class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-[#EB3912] focus:outline-none"
 				/>

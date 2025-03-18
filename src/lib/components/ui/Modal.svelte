@@ -1,6 +1,6 @@
 <script>
 	import { X } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 
 	let {
 		/** @type {boolean} */ open = $bindable(false),
@@ -17,31 +17,35 @@
 </script>
 
 {#if open}
-	<!-- TODO: Use svelte actions instead of onclick/onkeypress to dismiss drawer -->
+	<!-- TODO: Use svelte actions instead of onclick/onkeypress to dismiss modal -->
 	<div
 		class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
 		role="presentation"
 		onclick={(e) => e.target === e.currentTarget && handleClose()}
 		onkeypress={(e) => e.key === 'Escape' && handleClose()}
+		transition:fade={{ duration: 150 }}
 	>
 		<div
-			transition:fly={{ duration: 300, y: '100%' }}
 			class={[
-				'fixed right-0 bottom-0 left-0 max-h-[90vh] overflow-auto rounded-t-xl border-t border-zinc-700 bg-zinc-900 p-6 shadow-lg',
+				'fixed top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-xl border border-zinc-700 bg-zinc-900 p-4 shadow-lg',
 				className
 			]}
+			transition:fade={{ duration: 250, delay: 50 }}
 		>
-			<div class="mb-6 flex items-center justify-between">
-				<h2 class="text-2xl font-medium text-white">{title}</h2>
+			<div class="mb-3 flex items-center justify-between">
+				<h2 class="text-xl font-medium text-white">{title}</h2>
 				<button
 					class="p-1 text-gray-400 hover:text-[#EB3912]"
 					onclick={handleClose}
 					aria-label="Close"
 				>
-					<X size={24} />
+					<X size={20} />
 				</button>
 			</div>
-			{@render children()}
+
+			<div class="px-1">
+				{@render children()}
+			</div>
 		</div>
 	</div>
 {/if}
