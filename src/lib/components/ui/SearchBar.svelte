@@ -11,14 +11,20 @@
 	onMount(() => {
 		// TODO: Check using Svelte actions to handle focus and blur events
 		const handleKeyDown = (/** @type {KeyboardEvent} */ event) => {
-			// Check for Meta+K (Mac) or Ctrl+K (Windows/Linux)
+			// Check for Meta+K (Mac) or Ctrl+K (Windows/Linux) to focus search input
 			if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
 				event.preventDefault();
 				searchInput.focus();
 			}
 
-			// Handle ESC key to unfocus
+			// Handle Enter key to unfocus, but keep query
+			if (event.key === 'Enter') {
+				searchInput.blur();
+			}
+
+			// Handle ESC key to unfocus and clear query
 			if (event.key === 'Escape') {
+				searchQuery = '';
 				searchInput.blur();
 			}
 		};
@@ -44,9 +50,20 @@
 		onfocus={() => (isInputFocused = true)}
 		onblur={() => (isInputFocused = false)}
 	/>
-	<div
-		class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400 select-none"
-	>
-		{isInputFocused ? 'esc' : isAppleDevice ? '⌘ K' : 'Ctrl K'}
-	</div>
+	{#if isInputFocused}
+		{@render Kbd(['esc', '⏎'])}
+	{:else}
+		{@render Kbd([isAppleDevice ? '⌘ K' : 'Ctrl K'])}
+	{/if}
 </div>
+
+{#snippet Kbd(/** @type {string[]} */ keys)}
+	<div class="pointer-events-none absolute top-1/2 right-3 flex -translate-y-1/2 gap-1 select-none">
+		{#each keys as key}
+			<span
+				class="inline-block rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400"
+				>{key}</span
+			>
+		{/each}
+	</div>
+{/snippet}

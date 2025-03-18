@@ -23,7 +23,6 @@
 		role="presentation"
 		onclick={(e) => e.target === e.currentTarget && handleClose()}
 		onkeypress={(e) => e.key === 'Escape' && handleClose()}
-		transition:fade={{ duration: 150 }}
 	>
 		<div
 			class={[

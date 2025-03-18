@@ -38,6 +38,10 @@ tokens context in +page.svelte re-runs, which causes #load to run, and that blin
 - [x] Implement preferences page
 - [x] Implement sorting
 
+- [ ] Make offline first, installable
+    - [ ] Implement app manifest to make PWA and installable. Options are by-hand ([example guide](https://dev.to/100lvlmaster/create-a-pwa-with-sveltekit-svelte-a36)), [Vite PWA](https://vite-pwa-org.netlify.app/frameworks/sveltekit.html)
+    - [ ] Implement service worker to cache for offline use. [SvelteKit docs example](https://svelte.dev/docs/kit/service-workers#Inside-the-service-worker), [Workbox](https://developers.google.com/web/tools/workbox), [Serwist (the successor to Workbox)](https://serwist.pages.dev/)
+
 - [ ] Better UX for touch devices
     - [ ] [BUG] Hover actions on token card don't work on touch devices
     - [ ] Implement swipe gestures for token actions
@@ -49,7 +53,7 @@ tokens context in +page.svelte re-runs, which causes #load to run, and that blin
 
 - [ ] Move settings and conditions to exported global states. Contexts are overkill for that.
 - [ ] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
-- [x] Store tokens encypted in browser storage (probably using [WebCrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) and [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API))
+- [x] Store tokens encrypted in browser storage (probably using [WebCrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) and [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API))
 
 ### Next steps
 
@@ -68,3 +72,8 @@ tokens context in +page.svelte re-runs, which causes #load to run, and that blin
 - [ ] Auto-tiling token cards when list is too long and screen space is available
 - [ ] Logo support
 - [ ] Move to TypeScript
+
+## Credits
+- [Paul Miller](https://github.com/paulmillr) for the excellent [QR code library](https://github.com/paulmillr/qr).
+- [Héctor Molinero Fernández](https://github.com/hectorm) for the excellent [otpauth library](https://github.com/hectorm/otpauth).
+- Favicon: Key by Bucky Clarke from [Noun Project](https://thenounproject.com/) (CC BY 3.0).

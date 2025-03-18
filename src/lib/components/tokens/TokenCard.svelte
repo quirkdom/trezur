@@ -5,6 +5,7 @@
 	import { TOTP } from 'otpauth';
 	import { onMount } from 'svelte';
 	import Editable from '../ui/Editable.svelte';
+	import TokenQrCode from './TokenQRCode.svelte';
 
 	const { id, digits, account, secret, period, issuer, algorithm, showNextCode } = $props();
 
@@ -135,11 +136,7 @@
 	</div>
 
 	<!-- QR Code Modal -->
-	{#if showTokenQRModal}
-		{#await import('./TokenQRCode.svelte') then { default: TokenQRCode }}
-			<TokenQRCode bind:open={showTokenQRModal} {token} />
-		{/await}
-	{/if}
+	<TokenQrCode bind:open={showTokenQRModal} {token} />
 </div>
 
 {#snippet CircleTimer()}

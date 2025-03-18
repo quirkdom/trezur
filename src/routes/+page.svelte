@@ -10,6 +10,7 @@
 	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
 	import { Cog, PlusIcon, Settings } from 'lucide-svelte';
 	import { untrack } from 'svelte';
+	import { assets } from '$app/paths';
 
 	const { data } = $props();
 
@@ -56,12 +57,12 @@
 </script>
 
 <svelte:head>
-	<title>Trezur</title>
+	<title>Trezur · Codes</title>
 	<meta name="description" content="Trezur app" />
 </svelte:head>
 
 <header class="mb-6 flex items-center justify-between">
-	<h1 class="text-2xl font-medium">Trezur</h1>
+	<img src={`${assets}/trezur_logo.svg`} alt="Trezur Logo" class="h-6 w-auto" />
 	<NavActions
 		sortButton={{
 			sortOrder: settingsContext.getSettings().sortOrder,

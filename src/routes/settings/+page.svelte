@@ -144,6 +144,10 @@
 			{/if}
 		</div>
 
-		<p class="text-center text-sm text-zinc-500">Trezur app v{version} {dev ? '[DEV]' : ''}</p>
+		<p class="space-y-2 text-center text-sm text-zinc-500">
+			Trezur app v{version}
+			{dev ? '[DEV]' : ''} <br />
+			Made with ❤️ and ✨ at <a href="https://quirkdom.com" target="_blank">Quirkdom</a>
+		</p>
 	</div>
 </main>
