@@ -12,17 +12,25 @@
 	const tokensContext = useTokensContext();
 
 	// Generate code, and setup ticker for every period
-	const token = new TOTP({
-		secret,
-		issuer,
-		label: account,
-		algorithm,
-		digits,
-		period
-	});
+	const token = $derived(
+		new TOTP({
+			secret,
+			issuer,
+			label: account,
+			algorithm,
+			digits,
+			period
+		})
+	);
 
+	/*
+	   It's ok to ignore this warning because we are updating the state manually using onMount -> secondsTicker.
+	*/
+	// svelte-ignore state_referenced_locally
 	let code = $state(token.generate());
+	// svelte-ignore state_referenced_locally
 	let nextCode = $state(token.generate({ timestamp: Date.now() + period * 1000 }));
+	// svelte-ignore state_referenced_locally
 	let remaining = $state(token.period - (Math.floor(Date.now() / 1000) % token.period));
 
 	onMount(() => {
@@ -59,8 +67,9 @@
 			{#if account.length > 40}
 				<Editable
 					value={account}
-					onEdit={(/** @type {string} */ val) =>
-						tokensContext.current?.updateToken(id, { account: val })}
+					onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => {
+						tokensContext.current?.updateToken(id, { account: val || prev }); // Account (token label) cannot be empty
+					}}
 					class="max-w-[300px] overflow-hidden"
 				>
 					<div class="animate-marquee text-sm whitespace-nowrap text-zinc-500">
@@ -70,8 +79,9 @@
 			{:else}
 				<Editable
 					value={account}
-					onEdit={(/** @type {string} */ val) =>
-						tokensContext.current?.updateToken(id, { account: val })}
+					onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => {
+						tokensContext.current?.updateToken(id, { account: val || prev }); // Account (token label) cannot be empty
+					}}
 					class="text-sm text-zinc-500"
 				/>
 			{/if}

@@ -26,7 +26,7 @@
 	}}
 	onblur={() => {
 		if (value !== initialValue) {
-			onEdit?.(value);
+			onEdit?.(value, initialValue);
 		}
 		initialValue = value;
 	}}
