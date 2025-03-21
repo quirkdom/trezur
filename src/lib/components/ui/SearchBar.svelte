@@ -51,7 +51,7 @@
 		onblur={() => (isInputFocused = false)}
 	/>
 	{#if isInputFocused}
-		{@render Kbd(['esc', '⏎'])}
+		{@render Kbd(['⏎', 'esc'])}
 	{:else}
 		{@render Kbd([isAppleDevice ? '⌘ K' : 'Ctrl K'])}
 	{/if}

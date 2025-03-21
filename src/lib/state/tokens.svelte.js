@@ -69,7 +69,8 @@ class TokensCtx {
 	}
 
 	async #persist() {
-		if (!this.#tokens.length) await this.#clear();
+		if (!this.#tokens.length) return this.#clear();
+
 		await this.storage.set(T_TOKENS, $state.snapshot(this.#tokens));
 
 		if (dev) localStorage.setItem(T_TOKENS, JSON.stringify($state.snapshot(this.#tokens))); // TODO: remove this; only for debugging
