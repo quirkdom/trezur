@@ -1,50 +1,122 @@
 <script>
 	import { Eye, EyeOff, ScanQrCodeIcon } from 'lucide-svelte';
 	import Drawer from '../ui/Drawer.svelte';
+	import { onDestroy, tick } from 'svelte';
+	import { TOTP, URI } from 'otpauth';
 
 	/**
 	 * @type {{ onAddToken: (tokenable: import('$lib/types').Tokenable) => void, open: boolean }}
 	 */
 	let { onAddToken, open = $bindable(false) } = $props();
 
-	let showCamera = $state(false);
-	let showSecret = $state(false);
+	let showCameraFeed = $state(false);
+	let revealSecret = $state(false);
 	let issuer = $state('');
 	let account = $state('');
 	let secret = $state('');
 
+	/**
+	 * @type {import('@paulmillr/qr/dom.js')}
+	 */
+	let qrModule;
+
+	/** @type {any} */
+	let frontCamera;
+	/** @type {import('@paulmillr/qr/dom.js').QRCanvas | undefined} */
+	let qrCanvas;
 	/** @type {HTMLVideoElement | undefined} */
 	let videoElement = $state();
-	/** @type {MediaStream | undefined} */
-	let stream = $state();
-
-	function close() {
-		open = false; // This will update the parent's binding
-
-		issuer = '';
-		account = '';
-		secret = '';
-
-		if (stream) {
-			stream.getTracks().forEach((track) => track.stop());
-			stream = undefined;
-		}
-		showCamera = false;
-	}
+	/** @type {Function | undefined} */
+	let cancelScan;
 
 	async function startCamera() {
-		showCamera = true;
+		showCameraFeed = true;
+		await tick(); // wait for video elemnent to be ready
+
+		if (!videoElement) return;
+
 		try {
-			stream = await navigator.mediaDevices.getUserMedia({
-				video: { facingMode: 'environment' }
-			});
-			if (videoElement) {
-				videoElement.srcObject = stream;
-			}
+			if (!qrModule) qrModule = await import('@paulmillr/qr/dom.js');
+
+			frontCamera = await qrModule.frontalCamera(videoElement);
+			await startScanning();
 		} catch (err) {
 			console.error('Error accessing camera:', err);
-			showCamera = false;
+			showCameraFeed = false;
 		}
+	}
+
+	async function startScanning() {
+		if (!frontCamera || !qrModule) return;
+
+		if (!qrCanvas) qrCanvas = new qrModule.QRCanvas(); // Internally initializes a (possibly hidden) canvas.
+
+		let isProcessing = false;
+		cancelScan = qrModule.frameLoop(async () => {
+			// Skip frame if we're currently processing a QR code
+			if (isProcessing) return;
+
+			try {
+				// TODO: Investiagate errors when full resolution is used
+				const qrData = frontCamera.readFrame(qrCanvas);
+
+				if (qrData) {
+					isProcessing = true;
+					processQrData(qrData);
+				}
+			} catch (err) {
+				console.error('QR scanning error:', err);
+			}
+		});
+
+		/**
+		 * Process the QR data without restarting the scan loop
+		 * @param {string} qrData
+		 */
+		function processQrData(qrData) {
+			try {
+				// Parse the otpauth URI
+				const parsedOTP = URI.parse(qrData);
+
+				if (parsedOTP && parsedOTP instanceof TOTP) {
+					// Fill form fields with parsed data
+					issuer = parsedOTP.issuer;
+					account = parsedOTP.label;
+					secret = parsedOTP.secret.base32;
+
+					// If we have all necessary data, auto-submit and close
+					if (account && secret) {
+						onAddToken?.({
+							issuer,
+							account,
+							secret,
+							type: 'TOTP'
+						});
+						close(); // internally calls stopScanning()
+					} else {
+						// If missing data, keep form open but close camera
+						showCameraFeed = false;
+						stopScanning();
+					}
+
+					return;
+				}
+
+				// If we're here, continue scanning
+				isProcessing = false;
+			} catch (error) {
+				console.error('Error parsing QR code:', error);
+				// Resume scanning after error
+				isProcessing = false;
+			}
+		}
+	}
+
+	function stopScanning() {
+		if (!cancelScan) return;
+
+		cancelScan();
+		cancelScan = undefined;
 	}
 
 	/**
@@ -55,12 +127,33 @@
 		onAddToken?.({ issuer, account, secret, type: 'TOTP' });
 		close();
 	}
+
+	function close() {
+		// camera cleanup
+		showCameraFeed = false;
+		stopScanning();
+
+		qrCanvas?.clear();
+		qrCanvas = undefined;
+
+		frontCamera?.stop();
+		frontCamera = undefined;
+
+		// form cleanup
+		issuer = '';
+		account = '';
+		secret = '';
+
+		open = false; // This will update the parent's binding
+	}
+
+	onDestroy(() => close());
 </script>
 
 <Drawer bind:open title="Add Token" onClose={close} class="mx-auto max-w-lg">
-	{#if showCamera}
-		<div class="mb-6 overflow-hidden rounded-lg bg-black">
-			<video muted bind:this={videoElement} autoplay playsinline class="h-64 w-full object-cover"
+	{#if showCameraFeed}
+		<div class="relative mb-6 overflow-hidden rounded-lg bg-black">
+			<video bind:this={videoElement} autoplay muted playsinline class="h-64 w-full object-cover"
 			></video>
 		</div>
 	{:else}
@@ -103,7 +196,7 @@
 			<div class="relative">
 				<input
 					id="secret"
-					type={showSecret ? 'text' : 'password'}
+					type={revealSecret ? 'text' : 'password'}
 					pattern={'([A-Z2-7=]{8})+'}
 					required
 					placeholder="Enter token secret"
@@ -114,9 +207,9 @@
 				<button
 					type="button"
 					class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-400 hover:text-white"
-					onclick={() => (showSecret = !showSecret)}
+					onclick={() => (revealSecret = !revealSecret)}
 				>
-					{#if showSecret}
+					{#if revealSecret}
 						<EyeOff size={20} />
 					{:else}
 						<Eye size={20} />
