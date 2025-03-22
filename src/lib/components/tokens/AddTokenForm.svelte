@@ -21,9 +21,11 @@
 	let qrModule;
 
 	/** @type {any} */
-	let frontCamera;
+	let frontCamera; // TODO: Replace with proper type, once this can become available from '@paulmillr/qr/dom.js'
 	/** @type {import('@paulmillr/qr/dom.js').QRCanvas | undefined} */
 	let qrCanvas;
+	/** @type {HTMLCanvasElement | undefined} */
+	let overlayCanvas = $state();
 	/** @type {HTMLVideoElement | undefined} */
 	let videoElement = $state();
 	/** @type {Function | undefined} */
@@ -39,33 +41,40 @@
 			if (!qrModule) qrModule = await import('@paulmillr/qr/dom.js');
 
 			frontCamera = await qrModule.frontalCamera(videoElement);
-			await startScanning();
+			startScanning();
 		} catch (err) {
 			console.error('Error accessing camera:', err);
 			showCameraFeed = false;
 		}
 	}
 
-	async function startScanning() {
-		if (!frontCamera || !qrModule) return;
+	function startScanning() {
+		if (!frontCamera || !qrModule || !overlayCanvas) return;
 
-		if (!qrCanvas) qrCanvas = new qrModule.QRCanvas(); // Internally initializes a (possibly hidden) canvas.
+		if (!qrCanvas)
+			qrCanvas = new qrModule.QRCanvas(
+				{ overlay: overlayCanvas },
+				{
+					cropToSquare: true,
+					overlaySideColor: '#9D260C' // darker version of #EB3912
+				}
+			); // Internally initializes a (possibly hidden) canvas.
 
-		let isProcessing = false;
-		cancelScan = qrModule.frameLoop(async () => {
+		let isProcessing = false; // mutex
+		cancelScan = qrModule.frameLoop(() => {
 			// Skip frame if we're currently processing a QR code
 			if (isProcessing) return;
 
-			try {
-				// TODO: Investiagate errors when full resolution is used
-				const qrData = frontCamera.readFrame(qrCanvas);
+			// Skip frames until video is actually playing
+			if (!videoElement || videoElement.paused || videoElement.ended || videoElement.readyState < 2)
+				return;
 
-				if (qrData) {
-					isProcessing = true;
-					processQrData(qrData);
-				}
-			} catch (err) {
-				console.error('QR scanning error:', err);
+			// TODO: Investiagate errors when full resolution is used
+			const qrData = frontCamera.readFrame(qrCanvas, true);
+
+			if (qrData) {
+				isProcessing = true;
+				processQrData(qrData);
 			}
 		});
 
@@ -155,6 +164,10 @@
 		<div class="relative mb-6 overflow-hidden rounded-lg bg-black">
 			<video bind:this={videoElement} autoplay muted playsinline class="h-64 w-full object-cover"
 			></video>
+			<canvas
+				bind:this={overlayCanvas}
+				class="pointer-events-none absolute top-0 left-0 h-full w-full opacity-70"
+			></canvas>
 		</div>
 	{:else}
 		<button
