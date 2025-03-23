@@ -1,5 +1,5 @@
 import adapter from '@sveltejs/adapter-cloudflare';
-import { version } from './package.json' with { type: 'json' };
+import pkg from './package.json' with { type: 'json' };
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -9,7 +9,7 @@ const config = {
 		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 		adapter: adapter(),
 		version: {
-			name: version
+			name: pkg.version
 		}
 	}
 };
