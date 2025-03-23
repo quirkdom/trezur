@@ -28,28 +28,23 @@ tokens context in +page.svelte re-runs, which causes #load to run, and that blin
 
 ### Immediate needs
 
-- [ ] Add drawer to add new tokens
-    - [ ] Wire up QR code scanner
+- [x] Add drawer to add new tokens
+    - [x] Wire up QR code scanner
     - [x] Wire up add new token form data -> Tokenable -> Add to TokenContext
 - [x] Interact with existing tokens
   - [x] Edit or delete tokens
-  - [ ] Copy token to clipboard
+  - [x] Copy token to clipboard
   - [x] Generate QR codes of tokens
 - [x] Implement preferences page
 - [x] Implement sorting
+
+- [x] [BUG] Hover actions on token card don't work on touch devices
 
 - [ ] Make offline first, installable
     - [ ] Implement app manifest to make PWA and installable. Options are by-hand ([example guide](https://dev.to/100lvlmaster/create-a-pwa-with-sveltekit-svelte-a36)), [Vite PWA](https://vite-pwa-org.netlify.app/frameworks/sveltekit.html)
     - [ ] Implement service worker to cache for offline use. [SvelteKit docs example](https://svelte.dev/docs/kit/service-workers#Inside-the-service-worker), [Workbox](https://developers.google.com/web/tools/workbox), [Serwist (the successor to Workbox)](https://serwist.pages.dev/)
 
-- [ ] Better UX for touch devices
-    - [ ] [BUG] Hover actions on token card don't work on touch devices
-    - [ ] Implement swipe gestures for token actions
-    - [ ] Implement long press for token actions
-    - Some resources for that:
-        - [MDN contextmenu](https://developer.mozilla.org/en-US/docs/Web/API/Element/contextmenu_event)
-        - [Detect touch screens](https://stackoverflow.com/a/63666289/2844164)
-        - [Svelte Gestures package](https://github.com/Rezi/svelte-gestures)
+- [ ] Prompt user to hard reload if version has changed. [Tutorial](https://svelte.dev/tutorial/kit/updated-state)
 
 - [ ] Move settings and conditions to exported global states. Contexts are overkill for that.
 - [ ] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
@@ -60,6 +55,13 @@ tokens context in +page.svelte re-runs, which causes #load to run, and that blin
 - [ ] Add a way to import/export tokens
 - [ ] Setup GDrive [app folder backup](https://developers.google.com/drive/api/guides/appdata)
 - [ ] Setup iCloud backup using [CloudKit](https://developer.apple.com/documentation/cloudkit)
+- [ ] Better UX for touch devices
+    - [ ] Implement swipe gestures for token actions
+    - [ ] Implement long press for token actions
+    - Some resources for that:
+        - [MDN contextmenu](https://developer.mozilla.org/en-US/docs/Web/API/Element/contextmenu_event)
+        - [Detect touch screens](https://stackoverflow.com/a/63666289/2844164)
+        - [Svelte Gestures package](https://github.com/Rezi/svelte-gestures)
 
 ### Next Gen
 

@@ -95,12 +95,7 @@
 
 					// If we have all necessary data, auto-submit and close
 					if (account && secret) {
-						onAddToken?.({
-							issuer,
-							account,
-							secret,
-							type: 'TOTP'
-						});
+						onAddToken?.({ issuer, account, secret, type: 'TOTP' });
 						close(); // internally calls stopScanning()
 					} else {
 						// If missing data, keep form open but close camera

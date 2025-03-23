@@ -7,3 +7,5 @@
 		cursor: pointer;
 	}
 }
+
+@custom-variant touch-device (@media (not (hover)) and (pointer: coarse));

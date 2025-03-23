@@ -1,7 +1,7 @@
 <script>
 	import { useTokensContext } from '$lib/state/tokens.svelte';
 	import NumberFlow, { NumberFlowGroup } from '@number-flow/svelte';
-	import { EllipsisVertical, QrCode, Trash2 } from 'lucide-svelte';
+	import { ClipboardCopy, EllipsisVertical, QrCode, Trash2 } from 'lucide-svelte';
 	import { TOTP } from 'otpauth';
 	import { onMount } from 'svelte';
 	import Editable from '../ui/Editable.svelte';
@@ -116,26 +116,33 @@
 
 		<!-- Actions button group with hover effect -->
 		<div class="group relative mb-1">
-			<!-- Main button (Ellipsis) - hidden on hover -->
+			<!-- Main button (Ellipsis) - hidden on hover and on touch screens -->
 			<button
-				class="rounded-lg p-1.5 text-zinc-500 opacity-50 transition duration-300 group-hover:invisible group-hover:opacity-0"
+				class="touch-device:hidden rounded-lg p-1.5 text-zinc-500 opacity-50 transition duration-300 group-hover:invisible group-hover:opacity-0"
 			>
 				<EllipsisVertical size={20} />
 				<span class="sr-only">Edit {issuer} token</span>
 			</button>
-			<!-- Expanded buttons (QR and Delete) - visible on hover -->
+			<!-- Expanded buttons (QR, Copy and Delete) - visible on hover or always on touch screens -->
 			<div
-				class="absolute right-0 bottom-0 flex text-zinc-500 opacity-0 transition duration-500 ease-in-out group-hover:opacity-100"
+				class="touch-device:static touch-device:border-envelope touch-device:opacity-100 absolute right-0 bottom-0 flex text-zinc-500 opacity-0 transition duration-500 ease-in-out group-hover:opacity-100"
 			>
 				<button
-					class="rounded-l-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
+					class="touch-device:border-l touch-device:border-y touch-device:border-[#EB3912] rounded-l-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
 					onclick={() => (showTokenQRModal = true)}
 				>
 					<QrCode size={20} />
 					<span class="sr-only">Show QR code for {issuer} token</span>
 				</button>
 				<button
-					class="rounded-r-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
+					class="touch-device:border-y touch-device:border-[#EB3912] bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
+					onclick={() => navigator.clipboard.writeText(code)}
+				>
+					<ClipboardCopy size={20} />
+					<span class="sr-only">Copy {issuer} token code</span>
+				</button>
+				<button
+					class="touch-device:border-y touch-device:border-r touch-device:border-[#EB3912] rounded-r-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
 					onclick={handleDelete}
 				>
 					<Trash2 size={20} />
