@@ -2,5 +2,6 @@
 	"editor.formatOnSave": true,
 	"editor.formatOnSaveMode": "modificationsIfAvailable",
 	"editor.formatOnPaste": true,
-	"editor.tabSize": 4
+	"editor.tabSize": 4,
+	"editor.rulers": [120]
 }

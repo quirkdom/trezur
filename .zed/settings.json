@@ -6,5 +6,7 @@
 	"tab_size": 4,
 	"file_types": {
 		"JSONC": ["**/jsconfig.json", "**/tsconfig.json"]
-	}
+	},
+	"preferred_line_length": 120,
+	"wrap_guides": [120]
 }
