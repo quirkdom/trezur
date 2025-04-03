@@ -7,6 +7,7 @@
 	import { useTokensContext } from '$lib/state/tokens.svelte';
 	import { goto, invalidate } from '$app/navigation';
 	import { nanoid } from 'nanoid/non-secure';
+	import { updated } from '$app/state';
 
 	const settingsContext = useSettingsContext();
 	let settings = $derived(settingsContext.getSettings());
@@ -127,7 +128,7 @@
 			</div>
 		</section>
 
-		<div class="space-y-2">
+		<section class="space-y-2">
 			<button
 				class="hidden w-full rounded-lg bg-zinc-900 p-4 text-blue-500"
 				onclick={() => (conditions.isAppLocked = !conditions.isAppLocked)}
@@ -135,19 +136,35 @@
 				{conditions.isAppLocked ? 'Unlock' : 'Lock'}
 			</button>
 			<button class="w-full rounded-lg bg-zinc-900 p-4 text-red-500" onclick={purgeAll}>
-				Delete all data
+				Delete all app data
 			</button>
 			{#if dev}
 				<button class="w-full rounded-lg bg-zinc-900 p-4 text-red-500" ondblclick={loadSampleData}>
 					[DEV] Load Sample Data
 				</button>
 			{/if}
-		</div>
+		</section>
+
+		{#if updated.current}
+			<section>
+				<div class="rounded-lg bg-zinc-900 p-4">
+					<div class="flex items-center justify-between">
+						<span>New version available!</span>
+						<button
+							class="rounded-lg bg-zinc-900 text-left text-blue-500"
+							onclick={() => location.reload()}
+						>
+							Update now
+						</button>
+					</div>
+				</div>
+			</section>
+		{/if}
 
 		<p class="space-y-2 text-center text-sm text-zinc-500">
-			Trezur app v{version}
+			Trezur v{version}
 			{dev ? '[DEV]' : ''} <br />
-			Made with ❤️ and ✨ at <a href="https://quirkdom.com" target="_blank">Quirkdom</a>
+			Made with ❤️ and ✨ at <a href="https://www.quirkdom.com" target="_blank">Quirkdom</a>
 		</p>
 	</div>
 </main>

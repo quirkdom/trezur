@@ -1,3 +1,5 @@
+![Trezur Logo](./static/trezur_logo.svg)
+
 # trezur
 
 Trezur is a fast, simple, light-weight web-app to generate TOTP and HOTP tokens.
@@ -6,6 +8,7 @@ Trezur is a fast, simple, light-weight web-app to generate TOTP and HOTP tokens.
 - [Svelte](https://svelte.dev/) + SvelteKit
 - [TailwindCSS](https://tailwindcss.com/)
 - [Vite](https://vitejs.dev/) (through SvelteKit)
+- [Cloudflare Pages](https://pages.cloudflare.com/)
 
 Trezur is almost entirely written in JavaScript, with JSDoc type hints used for type checking and documentation.
 
@@ -40,11 +43,12 @@ tokens context in +page.svelte re-runs, which causes #load to run, and that blin
 
 - [x] [BUG] Hover actions on token card don't work on touch devices
 
-- [ ] Make offline first, installable
-    - [ ] Implement app manifest to make PWA and installable. Options are by-hand ([example guide](https://dev.to/100lvlmaster/create-a-pwa-with-sveltekit-svelte-a36)), [Vite PWA](https://vite-pwa-org.netlify.app/frameworks/sveltekit.html)
-    - [ ] Implement service worker to cache for offline use. [SvelteKit docs example](https://svelte.dev/docs/kit/service-workers#Inside-the-service-worker), [Workbox](https://developers.google.com/web/tools/workbox), [Serwist (the successor to Workbox)](https://serwist.pages.dev/)
+- [x] Make offline first, installable
+    - [x] Implement app manifest to make PWA and installable. Options are by-hand ([example guide](https://dev.to/100lvlmaster/create-a-pwa-with-sveltekit-svelte-a36)), [Vite PWA](https://vite-pwa-org.netlify.app/frameworks/sveltekit.html)
+    - [x] Implement service worker to cache for offline use. [SvelteKit docs example](https://svelte.dev/docs/kit/service-workers#Inside-the-service-worker), [Workbox](https://developers.google.com/web/tools/workbox), [Serwist (the successor to Workbox)](https://serwist.pages.dev/)
+        - [x] Basic service worker cache added for offline use [SvelteKit docs example](https://svelte.dev/docs/kit/service-workers#Inside-the-service-worker), [Workbox](https://developers.google.com/web/tools/workbox)
 
-- [ ] Prompt user to hard reload if version has changed. [Tutorial](https://svelte.dev/tutorial/kit/updated-state)
+- [x] Prompt user to hard reload if version has changed. [Tutorial](https://svelte.dev/tutorial/kit/updated-state)
 
 - [ ] Move settings and conditions to exported global states. Contexts are overkill for that.
 - [ ] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
