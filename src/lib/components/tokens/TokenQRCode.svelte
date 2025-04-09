@@ -24,6 +24,10 @@
 			{:else}
 				<p class="text-zinc-400">Unable to generate QR code.</p>
 			{/if}
+		{:catch error}
+			<div class="rounded-lg bg-red-900/30 p-3 text-red-400">
+				Error generating QR code: {error instanceof Error ? error.message : error}
+			</div>
 		{/await}
 	</div>
 </Modal>

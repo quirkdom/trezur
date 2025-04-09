@@ -1,12 +1,13 @@
 <script>
 	import NavActions from '$lib/components/nav/NavActions.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
+	import ImportTokensDialog from '$lib/components/tokens/ImportTokens.svelte';
+	import ExportTokensDialog from '$lib/components/tokens/ExportTokens.svelte';
 	import { dev, version } from '$app/environment';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { useTokensContext } from '$lib/state/tokens.svelte';
 	import { goto, invalidate } from '$app/navigation';
-	import { nanoid } from 'nanoid/non-secure';
 	import { updated } from '$app/state';
 
 	const settingsContext = useSettingsContext();
@@ -19,6 +20,10 @@
 	);
 
 	const tokensContext = useTokensContext();
+	let tokens = $derived(tokensContext.current?.getTokens() || []);
+
+	let showImportDialog = $state(false);
+	let showExportDialog = $state(false);
 
 	function purgeAll() {
 		if (
@@ -36,20 +41,15 @@
 		invalidate('app:conditions').then(() => goto('/'));
 	}
 
-	async function loadSampleData() {
-		if (dev) {
-			const { default: chronosTokens } = await import('$lib/temp/Chronos_20-02-2025.json');
-
-			const tokensToLoad = chronosTokens.tokens.map((token) => ({
-				id: nanoid(10),
-				...token,
-				type: token.type === 'HOTP' ? 'HOTP' : 'TOTP'
-			}));
-
-			tokensContext.current?.addTokens(...tokensToLoad);
+	/**
+	 * @todo Do a dedupe check while adding new tokens
+	 * @param { import('$lib/types').Token[] } tokens Set of newly discovered tokens awaiting import
+	 */
+	function handleImport(tokens) {
+		if (tokens?.length) {
+			tokensContext.current?.addTokens(...tokens);
+			alert(`Successfully imported ${tokens.length} token${tokens.length !== 1 ? 's' : ''}.`);
 		}
-
-		goto('/');
 	}
 </script>
 
@@ -90,12 +90,18 @@
 				</div>
 			</div>
 
-			<div class="mt-4 space-y-2">
-				<button class="w-full rounded-lg bg-zinc-900 p-4 text-left text-blue-500">
-					Import <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup>
+			<div class="mt-4 flex gap-4">
+				<button
+					class="w-full rounded-lg bg-zinc-900 p-4 text-center text-blue-500 transition-colors hover:bg-zinc-700"
+					onclick={() => (showImportDialog = true)}
+				>
+					Import
 				</button>
-				<button class="w-full rounded-lg bg-zinc-900 p-4 text-left text-blue-500">
-					Export <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup>
+				<button
+					class="w-full rounded-lg bg-zinc-900 p-4 text-center text-blue-500 transition-colors hover:bg-zinc-700"
+					onclick={() => (showExportDialog = true)}
+				>
+					Export
 				</button>
 			</div>
 		</section>
@@ -135,14 +141,12 @@
 			>
 				{conditions.isAppLocked ? 'Unlock' : 'Lock'}
 			</button>
-			<button class="w-full rounded-lg bg-zinc-900 p-4 text-red-500" onclick={purgeAll}>
+			<button
+				class="w-full rounded-lg bg-zinc-900 p-4 text-red-500 transition-colors hover:bg-zinc-700"
+				onclick={purgeAll}
+			>
 				Delete all app data
 			</button>
-			{#if dev}
-				<button class="w-full rounded-lg bg-zinc-900 p-4 text-red-500" ondblclick={loadSampleData}>
-					[DEV] Load Sample Data
-				</button>
-			{/if}
 		</section>
 
 		{#if updated.current}
@@ -168,3 +172,7 @@
 		</p>
 	</div>
 </main>
+
+<ImportTokensDialog bind:open={showImportDialog} {handleImport} />
+
+<ExportTokensDialog bind:open={showExportDialog} {tokens} />

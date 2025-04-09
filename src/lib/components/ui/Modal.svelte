@@ -19,7 +19,7 @@
 {#if open}
 	<!-- TODO: Use svelte actions instead of onclick/onkeypress to dismiss modal -->
 	<div
-		class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+		class="fixed inset-0 z-1 bg-black/50 backdrop-blur-sm"
 		role="presentation"
 		onclick={(e) => e.target === e.currentTarget && handleClose()}
 		onkeypress={(e) => e.key === 'Escape' && handleClose()}
