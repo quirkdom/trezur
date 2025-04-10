@@ -1,45 +1,35 @@
+![Trezur Logo](./static/trezur_logo.svg)
+
 # trezur
 
 Trezur is a fast, simple, light-weight web-app to generate TOTP and HOTP tokens.
 
-## Stack
-- [x] [Svelte](https://svelte.dev/) + SvelteKit
-- [x] [TailwindCSS](https://tailwindcss.com/)
-- [x] [Vite](https://vitejs.dev/) (through SvelteKit)
+## What's next?
+
+Please read the [TODOs](TODO.md) readme.
+
+## Support
+
+Trezur is free to use at [trezur.quirkdom.com](https://trezur.quirkdom.com). We don't track nor do we collect any user data.
+
+There is no explicit support provided; please use at your own risk. However, we are committed to improving the app and keeping it secure. Please email contact@quirkdom.com with issues or questions.
+
+## Credits
+
+### Stack
+- [Svelte](https://svelte.dev/) + SvelteKit
+- [TailwindCSS](https://tailwindcss.com/)
+- [Vite](https://vitejs.dev/) (through SvelteKit)
+- [Cloudflare Pages](https://pages.cloudflare.com/)
+- Other pieces of software used can be found listed in the [package.json](package.json) file.
 
 Trezur is almost entirely written in JavaScript, with JSDoc type hints used for type checking and documentation.
 
-## TODOs
+### Special thanks
+- [Paul Miller](https://github.com/paulmillr) for the excellent [QR code library](https://github.com/paulmillr/qr).
+- [Héctor Molinero Fernández](https://github.com/hectorm) for the excellent [otpauth library](https://github.com/hectorm/otpauth).
+- Favicon: Key by Bucky Clarke from [Noun Project](https://thenounproject.com/) (CC BY 3.0).
 
-### Bugs
+## License
 
-- [x] In TokenList, on search, the token code shown is always that of the first ones.
-      Repro: With no search, not the code of the first few tokens. Now search for tokens: the account and issuer names change to match the search query, but the codes are those of the first few tokens.
-      Temporarily solved using Keyed Each loops.
-
-### Immediate needsp
-
-- [ ] Add drawer to add new tokens
-- [ ] Interact with existing tokens
-  - [ ] Edit or delete tokens
-  - [ ] Copy token to clipboard
-  - [ ] Generate QR codes of tokens
-- [ ] Implement preferences page
-
-- [ ] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
-- [ ] Store tokens encypted in browser storage (probably using [WebCrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) and [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API))
-
-### Next steps
-
-- [ ] Add a way to import/export tokens
-- [ ] Setup GDrive [app folder backup](https://developers.google.com/drive/api/guides/appdata)
-- [ ] Setup iCloud backup using [CloudKit](https://developer.apple.com/documentation/cloudkit)
-
-### Next Gen
-
-- [ ] Add HOTP token support
-- [ ] Service worker for background sync
-- [ ] Allow S3 compatible backup
-- [ ] Auto-tiling token cards when list is too long and screen space is available
-- [ ] Logo support
-- [ ] Move to TypeScript
+This repository is free to view and audit. An explicit license is not included. Ergo, copyright applies (subject to the rights afforded to the user due to publishing this repository on GitHub). For permission related queries, or to request other permissive licenses, please email contact@quirkdom.com
