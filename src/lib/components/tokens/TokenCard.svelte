@@ -37,10 +37,12 @@
 		const secondsTicker = setInterval(() => {
 			remaining = token.period - (Math.floor(Date.now() / 1000) % token.period);
 
-			if (remaining === token.period) {
-				code = token.generate();
-				nextCode = token.generate({ timestamp: Date.now() + period * 1000 });
-			}
+			/*
+    			Note: Normally these codes change once in the token.period. But, we need to calculate these every
+                second because the browser might suspend JS, and on resume we need these to be up to date.
+			*/
+			code = token.generate();
+			nextCode = token.generate({ timestamp: Date.now() + period * 1000 });
 		}, 1000);
 
 		return () => clearInterval(secondsTicker);
