@@ -1,6 +1,5 @@
 <script>
 	import { Search } from 'lucide-svelte';
-	import { onMount } from 'svelte';
 
 	let { searchQuery = $bindable(''), isAppleDevice = false } = $props();
 
@@ -8,7 +7,8 @@
 	let searchInput;
 	let isInputFocused = $state(false);
 
-	onMount(() => {
+	/** @type {import('svelte/attachments').Attachment} */
+	function keyboardActions(_element) {
 		// TODO: Check using Svelte actions to handle focus and blur events
 		const handleKeyDown = (/** @type {KeyboardEvent} */ event) => {
 			// Check for Meta+K (Mac) or Ctrl+K (Windows/Linux) to focus search input
@@ -24,8 +24,32 @@
 
 			// Handle ESC key to unfocus and clear query
 			if (event.key === 'Escape') {
+				event.preventDefault();
 				searchQuery = '';
 				searchInput.blur();
+			}
+
+			// NEW: Auto-focus on typing (your original request)
+			const activeElement = document.activeElement;
+
+			// Check if the active element is an input, textarea, or contenteditable element
+			const isInputFocused =
+				activeElement instanceof HTMLInputElement ||
+				activeElement instanceof HTMLTextAreaElement ||
+				activeElement instanceof HTMLSelectElement;
+
+			// Check for a single character key, not accompanied by modifiers (Ctrl, Meta, Alt)
+			// These could be part of other shortcuts or not intended for input.
+			if (
+				!isInputFocused &&
+				event.key.length === 1 &&
+				!event.ctrlKey &&
+				!event.metaKey &&
+				!event.altKey &&
+				!event.isComposing
+			) {
+				searchInput.focus();
+				// Do not preventDefault or stopPropagation, allow the event to be processed by the input.
 			}
 		};
 
@@ -34,10 +58,10 @@
 		return () => {
 			window.removeEventListener('keydown', handleKeyDown);
 		};
-	});
+	}
 </script>
 
-<div class="sticky top-6 z-1">
+<div class="sticky top-6 z-1" {@attach keyboardActions}>
 	<div class="absolute inset-y-0 left-3 flex items-center text-zinc-500">
 		<Search size={20} />
 	</div>

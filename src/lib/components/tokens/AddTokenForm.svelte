@@ -16,13 +16,13 @@
 	let secret = $state('');
 
 	/**
-	 * @type {import('@paulmillr/qr/dom.js')}
+	 * @type {import('qr/dom.js')}
 	 */
 	let qrModule;
 
 	/** @type {any} */
-	let frontCamera; // TODO: Replace with proper type, once this can become available from '@paulmillr/qr/dom.js'
-	/** @type {import('@paulmillr/qr/dom.js').QRCanvas | undefined} */
+	let frontCamera; // TODO: Replace with proper type, once this can become available from 'qr/dom.js'
+	/** @type {import('qr/dom.js').QRCanvas | undefined} */
 	let qrCanvas;
 	/** @type {HTMLCanvasElement | undefined} */
 	let overlayCanvas = $state();
@@ -38,7 +38,7 @@
 		if (!videoElement) return;
 
 		try {
-			if (!qrModule) qrModule = await import('@paulmillr/qr/dom.js');
+			if (!qrModule) qrModule = await import('qr/dom.js');
 
 			frontCamera = await qrModule.frontalCamera(videoElement);
 			startScanning();

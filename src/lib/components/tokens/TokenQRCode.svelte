@@ -7,7 +7,7 @@
 	let { open = $bindable(false), token } = $props();
 
 	const qrSvg = $derived(
-		open && import('@paulmillr/qr').then(({ encodeQR }) => encodeQR(token.toString(), 'svg'))
+		open && import('qr').then(({ encodeQR }) => encodeQR(token.toString(), 'svg'))
 	);
 </script>
 
