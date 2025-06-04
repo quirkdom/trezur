@@ -43,6 +43,7 @@
 		"qr": "^0.4.2"
 	},
 	"overrides": {
+		"esm-env": "npm:esm-env-runtime@^0.1.1",
 		"cookie": "npm:cookie@^0.7.0"
 	}
 }

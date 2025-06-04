@@ -34,9 +34,11 @@
 
 			// Check if the active element is an input, textarea, or contenteditable element
 			const isInputFocused =
-				activeElement instanceof HTMLInputElement ||
-				activeElement instanceof HTMLTextAreaElement ||
-				activeElement instanceof HTMLSelectElement;
+				activeElement &&
+				(activeElement instanceof HTMLInputElement ||
+					activeElement instanceof HTMLTextAreaElement ||
+					activeElement instanceof HTMLSelectElement ||
+					(activeElement instanceof HTMLElement && activeElement.isContentEditable));
 
 			// Check for a single character key, not accompanied by modifiers (Ctrl, Meta, Alt)
 			// These could be part of other shortcuts or not intended for input.

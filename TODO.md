@@ -8,6 +8,10 @@ Individual files have small, inline TODO reminders.
         - Currently solved this by deduping on `id` and `secret`. But this should only be a short term solution.
     - [ ] What should be a good long term solution to sync persisted data with in-memory state?
 
+### Due to external dependencies
+- [x] [number-flow](https://github.com/barvian/number-flow) fails to SSR on cloudflare-pages due to improper esm-env resolution [[issue](https://github.com/barvian/number-flow/issues/45)] [[fix](https://github.com/barvian/number-flow/issues/45#issuecomment-2557244185)]
+- [x] svelte-kit v2 uses a vulnerable version of cookie pkg. [[fix](https://github.com/sveltejs/kit/issues/13089#issuecomment-2510265451)]
+
 ## Next steps
 
 - [ ] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
