@@ -54,9 +54,50 @@
 		confirm(`Are you sure you want to delete the ${issuer || account} token?`) &&
 			tokensContext.current?.removeToken(id);
 	}
+
+	/**
+	 * Handles the click event on the card.
+	 * Copies the token code to the clipboard if the click was not on a button or contenteditable element.
+	 * @param {MouseEvent} event
+	 */
+	function handleCardClick(event) {
+		if (
+			event.target instanceof HTMLElement &&
+			(event.target.closest('button') || event.target.closest('[contenteditable]'))
+		)
+			return; // let event propagate
+
+		navigator.clipboard.writeText(code);
+	}
+
+	/**
+	 * Handles the keydown event on the card for accessibility.
+	 * Copies the token code to the clipboard if Enter or Space is pressed.
+	 * @param {KeyboardEvent} event
+	 */
+	function handleCardKeydown(event) {
+		if (
+			event.target instanceof HTMLElement &&
+			(event.target.tagName === 'INPUT' || event.target.isContentEditable)
+		)
+			return; // let event propagate
+
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			event.stopPropagation();
+			navigator.clipboard.writeText(code);
+		}
+	}
 </script>
 
-<div class="relative space-y-2 rounded-xl bg-zinc-900 p-4">
+<div
+	class="relative space-y-2 rounded-xl bg-zinc-900 p-4"
+	onclick={handleCardClick}
+	onkeydown={handleCardKeydown}
+	tabindex="0"
+	role="button"
+	aria-label="Copy {issuer} code to clipboard"
+>
 	<!-- Row-1 : Show token details & countdown -->
 	<div class="flex items-start justify-between">
 		<div>
