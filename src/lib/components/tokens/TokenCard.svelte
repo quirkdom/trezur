@@ -63,8 +63,7 @@
 	function handleCardClick(event) {
 		if (
 			event.target instanceof HTMLElement &&
-			(event.target.closest('button') ||
-				event.target.closest('[contenteditable]')
+			(event.target.closest('button') || event.target.closest('[contenteditable]'))
 		)
 			return; // let event propagate
 
