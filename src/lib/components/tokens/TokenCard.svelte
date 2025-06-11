@@ -48,11 +48,18 @@
 		return () => clearInterval(secondsTicker);
 	});
 
+	let showCopyAnimation = $state(false);
 	let showTokenQRModal = $state(false);
 
 	function handleDelete() {
 		confirm(`Are you sure you want to delete the ${issuer || account} token?`) &&
 			tokensContext.current?.removeToken(id);
+	}
+
+	function copyCodeToClipboard() {
+		navigator.clipboard.writeText(code);
+		showCopyAnimation = true;
+		setTimeout(() => (showCopyAnimation = false), 750);
 	}
 
 	/**
@@ -62,12 +69,12 @@
 	 */
 	function handleCardClick(event) {
 		if (
-			event.target instanceof HTMLElement &&
+			event.target instanceof Element &&
 			(event.target.closest('button') || event.target.closest('[contenteditable]'))
 		)
 			return; // let event propagate
 
-		navigator.clipboard.writeText(code);
+		copyCodeToClipboard();
 	}
 
 	/**
@@ -84,120 +91,142 @@
 
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			event.stopPropagation();
-			navigator.clipboard.writeText(code);
+			copyCodeToClipboard();
 		}
 	}
 </script>
 
 <div
-	class="relative space-y-2 rounded-xl bg-zinc-900 p-4"
-	onclick={handleCardClick}
-	onkeydown={handleCardKeydown}
-	tabindex="0"
-	role="button"
-	aria-label="Copy {issuer} code to clipboard"
+	class={[
+		'border-zinc-800 p-0.5',
+		showCopyAnimation
+			? 'animate-ring rounded-xl bg-conic/[from_var(--ring-angle)] from-black from-80% via-[#EB3912] via-90% to-black to-100%'
+			: ''
+	]}
 >
-	<!-- Row-1 : Show token details & countdown -->
-	<div class="flex items-start justify-between">
-		<div>
-			<Editable
-				value={issuer}
-				onEdit={(/** @type {string} */ val) =>
-					tokensContext.current?.updateToken(id, { issuer: val })}
-				class="max-w-[300px] truncate text-lg font-medium text-white"
-			/>
-			{#if account.length > 40}
+	<div
+		class="relative space-y-2 rounded-xl bg-zinc-900 p-4"
+		onclick={handleCardClick}
+		onkeydown={handleCardKeydown}
+		tabindex="0"
+		role="button"
+		aria-label="Copy {issuer} code to clipboard"
+	>
+		<!-- Row-1 : Show token details & countdown -->
+		<div class="flex items-start justify-between">
+			<div>
 				<Editable
-					value={account}
-					onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => {
-						tokensContext.current?.updateToken(id, { account: val || prev }); // Account (token label) cannot be empty
-					}}
-					class="max-w-[300px] overflow-hidden"
-				>
-					<div class="animate-marquee text-sm whitespace-nowrap text-zinc-500">
-						{account}
-					</div>
-				</Editable>
-			{:else}
-				<Editable
-					value={account}
-					onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => {
-						tokensContext.current?.updateToken(id, { account: val || prev }); // Account (token label) cannot be empty
-					}}
-					class="text-sm text-zinc-500"
+					value={issuer}
+					onEdit={(/** @type {string} */ val) =>
+						tokensContext.current?.updateToken(id, { issuer: val })}
+					class="max-w-[300px] truncate text-lg font-medium text-white"
 				/>
-			{/if}
-		</div>
-		{@render CircleTimer()}
-	</div>
-
-	<!-- Row-2: Show token code & options -->
-	<div class="flex items-end justify-between">
-		<!-- Show the actual codes -->
-		<div class="font-mono text-3xl tracking-wider">
-			<NumberFlowGroup>
-				<NumberFlow
-					format={{ minimumIntegerDigits: token.digits, useGrouping: false }}
-					value={code}
-				/>
-				{#if showNextCode}
-					<span
-						class={[
-							'transition-colors duration-1500 ease-linear',
-							remaining > 10 ? 'text-gray-400' : 'animate-pulse text-[#EB3912]'
-						]}>≪</span
+				{#if account.length > 40}
+					<Editable
+						value={account}
+						onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => {
+							tokensContext.current?.updateToken(id, { account: val || prev }); // Account (token label) cannot be empty
+						}}
+						class="max-w-[300px] overflow-hidden"
 					>
-					<NumberFlow
-						format={{ minimumIntegerDigits: token.digits, useGrouping: false }}
-						value={nextCode}
-						class="text-2xl text-gray-400"
+						<div class="animate-marquee text-sm whitespace-nowrap text-zinc-500">
+							{account}
+						</div>
+					</Editable>
+				{:else}
+					<Editable
+						value={account}
+						onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => {
+							tokensContext.current?.updateToken(id, { account: val || prev }); // Account (token label) cannot be empty
+						}}
+						class="text-sm text-zinc-500"
 					/>
 				{/if}
-			</NumberFlowGroup>
+			</div>
+			{@render CircleTimer()}
 		</div>
 
-		<!-- Actions button group with hover effect -->
-		<div class="group relative mb-1">
-			<!-- Main button (Ellipsis) - hidden on hover and on touch screens -->
-			<button
-				class="touch-device:hidden rounded-lg p-1.5 text-zinc-500 opacity-50 transition duration-300 group-hover:invisible group-hover:opacity-0"
-			>
-				<EllipsisVertical size={20} />
-				<span class="sr-only">Edit {issuer} token</span>
-			</button>
-			<!-- Expanded buttons (QR, Copy and Delete) - visible on hover or always on touch screens -->
-			<div
-				class="touch-device:static touch-device:border-envelope touch-device:opacity-100 absolute right-0 bottom-0 flex text-zinc-500 opacity-0 transition duration-500 ease-in-out group-hover:opacity-100"
-			>
-				<button
-					class="touch-device:border-l touch-device:border-y touch-device:border-[#EB3912] rounded-l-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
-					onclick={() => (showTokenQRModal = true)}
-				>
-					<QrCode size={20} />
-					<span class="sr-only">Show QR code for {issuer} token</span>
-				</button>
-				<button
-					class="touch-device:border-y touch-device:border-[#EB3912] bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
-					onclick={() => navigator.clipboard.writeText(code)}
-				>
-					<ClipboardCopy size={20} />
-					<span class="sr-only">Copy {issuer} token code</span>
-				</button>
-				<button
-					class="touch-device:border-y touch-device:border-r touch-device:border-[#EB3912] rounded-r-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
-					onclick={handleDelete}
-				>
-					<Trash2 size={20} />
-					<span class="sr-only">Delete {issuer} token</span>
-				</button>
+		<!-- Row-2: Show token code & options -->
+		<div class="flex items-end justify-between">
+			<!-- Show the actual codes -->
+			<div class="font-mono text-3xl tracking-wider">
+				<NumberFlowGroup>
+					<NumberFlow
+						format={{ minimumIntegerDigits: token.digits, useGrouping: false }}
+						value={code}
+					/>
+					{#if showNextCode}
+						<span
+							class={[
+								'transition-colors duration-1500 ease-linear',
+								remaining > 10 ? 'text-gray-400' : 'animate-pulse text-[#EB3912]'
+							]}>≪</span
+						>
+						<NumberFlow
+							format={{ minimumIntegerDigits: token.digits, useGrouping: false }}
+							value={nextCode}
+							class="text-2xl text-gray-400"
+						/>
+					{/if}
+				</NumberFlowGroup>
+			</div>
+
+			<!-- Actions button group with hover effect -->
+			<div class="group relative mb-1">
+				{#if showCopyAnimation}
+					<div
+						class="absolute right-0 bottom-0 flex p-1.5 text-[#EB3912] transition duration-300 ease-in-out"
+					>
+						<ClipboardCopy size={20} />
+						<span class="sr-only">{issuer} token code copied to clipboard.</span>
+					</div>
+				{:else}
+					<!-- Main button (Ellipsis) - hidden on hover and on touch screens -->
+					<button
+						class="touch-device:hidden rounded-lg p-1.5 text-zinc-500 opacity-50 transition duration-300 group-hover:invisible group-hover:opacity-0"
+					>
+						<EllipsisVertical size={20} />
+						<span class="sr-only">Edit {issuer} token</span>
+					</button>
+					<!-- Expanded buttons (QR, Copy and Delete) - visible on hover or always on touch screens -->
+					<div
+						class="touch-device:static touch-device:border-envelope touch-device:opacity-100 absolute right-0 bottom-0 flex text-zinc-500 opacity-0 transition duration-500 ease-in-out group-hover:opacity-100"
+					>
+						<button
+							class="touch-device:border-l touch-device:border-y touch-device:border-[#EB3912] rounded-l-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
+							onclick={() => (showTokenQRModal = true)}
+						>
+							<QrCode size={20} />
+							<span class="sr-only">Show QR code for {issuer} token</span>
+						</button>
+						<button
+							class={[
+								'touch-device:border-y touch-device:border-[#EB3912] bg-zinc-800 p-1.5 transition duration-300 ease-in-out',
+								showCopyAnimation
+									? 'text-[#EB3912] opacity-100'
+									: 'opacity-70 hover:text-[#EB3912] hover:opacity-100'
+							]}
+							onclick={copyCodeToClipboard}
+						>
+							<ClipboardCopy size={20} />
+							<span class="sr-only">Copy {issuer} token code</span>
+						</button>
+						<button
+							class="touch-device:border-y touch-device:border-r touch-device:border-[#EB3912] rounded-r-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
+							onclick={handleDelete}
+						>
+							<Trash2 size={20} />
+							<span class="sr-only">Delete {issuer} token</span>
+						</button>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>
-
-	<!-- QR Code Modal -->
-	<TokenQrCode bind:open={showTokenQRModal} {token} />
 </div>
+
+<!-- QR Code Modal -->
+<TokenQrCode bind:open={showTokenQRModal} {token} />
 
 {#snippet CircleTimer()}
 	<div class="relative mt-1 h-8 w-8">
@@ -237,5 +266,22 @@
 	}
 	.animate-marquee:not(:hover) {
 		animation-play-state: paused;
+	}
+
+	@property --ring-angle {
+		syntax: '<angle>';
+		initial-value: 0deg;
+		inherits: false;
+	}
+	@keyframes ring-rotation {
+		from {
+			--ring-angle: 0deg;
+		}
+		to {
+			--ring-angle: 360deg;
+		}
+	}
+	.animate-ring {
+		animation: ring-rotation 750ms cubic-bezier(0, 0, 0.2, 1);
 	}
 </style>

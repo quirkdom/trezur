@@ -33,7 +33,7 @@
 			const activeElement = document.activeElement;
 
 			// Check if the active element is an input, textarea, or contenteditable element
-			const isInputFocused =
+			const isFocusedElementEditable =
 				activeElement &&
 				(activeElement instanceof HTMLInputElement ||
 					activeElement instanceof HTMLTextAreaElement ||
@@ -43,16 +43,15 @@
 			// Check for a single character key, not accompanied by modifiers (Ctrl, Meta, Alt)
 			// These could be part of other shortcuts or not intended for input.
 			if (
-				!isInputFocused &&
+				!isFocusedElementEditable &&
 				event.key.length === 1 &&
+				event.key !== ' ' &&
 				!event.ctrlKey &&
 				!event.metaKey &&
 				!event.altKey &&
 				!event.isComposing
-			) {
-				searchInput.focus();
-				// Do not preventDefault or stopPropagation, allow the event to be processed by the input.
-			}
+			)
+				searchInput.focus(); // Do not preventDefault or stopPropagation, allow the event to be processed by the input.
 		};
 
 		window.addEventListener('keydown', handleKeyDown);

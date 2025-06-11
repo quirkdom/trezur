@@ -75,7 +75,7 @@
 
 <main>
 	{#if tokens.length > 0}
-		<div class="space-y-6">
+		<div class="space-y-4">
 			<SearchBar bind:searchQuery {isAppleDevice} />
 			<TokenList {tokens} {searchQuery} />
 		</div>
