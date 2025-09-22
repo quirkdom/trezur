@@ -8,7 +8,7 @@
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
-	import { Cog, PlusIcon, Settings } from 'lucide-svelte';
+	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { assets } from '$app/paths';
 
@@ -80,37 +80,69 @@
 			<TokenList {tokens} {searchQuery} />
 		</div>
 	{:else}
-		<div class="flex h-[60vh] flex-col items-center justify-center text-center">
-			<div class="space-y-4 text-gray-400">
-				<button
-					class="mx-auto transition-colors duration-300 hover:text-[#EB3912]"
-					onclick={openAddTokenForm}
-				>
-					<PlusIcon class="h-20 w-20 opacity-70" />
-				</button>
-				<h2 class="text-xl font-medium">A bit empty here, isn't it?</h2>
-				<p class="text-md mx-auto mb-2 max-w-xs">
-					Get started by adding your first security token using the
-					<button
-						class="inline-flex items-center align-middle text-[#EB3912]"
-						onclick={openAddTokenForm}
-					>
-						<PlusIcon class="inline-block h-[1em] w-[1em]" />
-					</button> button.
-				</p>
-				<p class="text-md mx-auto max-w-xs">
-					Or import tokens from another app in the <a href="/settings">Settings </a>
-					<a
-						href="/settings"
-						class="inline-flex items-center align-middle transition duration-800 ease-in-out hover:rotate-90 hover:text-[#EB3912]"
-					>
-						{#if isAppleDevice}
-							<Cog class="inline-block h-[1em] w-[1em]" />
-						{:else}
-							<Settings class="inline-block h-[1em] w-[1em]" />
-						{/if}
-					</a> page.
-				</p>
+		<div class="flex h-auto flex-col items-center justify-center py-10 text-center">
+			<div class="mx-auto max-w-md space-y-6 text-gray-400">
+				<h2 class="px-4 text-2xl font-semibold text-white">
+					Trezur is a fast, simple, light-weight web-app to generate TOTP and HOTP tokens.
+				</h2>
+
+				<div class="space-y-4 px-4 text-left text-sm">
+					<div class="flex items-start gap-4">
+						<div class="pt-1 text-[#EB3912]"><WifiOff /></div>
+						<div>
+							<h3 class="font-bold text-white">Offline-first</h3>
+							<p>
+								All data is stored on your device, and none in our servers. You can even use it
+								offline after first load.
+							</p>
+						</div>
+					</div>
+					<div class="flex items-start gap-4">
+						<div class="pt-1 text-[#EB3912]"><Shield /></div>
+						<div>
+							<h3 class="font-bold text-white">Secure</h3>
+							<p>
+								Tokens are stored encrypted in browser storage. You can additionally protect with
+								passcodes.
+							</p>
+						</div>
+					</div>
+					<div class="flex items-start gap-4">
+						<div class="pt-1 text-[#EB3912]"><ArrowRightLeft /></div>
+						<div>
+							<h3 class="font-bold text-white">Import & Export</h3>
+							<p>
+								Import from anywhere and export easily. Also auto-backup and multi-device sync
+								with a provider of your choice.
+							</p>
+						</div>
+					</div>
+				</div>
+
+				<div class="pt-6">
+					<p class="mx-auto mb-2 max-w-xs text-md">
+						Get started by adding your first security token using the
+						<button
+							class="inline-flex items-center align-middle text-[#EB3912]"
+							onclick={openAddTokenForm}
+						>
+							<PlusIcon class="inline-block h-[1em] w-[1em]" />
+						</button> button.
+					</p>
+					<p class="mx-auto max-w-xs text-md">
+						Or import tokens from another app in the <a href="/settings">Settings </a>
+						<a
+							href="/settings"
+							class="inline-flex items-center align-middle transition duration-800 ease-in-out hover:rotate-90 hover:text-[#EB3912]"
+						>
+							{#if isAppleDevice}
+								<Cog class="inline-block h-[1em] w-[1em]" />
+							{:else}
+								<Settings class="inline-block h-[1em] w-[1em]" />
+							{/if}
+						</a> page.
+					</p>
+				</div>
 			</div>
 		</div>
 	{/if}
