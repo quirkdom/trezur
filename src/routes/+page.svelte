@@ -120,7 +120,7 @@
 				</div>
 			</div>
 
-			<div class="text-md space-y-4 px-12">
+			<div class="space-y-4 px-12">
 				<button
 					class="transition-colors duration-300 hover:text-[#EB3912]"
 					onclick={openAddTokenForm}
