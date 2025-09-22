@@ -20,7 +20,6 @@
 	// $inspect(sortOrder);
 </script>
 
-<!-- TODO: Add new token modal -->
 <nav class="flex gap-4">
 	{#if backButtonTo}
 		<a href={backButtonTo}>

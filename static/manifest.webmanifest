@@ -1,7 +1,7 @@
 {
   "name": "Trezur App",
   "short_name": "Trezur",
-  "description": "Trezur is a web-app to generate TOTP and HOTP tokens. It is fast, secure, light-weight and easy to use.",
+  "description": "Trezur is a fast, simple, light-weight web-app to generate TOTP and HOTP codes for two-factor authentication.",
   "orientation": "portrait",
   "icons": [
     { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
