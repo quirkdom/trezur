@@ -80,69 +80,78 @@
 			<TokenList {tokens} {searchQuery} />
 		</div>
 	{:else}
-		<div class="flex h-auto flex-col items-center justify-center py-10 text-center">
-			<div class="mx-auto max-w-md space-y-6 text-gray-400">
-				<h2 class="px-4 text-2xl font-semibold text-white">
-					Trezur is a fast, simple, light-weight web-app to generate TOTP and HOTP tokens.
-				</h2>
+		<div class="mt-12 flex h-auto flex-col items-center justify-center gap-6 text-center sm:mt-18">
+			<h2 class="px-4 text-2xl font-semibold">
+				Trezur is a web-app to generate <abbr title="Time-based One-Time Password">TOTP</abbr> and
+				<abbr title="HMAC-based One-Time Password">HOTP</abbr>
+				codes for <abbr title="Two-Factor Authentication">2FA</abbr>.
+			</h2>
 
-				<div class="space-y-4 px-4 text-left text-sm">
-					<div class="flex items-start gap-4">
-						<div class="pt-1 text-[#EB3912]"><WifiOff /></div>
-						<div>
-							<h3 class="font-bold text-white">Offline-first</h3>
-							<p>
-								All data is stored on your device, and none in our servers. You can even use it
-								offline after first load.
-							</p>
-						</div>
-					</div>
-					<div class="flex items-start gap-4">
-						<div class="pt-1 text-[#EB3912]"><Shield /></div>
-						<div>
-							<h3 class="font-bold text-white">Secure</h3>
-							<p>
-								Tokens are stored encrypted in browser storage. You can additionally protect with
-								passcodes.
-							</p>
-						</div>
-					</div>
-					<div class="flex items-start gap-4">
-						<div class="pt-1 text-[#EB3912]"><ArrowRightLeft /></div>
-						<div>
-							<h3 class="font-bold text-white">Import & Export</h3>
-							<p>
-								Import from anywhere and export easily. Also auto-backup and multi-device sync
-								with a provider of your choice.
-							</p>
-						</div>
+			<div class="space-y-4 px-4 text-left text-sm">
+				<div class="flex items-start gap-4">
+					<div class="pt-1 text-[#EB3912]"><WifiOff /></div>
+					<div>
+						<h3 class="font-bold">Offline-First Privacy</h3>
+						<p>
+							Trezur keeps your data on your device, not on our servers. Enjoy seamless offline
+							access after your first visit. We don't collect any user data.
+						</p>
 					</div>
 				</div>
-
-				<div class="pt-6">
-					<p class="mx-auto mb-2 max-w-xs text-md">
-						Get started by adding your first security token using the
-						<button
-							class="inline-flex items-center align-middle text-[#EB3912]"
-							onclick={openAddTokenForm}
-						>
-							<PlusIcon class="inline-block h-[1em] w-[1em]" />
-						</button> button.
-					</p>
-					<p class="mx-auto max-w-xs text-md">
-						Or import tokens from another app in the <a href="/settings">Settings </a>
-						<a
-							href="/settings"
-							class="inline-flex items-center align-middle transition duration-800 ease-in-out hover:rotate-90 hover:text-[#EB3912]"
-						>
-							{#if isAppleDevice}
-								<Cog class="inline-block h-[1em] w-[1em]" />
-							{:else}
-								<Settings class="inline-block h-[1em] w-[1em]" />
-							{/if}
-						</a> page.
-					</p>
+				<div class="flex items-start gap-4">
+					<div class="pt-1 text-[#EB3912]"><Shield /></div>
+					<div>
+						<h3 class="font-bold">Encrypted & Protected</h3>
+						<p>
+							Your tokens are stored encrypted in your browser. Optionally, you can add a passcode
+							for an extra layer of protection.
+						</p>
+					</div>
 				</div>
+				<div class="flex items-start gap-4">
+					<div class="pt-1 text-[#EB3912]"><ArrowRightLeft /></div>
+					<div>
+						<h3 class="font-bold">Total Control</h3>
+						<p>
+							Effortlessly import and export your tokens. Set up automatic backups and multi-device
+							sync with your preferred cloud service.
+						</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="text-md space-y-4 px-12">
+				<button
+					class="transition-colors duration-300 hover:text-[#EB3912]"
+					onclick={openAddTokenForm}
+					aria-label="Add token"
+				>
+					<PlusIcon class="h-20 w-20 opacity-70" />
+				</button>
+				<p>
+					Get started by adding your first security token using the
+					<button
+						class="inline-flex items-center align-middle text-[#EB3912]"
+						onclick={openAddTokenForm}
+						aria-label="Add token"
+					>
+						<PlusIcon class="inline-block h-[1em] w-[1em]" />
+					</button> button.
+				</p>
+				<p>
+					Or import tokens from another app in the <a href="/settings">Settings </a>
+					<a
+						href="/settings"
+						class="inline-flex items-center align-middle transition duration-800 ease-in-out hover:rotate-90 hover:text-[#EB3912]"
+						aria-label="Settings page"
+					>
+						{#if isAppleDevice}
+							<Cog class="inline-block h-[1em] w-[1em]" />
+						{:else}
+							<Settings class="inline-block h-[1em] w-[1em]" />
+						{/if}
+					</a> page.
+				</p>
 			</div>
 		</div>
 	{/if}

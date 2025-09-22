@@ -2,7 +2,7 @@
 
 # trezur
 
-Trezur is a fast, simple, light-weight web-app to generate TOTP and HOTP tokens.
+Trezur is a fast, simple, light-weight web-app to generate TOTP and HOTP codes for two-factor authentication.
 
 ## What's next?
 
