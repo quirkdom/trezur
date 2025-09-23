@@ -18,6 +18,11 @@ Individual files have small, inline TODO reminders.
 - [ ] Move settings and conditions to exported global states. Contexts are overkill for that.
 - [ ] Setup GDrive [app folder backup](https://developers.google.com/drive/api/guides/appdata)
 - [ ] Setup iCloud backup using [CloudKit](https://developer.apple.com/documentation/cloudkit)
+- [ ] Better PWA support
+    - [ ] [iOS Tips](https://www.netguru.com/blog/pwa-ios)
+    - [ ] [Webmanifest tips](https://web.dev/learn/pwa/web-app-manifest)
+    - [ ] PWA Install: [prompt](https://web.dev/learn/pwa/installation-prompt), [install criteria](https://web.dev/articles/install-criteria), [custom install experience](https://web.dev/articles/customize-install)
+    - [ ] [PWA Enhacements](https://web.dev/learn/pwa/enhancements)
 - [ ] Better UX for touch devices
     - [ ] Implement swipe gestures for token actions
     - [ ] Implement long press for token actions

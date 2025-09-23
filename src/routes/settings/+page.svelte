@@ -168,6 +168,11 @@
 		<p class="space-y-2 text-center text-sm text-zinc-500">
 			Trezur v{version}
 			{dev ? '[DEV]' : ''} <br />
+			Favicon: Key by Bucky Clarke from
+			<a href="https://thenounproject.com/browse/icons/term/key/" target="_blank" title="Key Icons"
+				>Noun Project</a
+			>
+			(CC BY 3.0). Color modified to orange. <br />
 			Made with ❤️ and ✨ at <a href="https://www.quirkdom.com" target="_blank">Quirkdom</a>
 		</p>
 	</div>

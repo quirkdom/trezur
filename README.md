@@ -1,6 +1,6 @@
-![Trezur Logo](./static/trezur_logo.svg)
-
 # trezur
+
+<img src="./static/trezur_logo.svg" align="right" alt="Trezur logo by Abhishek Bhattacharya" height="24">
 
 Trezur is a fast, simple, light-weight web-app to generate TOTP and HOTP codes for two-factor authentication.
 
@@ -28,7 +28,9 @@ Trezur is almost entirely written in JavaScript, with JSDoc type hints used for 
 ### Special thanks
 - [Paul Miller](https://github.com/paulmillr) for the excellent [QR code library](https://github.com/paulmillr/qr).
 - [Héctor Molinero Fernández](https://github.com/hectorm) for the excellent [otpauth library](https://github.com/hectorm/otpauth).
-- Favicon: Key by Bucky Clarke from [Noun Project](https://thenounproject.com/) (CC BY 3.0).
+- [Maxwell Barvian](https://github.com/barvian) for the excellent [number-flow library](https://github.com/barvian/number-flow).
+- Favicon: Key by Bucky Clarke from [Noun Project](https://thenounproject.com/browse/icons/term/key/) (CC BY 3.0).
+    - Modification: Color of the icon material changed from black to orange.
 
 ## License
 
