@@ -1,6 +1,6 @@
 {
 	"editor.formatOnSave": true,
-	"editor.formatOnSaveMode": "modificationsIfAvailable",
+	"editor.formatOnSaveMode": "file",
 	"editor.formatOnPaste": true,
 	"editor.tabSize": 4,
 	"editor.rulers": [120]
