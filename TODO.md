@@ -3,10 +3,11 @@
 Individual files have small, inline TODO reminders.
 
 ## Bugs
-- [ ] When data is imported from settings page, it adds data into tokensContext state, and then immediately persists it. However after navigating to '/', the $effect to make tokens context in +page.svelte re-runs, which causes #load to run, and that blindly merges persisted data (i.e. tokens that were just persisted) and existing tokens in memory state, resulting in duplicate tokens.
+- [x] When data is imported from settings page, it adds data into tokensContext state, and then immediately persists it. However after navigating to '/', the $effect to make tokens context in +page.svelte re-runs, which causes #load to run, and that blindly merges persisted data (i.e. tokens that were just persisted) and existing tokens in memory state, resulting in duplicate tokens.
     - [x] Can be possibly solved by de-duping against IDs. But is that a good idea?
         - Currently solved this by deduping on `id` and `secret`. But this should only be a short term solution.
-    - [ ] What should be a good long term solution to sync persisted data with in-memory state?
+    - [x] What should be a good long term solution to sync persisted data with in-memory state?
+        - This was finally solved by updating the $effects in [src/routes/+layout.svelte](src/routes/+layout.svelte) and [src/routes/+page.svelte](src/routes/+page.svelte) to only run and re-initialize token context when the underlying storage actually changes.
 
 ### Due to external dependencies
 - [x] [number-flow](https://github.com/barvian/number-flow) fails to SSR on cloudflare-pages due to improper esm-env resolution [[issue](https://github.com/barvian/number-flow/issues/45)] [[fix](https://github.com/barvian/number-flow/issues/45#issuecomment-2557244185)]

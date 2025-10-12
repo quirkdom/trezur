@@ -17,24 +17,30 @@ class TokensCtx {
 	/**
 	 * @param {EncryptedStorage} storage
 	 * @param {symbol} [initToken]
-	 * @param {Token[] | null} [tokens]
 	 */
-	constructor(storage, initToken, tokens) {
+	constructor(storage, initToken) {
 		if (initToken !== ANTI_CTOR_TOKEN)
 			throw new Error('Cannot construct TokensCtx directly; await TokensCtx.make() instead.');
 		if (!browser) throw new Error('TokenCtx can only be used in the browser');
 
 		this.storage = storage;
-		if (tokens) this.#tokens.push(...tokens);
 	}
 
 	/**
 	 * @param {EncryptedStorage} storage
-	 * @param {Token[] | null} [initialTokens] initial bunch of tokens to be added to context state. This is independent of any tokens that can be loaded from storage.
+	 * @param {Object} [options]
+	 * @param {Token[] | null | undefined} [options.extraTokens]
 	 */
-	static async make(storage, initialTokens) {
-		const instance = new TokensCtx(storage, ANTI_CTOR_TOKEN, initialTokens);
-		await instance.#load();
+	static async make(storage, options) {
+		const instance = new TokensCtx(storage, ANTI_CTOR_TOKEN);
+
+		await instance.#load(); // first, load any tokens from storage
+
+		if (options?.extraTokens) {
+			instance.#tokens.push(...options.extraTokens); // merge in any extra tokens given
+			await instance.#persist(); // Ensure changes are persisted
+		}
+
 		return instance;
 	}
 
@@ -44,27 +50,19 @@ class TokensCtx {
 	async #load() {
 		const loadedTokens = (await this.storage.get(T_TOKENS)) || [];
 
-		// Use a map to track tokens by id and secret for deduplication
+		// Use a map to track tokens by their canonical identifier for deduplication
 		const tokenMap = new Map();
 
-		// First add existing tokens to the map (these have priority)
-		for (const token of this.#tokens) {
+		for (const token of loadedTokens) {
 			const key = `${token.id}:${token.secret}`;
 			tokenMap.set(key, token);
 		}
 
-		// Then process loaded tokens, only adding ones that don't exist yet
-		// or updating the map if a newer duplicate is found
-		for (const token of loadedTokens) {
-			const key = `${token.id}:${token.secret}`;
-			// Only add if not already in map (preserving this.#tokens priority)
-			if (!tokenMap.has(key)) {
-				tokenMap.set(key, token);
-			}
-		}
-
-		// Replace tokens array with deduped result
+		// Replace #tokens with the deduplicated result
 		this.#tokens = [...tokenMap.values()];
+
+		// Persist after loading to ensure the state is clean,
+		// especially if deduplication changed anything or if storage was empty.
 		await this.#persist();
 	}
 
@@ -87,21 +85,48 @@ class TokensCtx {
 	}
 
 	/**
-	 * @param {Token[]} tokens
+	 * @param {Token[]} tokensToAdd
 	 */
-	addTokens(...tokens) {
-		this.#tokens.push(...tokens);
-		this.#persist();
+	addTokens(...tokensToAdd) {
+		// Create a set of keys for existing tokens for efficient lookup
+		const existingTokenKeys = new Set();
+		for (const token of this.#tokens) {
+			existingTokenKeys.add(`${token.id}:${token.secret}`);
+		}
+
+		const newTokens = [];
+		for (const token of tokensToAdd) {
+			const key = `${token.id}:${token.secret}`;
+			if (!existingTokenKeys.has(key)) {
+				newTokens.push(token);
+				// Add the new key to the set as well to handle duplicates within tokensToAdd itself
+				existingTokenKeys.add(key);
+			}
+		}
+
+		if (newTokens.length > 0) {
+			this.#tokens.push(...newTokens);
+			this.#persist();
+		}
 	}
 
 	/**
 	 * @typedef {import('$lib/types').Tokenable} Tokenable
-	 * @param {string} id
-	 * @param {Partial<{[key in keyof Tokenable]: Tokenable[key]}>} updates
-	 * @todo TODO: check if this can be merged with addToken()
+	 * @param {string} id The ID of the token to update.
+	 * @param {Partial<{[key in keyof Tokenable]: Tokenable[key]}>} updates The updates to apply.
 	 */
 	updateToken(id, updates) {
-		this.#tokens = this.#tokens.map((t) => (t.id === id ? { ...t, ...updates } : t)); // TODO: might be cleaner to change specific token directly.
+		const tokenIndex = this.#tokens.findIndex((t) => t.id === id);
+		if (tokenIndex === -1) {
+			if (dev) console.warn(`Token with id ${id} not found for update.`);
+			return; // Token not found
+		}
+
+		const originalToken = this.#tokens[tokenIndex];
+		const updatedToken = { ...originalToken, ...updates };
+
+		// Apply the update.
+		this.#tokens[tokenIndex] = updatedToken;
 		this.#persist();
 	}
 
@@ -123,29 +148,43 @@ class TokensCtx {
  * Reactive container to hold a token context instance; can be updated when underlying storage engine changes.
  * @typedef {Object} TokensContextContainer
  * @property {TokensCtx | null} current
- * @property {function(EncryptedStorage): Promise<TokensCtx>} makeMerge
+ * @property {function(EncryptedStorage): Promise<TokensCtx>} iMake
+ * @property {function(): void} resetTokens
  */
 const tokensContext = $state({
 	/** @type {TokensCtx | null} */
 	current: null,
 
 	/**
-	 * Make a new Tokens context by merging any existing tokens into ones loaded newly from storage
+	 * (Intelligently) Make a new Tokens context.
+	 * - Scenario 1: Create a new Tokens context instance, loading existing tokens from provided storage.
+	 * - Scenario 2: Storage is changing. Merge any existing in-memory tokens into new storage.
 	 * @param {EncryptedStorage} storage
 	 */
-	async makeMerge(storage) {
-		const currentTokens = this.current && $state.snapshot(this.current.getTokens());
-		return (this.current = await TokensCtx.make(storage, currentTokens));
-	}
+	async iMake(storage) {
+		if (this.current) {
+			const existingTokens = $state.snapshot(this.current.getTokens());
+			this.current = await TokensCtx.make(storage, { extraTokens: existingTokens });
+		} else this.current = await TokensCtx.make(storage);
+
+		return this.current;
+	},
 
 	/**
-	 * Make a new Tokens context by loading tokens from storage. Any existing tokens are cleared.
-	 * @param {EncryptedStorage} storage
+	 * Reset Tokens context by wiping out all tokens (both in memory and storage) and clearing the current context instance.
+	 *
+	 * **CAUTION:** You must always invalidate app state and reload the app after calling this.
+	 * This leaves the app without a valid tokens context; subsequent token operations will fail.
 	 */
-	// async makeNew(storage) {
-	// 	this.current?.clearTokens();
-	// 	return this.makeMerge(storage);
-	// }
+	resetTokens() {
+		if (dev)
+			console.warn(
+				'App without valid Tokens context; subsequent token operations will fail. Remember to invalidate app state and reload the app.'
+			);
+
+		this.current?.clearTokens();
+		this.current = null;
+	}
 });
 
 /**

@@ -5,8 +5,8 @@ import { browser } from '$app/environment';
 import { AESGCMEncryptedStorage, LocalStorageEngine } from '$lib/utils/encrypted-storage';
 
 /**
- * Reactive singleton instance of EncryptedLocalStorage
- * Starts undefined and updates when initialized
+ * Reactive singleton instance of EncryptedLocalStorage.
+ * Starts undefined and updates when initialized.
  */
 export let encryptedLocalStorage = $state({
 	/** @type {EncryptedStorage | null} */
@@ -17,7 +17,10 @@ export let encryptedLocalStorage = $state({
 	 */
 	async init(passkey) {
 		if (!browser)
-			throw new Error('SSR safety: EncryptedLocalStorage cannot only be used in the browser.');
+			throw new Error('SSR safety: EncryptedLocalStorage can only be used in the browser.');
+
+		// artificial delay to simulate loading (for testing)
+		// await new Promise((resolve) => setTimeout(resolve, 2000));
 
 		this.current = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey);
 	}

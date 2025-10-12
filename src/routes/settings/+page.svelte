@@ -7,7 +7,7 @@
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { useTokensContext } from '$lib/state/tokens.svelte';
-	import { goto, invalidate } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { updated } from '$app/state';
 
 	const settingsContext = useSettingsContext();
@@ -36,9 +36,9 @@
 
 		settingsContext.resetSettings();
 		conditionsContext.resetConditions();
-		tokensContext.current?.clearTokens();
+		tokensContext.resetTokens();
 
-		invalidate('app:conditions').then(() => goto('/'));
+		goto('/', { invalidate: ['app:conditions'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
 	}
 
 	/**

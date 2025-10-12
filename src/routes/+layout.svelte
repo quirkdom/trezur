@@ -16,17 +16,21 @@
 	const conditionsContext = createConditionsContext(data.conditions);
 	const conditions = $derived(conditionsContext.getConditions());
 
-	$effect.root(() => {
-		$effect(() => {
-			if (browser && data.conditions)
-				untrack(() => conditionsContext.updateConditions(data.conditions)); // we have to untrack this to avoid infinite loop
-		});
+	/**
+	 * Updates conditions context with conditions derived from load-time data.
+	 * We have to untrack this to avoid infinite loop with the next effect.
+	 */
+	$effect(() => {
+		if (browser && data.conditions)
+			untrack(() => conditionsContext.updateConditions(data.conditions));
+	});
 
-		$effect(() => {
-			if (browser && conditions.clientId) {
-				encryptedLocalStorage.init(conditions.clientId); // async function; not awaited
-			}
-		});
+	/**
+	 * Initializes encrypted local storage with the client ID from conditions context.
+	 * This will first run when client ID has been updated in conditions context (in the previous effect).
+	 */
+	$effect(() => {
+		if (browser && conditions.clientId) encryptedLocalStorage.init(conditions.clientId); // async function; not awaited
 	});
 </script>
 
