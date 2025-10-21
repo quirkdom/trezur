@@ -7,7 +7,7 @@ import { browser } from '$app/environment';
 import { getContext, hasContext, setContext } from 'svelte';
 
 const T_CONDITIONS = 'T_conditions';
-const PERSISTABLE_KEYS = ['clientId'];
+const PERSISTABLE_KEYS = ['clientId', 'isUserPasscodeSet'];
 
 /** @type Conditions */
 const DEFAULT_CONDITIONS = {

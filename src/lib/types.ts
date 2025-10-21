@@ -48,4 +48,6 @@ export interface EncryptedStorage {
 	set(key: string, value: any): Promise<void>;
 	delete(key: string): Promise<void>;
 	purge(): Promise<void>;
+	setSentinel(): Promise<void>;
+	verifySentinel(): Promise<boolean>;
 }

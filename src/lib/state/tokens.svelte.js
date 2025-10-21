@@ -36,8 +36,23 @@ class TokensCtx {
 
 		await instance.#load(); // first, load any tokens from storage
 
-		if (options?.extraTokens) {
-			instance.#tokens.push(...options.extraTokens); // merge in any extra tokens given
+		if (options?.extraTokens && options.extraTokens.length > 0) {
+			// Merge and deduplicate
+			const tokenMap = new Map();
+			
+			// Add existing tokens
+			for (const token of instance.#tokens) {
+				const key = `${token.id}:${token.secret}`;
+				tokenMap.set(key, token);
+			}
+			
+			// Merge in extra tokens (will overwrite if duplicate)
+			for (const token of options.extraTokens) {
+				const key = `${token.id}:${token.secret}`;
+				tokenMap.set(key, token);
+			}
+			
+			instance.#tokens = [...tokenMap.values()];
 			await instance.#persist(); // Ensure changes are persisted
 		}
 

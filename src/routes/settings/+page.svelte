@@ -3,27 +3,89 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import ImportTokensDialog from '$lib/components/tokens/ImportTokens.svelte';
 	import ExportTokensDialog from '$lib/components/tokens/ExportTokens.svelte';
+	import PasscodeDialog from '$lib/components/PasscodeDialog.svelte';
 	import { dev, version } from '$app/environment';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { useTokensContext } from '$lib/state/tokens.svelte';
 	import { goto } from '$app/navigation';
 	import { updated } from '$app/state';
+	import { setSessionPasscode, clearSessionPasscode } from '$lib/state/passcode.svelte';
+	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 
 	const settingsContext = useSettingsContext();
 	let settings = $derived(settingsContext.getSettings());
 
 	const conditionsContext = useConditionsContext();
 	let conditions = $derived(conditionsContext.getConditions());
-	let nonAppleSwitchTheme = $derived.by(() =>
-		conditions.isAppleDevice ? '' : 'data-[state=on]:bg-[#EB3912]'
-	);
+	let nonAppleSwitchTheme = $derived.by(() => (conditions.isAppleDevice ? '' : 'data-[state=on]:bg-[#EB3912]'));
 
 	const tokensContext = useTokensContext();
 	let tokens = $derived(tokensContext.current?.getTokens() || []);
 
 	let showImportDialog = $state(false);
 	let showExportDialog = $state(false);
+	let showPasscodeDialog = $state(false);
+	let passcodeMode = $state('create');
+
+	/**
+	 * @param {string} passcode
+	 */
+	async function handleSetPasscode(passcode) {
+		setSessionPasscode(passcode);
+		await encryptedLocalStorage.init(passcode);
+
+		if (encryptedLocalStorage.current) {
+			// Explicitly migrate tokens to new storage
+			await tokensContext.iMake(encryptedLocalStorage.current);
+			await encryptedLocalStorage.current.setSentinel();
+		}
+
+		conditionsContext.updateCondition('isUserPasscodeSet', true);
+
+		const tokenCount = tokensContext.current?.getTokens().length || 0;
+		if (tokenCount > 0) {
+			alert(`Passcode set! ${tokenCount} token${tokenCount > 1 ? 's' : ''} re-encrypted.`);
+		} else {
+			alert('Passcode set successfully!');
+		}
+	}
+
+	/**
+	 * @param {string} passcode
+	 */
+	async function handleChangePasscode(passcode) {
+		setSessionPasscode(passcode);
+		await encryptedLocalStorage.init(passcode);
+
+		if (encryptedLocalStorage.current) {
+			// Explicitly migrate tokens to new storage
+			await tokensContext.iMake(encryptedLocalStorage.current);
+			await encryptedLocalStorage.current.setSentinel();
+		}
+
+		const tokenCount = tokensContext.current?.getTokens().length || 0;
+		alert(`Passcode changed! ${tokenCount} token${tokenCount > 1 ? 's' : ''} re-encrypted.`);
+	}
+
+	async function handleRemovePasscode() {
+		if (
+			prompt(
+				'Remove passcode? Your tokens will be encrypted with a device-specific key instead. Type "YES" to confirm.',
+				'NO'
+			) !== 'YES'
+		)
+			return;
+
+		clearSessionPasscode();
+		conditionsContext.updateCondition('isUserPasscodeSet', false);
+
+		if (conditions.clientId) {
+			await encryptedLocalStorage.init(conditions.clientId);
+		}
+
+		alert('Passcode removed. Your tokens are now encrypted with a device-specific key.');
+	}
 
 	function purgeAll() {
 		if (
@@ -70,7 +132,7 @@
 			<div class="mb-4 divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<span>iCloud Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
-					<Switch disabled checked={settings.iCloudBackupEnabled} class={nonAppleSwitchTheme} />
+					<Switch disabled checked={false} class={nonAppleSwitchTheme} />
 				</div>
 				<div class="flex items-center justify-between p-4">
 					<span>Last Synced</span>
@@ -79,10 +141,8 @@
 			</div>
 			<div class="mb-4 divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
-					<span
-						>Google Drive Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span
-					>
-					<Switch disabled checked={settings.gDriveBackupEnabled} class={nonAppleSwitchTheme} />
+					<span>Google Drive Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
+					<Switch disabled checked={false} class={nonAppleSwitchTheme} />
 				</div>
 				<div class="flex items-center justify-between p-4">
 					<span>Last Synced</span>
@@ -103,6 +163,49 @@
 				>
 					Export
 				</button>
+			</div>
+		</section>
+
+		<section>
+			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Security</h2>
+			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
+				<div class="flex items-center justify-between p-4">
+					<div>
+						<div>Passcode Lock</div>
+						<div class="text-sm text-zinc-500">
+							{conditions.isUserPasscodeSet ? 'Passcode is set' : 'No passcode set'}
+						</div>
+					</div>
+					<div class="flex gap-2">
+						{#if conditions.isUserPasscodeSet}
+							<button
+								class="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700"
+								onclick={() => {
+									passcodeMode = 'change';
+									showPasscodeDialog = true;
+								}}
+							>
+								Change
+							</button>
+							<button
+								class="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-red-500 transition-colors hover:bg-zinc-700"
+								onclick={handleRemovePasscode}
+							>
+								Remove
+							</button>
+						{:else}
+							<button
+								class="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700"
+								onclick={() => {
+									passcodeMode = 'create';
+									showPasscodeDialog = true;
+								}}
+							>
+								Set Passcode
+							</button>
+						{/if}
+					</div>
+				</div>
 			</div>
 		</section>
 
@@ -154,10 +257,7 @@
 				<div class="rounded-lg bg-zinc-900 p-4">
 					<div class="flex items-center justify-between">
 						<span>New version available!</span>
-						<button
-							class="rounded-lg bg-zinc-900 text-left text-blue-500"
-							onclick={() => location.reload()}
-						>
+						<button class="rounded-lg bg-zinc-900 text-left text-blue-500" onclick={() => location.reload()}>
 							Update now
 						</button>
 					</div>
@@ -169,9 +269,7 @@
 			Trezur v{version}
 			{dev ? '[DEV]' : ''} <br />
 			Favicon: Key by Bucky Clarke from
-			<a href="https://thenounproject.com/browse/icons/term/key/" target="_blank" title="Key Icons"
-				>Noun Project</a
-			>
+			<a href="https://thenounproject.com/browse/icons/term/key/" target="_blank" title="Key Icons">Noun Project</a>
 			(CC BY 3.0). Color modified to orange. <br />
 			Made with ❤️ and ✨ at <a href="https://www.quirkdom.com" target="_blank">Quirkdom</a>
 		</p>
@@ -181,3 +279,9 @@
 <ImportTokensDialog bind:open={showImportDialog} {handleImport} />
 
 <ExportTokensDialog bind:open={showExportDialog} {tokens} />
+
+<PasscodeDialog
+	bind:open={showPasscodeDialog}
+	mode={passcodeMode}
+	onSuccess={passcodeMode === 'create' ? handleSetPasscode : handleChangePasscode}
+/>

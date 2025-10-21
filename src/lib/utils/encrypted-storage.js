@@ -3,9 +3,12 @@
  * @typedef {import('$lib/types').EncryptedStorage} EncryptedStorage
  */
 import { browser } from '$app/environment';
-import { ds, cip } from './salada';
+import { cip } from './salada';
 
 const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
+const METADATA_KEY = 'T_ES_meta';
+const SENTINEL_KEY = '__passcode_sentinel__';
+const DEFAULT_ITERATIONS = 400000;
 
 /**
  * @implements {EncryptedStorage}
@@ -40,10 +43,33 @@ export class AESGCMEncryptedStorage {
 	}
 
 	/**
+	 * Get or create metadata with KDF parameters and random salt
+	 * @returns {Promise<{v: number, kdf: string, iterations: number, salt: string}>}
+	 */
+	async #getOrCreateMetadata() {
+		const stored = await this.storageEngine.getItem(METADATA_KEY);
+		if (stored) {
+			return JSON.parse(stored);
+		}
+
+		const saltBytes = crypto.getRandomValues(new Uint8Array(32));
+		const metadata = {
+			v: 1,
+			kdf: 'PBKDF2-SHA256',
+			iterations: DEFAULT_ITERATIONS,
+			salt: btoa(String.fromCharCode(...saltBytes))
+		};
+
+		await this.storageEngine.setItem(METADATA_KEY, JSON.stringify(metadata));
+		return metadata;
+	}
+
+	/**
 	 * @param {string} passkey
 	 */
 	async #makeCryptoKey(passkey) {
-		const salt = await ds(passkey);
+		const metadata = await this.#getOrCreateMetadata();
+		const saltBytes = Uint8Array.from(atob(metadata.salt), (c) => c.charCodeAt(0));
 
 		const keyMaterial = await crypto.subtle.importKey(
 			'raw',
@@ -56,13 +82,13 @@ export class AESGCMEncryptedStorage {
 		return crypto.subtle.deriveKey(
 			{
 				name: 'PBKDF2',
-				salt,
-				iterations: 100000,
+				salt: saltBytes,
+				iterations: metadata.iterations,
 				hash: 'SHA-256'
 			},
 			keyMaterial,
 			{ name: 'AES-GCM', length: 256 },
-			true,
+			false,
 			['encrypt', 'decrypt']
 		);
 	}
@@ -112,8 +138,7 @@ export class AESGCMEncryptedStorage {
 			);
 
 			return JSON.parse(new TextDecoder().decode(decrypted));
-		} catch (error) {
-			console.error('Decryption failed:', error);
+		} catch {
 			return null;
 		}
 	}
@@ -125,10 +150,26 @@ export class AESGCMEncryptedStorage {
 		await this.storageEngine.removeItem(cip('T_ES_' + key));
 	}
 
+	/**
+	 * Set the sentinel value to verify passcode on unlock
+	 */
+	async setSentinel() {
+		await this.set(SENTINEL_KEY, { v: 1, ok: true });
+	}
+
+	/**
+	 * Verify if the current key can decrypt the sentinel
+	 * @returns {Promise<boolean>}
+	 */
+	async verifySentinel() {
+		const sentinel = await this.get(SENTINEL_KEY);
+		return sentinel?.v === 1 && sentinel?.ok === true;
+	}
+
 	async purge() {
 		const keys = await this.storageEngine.keys();
 		keys.forEach((key) => {
-			if (key.startsWith(cip('T_ES_'))) {
+			if (key.startsWith(cip('T_ES_')) || key === METADATA_KEY) {
 				this.storageEngine.removeItem(key);
 			}
 		});

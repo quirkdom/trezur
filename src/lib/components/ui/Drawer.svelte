@@ -33,11 +33,7 @@
 		>
 			<div class="mb-6 flex items-center justify-between">
 				<h2 class="text-2xl font-medium text-white">{title}</h2>
-				<button
-					class="p-1 text-gray-400 hover:text-[#EB3912]"
-					onclick={handleClose}
-					aria-label="Close"
-				>
+				<button class="p-1 text-gray-400 hover:text-[#EB3912]" onclick={handleClose} aria-label="Close">
 					<X size={24} />
 				</button>
 			</div>
