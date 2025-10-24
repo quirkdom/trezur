@@ -10,7 +10,7 @@
 	import { useTokensContext } from '$lib/state/tokens.svelte';
 	import { goto } from '$app/navigation';
 	import { updated } from '$app/state';
-	import { setSessionPasscode, clearSessionPasscode } from '$lib/state/passcode.svelte';
+	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 
 	const settingsContext = useSettingsContext();
@@ -32,7 +32,7 @@
 	 * @param {string} passcode
 	 */
 	async function handleSetPasscode(passcode) {
-		setSessionPasscode(passcode);
+		sessionPasscode.passcode = passcode;
 		await encryptedLocalStorage.init(passcode);
 
 		if (encryptedLocalStorage.current) {
@@ -55,7 +55,7 @@
 	 * @param {string} passcode
 	 */
 	async function handleChangePasscode(passcode) {
-		setSessionPasscode(passcode);
+		sessionPasscode.passcode = passcode;
 		await encryptedLocalStorage.init(passcode);
 
 		if (encryptedLocalStorage.current) {
@@ -77,7 +77,7 @@
 		)
 			return;
 
-		clearSessionPasscode();
+		sessionPasscode.clear();
 		conditionsContext.updateCondition('isUserPasscodeSet', false);
 
 		if (conditions.clientId) {
@@ -127,9 +127,10 @@
 
 <main>
 	<div class="space-y-6">
-		<section>
-			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Backup</h2>
-			<div class="mb-4 divide-y divide-gray-800 rounded-lg bg-zinc-900">
+		<section class="space-y-4">
+			<h2 class="text-sm text-zinc-500 uppercase">Backup</h2>
+
+			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<span>iCloud Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
 					<Switch disabled checked={false} class={nonAppleSwitchTheme} />
@@ -139,7 +140,8 @@
 					<span class="text-zinc-500">Never</span>
 				</div>
 			</div>
-			<div class="mb-4 divide-y divide-gray-800 rounded-lg bg-zinc-900">
+
+			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<span>Google Drive Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
 					<Switch disabled checked={false} class={nonAppleSwitchTheme} />
@@ -150,7 +152,7 @@
 				</div>
 			</div>
 
-			<div class="mt-4 flex gap-4">
+			<div class="flex gap-4">
 				<button
 					class="w-full rounded-lg bg-zinc-900 p-4 text-center text-blue-500 transition-colors hover:bg-zinc-700"
 					onclick={() => (showImportDialog = true)}
@@ -167,11 +169,11 @@
 		</section>
 
 		<section>
-			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Security</h2>
+			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Security & Preferences</h2>
 			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<div>
-						<div>Passcode Lock</div>
+						<div>Use passcode</div>
 						<div class="text-sm text-zinc-500">
 							{conditions.isUserPasscodeSet ? 'Passcode is set' : 'No passcode set'}
 						</div>
@@ -206,23 +208,17 @@
 						{/if}
 					</div>
 				</div>
-			</div>
-		</section>
-
-		<section>
-			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Preferences</h2>
-			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
-				<!-- <div class="flex items-center justify-between p-4">
-					<span>Use biometrics to unlock</span>
+				<div class="flex items-center justify-between p-4">
+					<span>Use biometrics to unlock <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
 					<Switch
-						disabled={conditions.isAppLocked}
+						disabled
 						checked={settings.useBiometricUnlock}
 						onCheckedChange={(/** @type {boolean} */ checked) => {
 							settingsContext.updateSetting('useBiometricUnlock', checked);
 						}}
 						class={nonAppleSwitchTheme}
 					/>
-				</div> -->
+				</div>
 				<div class="flex items-center justify-between p-4">
 					<span>Show next token</span>
 					<Switch

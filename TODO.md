@@ -4,8 +4,20 @@ Individual files have small, inline TODO reminders.
 
 ## Bugs
 
+- [ ] (P0) Fix repeated tokens context init and re-init (upto 5 times consecutively now) on page load, when a user passcode is already set.
+  - [x] This was fixed by removing manual `await encryptedLocalStorage.init(passcode);` in [UnlockScreen.svelte#handleUnlock](src/lib/components/UnlockScreen.svelte#L17)
+  - [ ] However, the fix surfaced that whenever we do changes to passcode (e.g. in settings page, or on unlock), we often also manually init the storage instance. This is then duplicated by effects in [src/routes/+page.svelte](src/routes/+page.svelte) and [src/routes/+layout.svelte](src/routes/+layout.svelte). We need to either remove init/syncing effects entirely and move to manual calls **_OR_** figure out how to wait for the storage instance to be ready before running side-effects of setting/changing passcode.
+
+- [ ] (P0) [Hard to repro] Sometimes, after running the dev server after a long break, on initial load, the app wipes out tokens stored in encrypted local storage.
+
+- [ ] (P1) Fix the container layout of the pages to better position and align text content on Codes screen
+  - Currently, the header takes up some vertical space and the text container is a flexbox below it, which makes it hard to align the text contents to vertical center of app viewport. This is further complicated by the footer, which is sticky and inset to the bottom.
+  - [ ] The right way to go about this is probably to have header, main content and footer all inside a single flexbox container, with the main content growing to eat up all vertical space possible and the header and footer of fixed sizes being fixed at the top and bottom respectively.
+
 - [ ] Reset Option on Wrong Passcode missing from view
 - [ ] Refactor how sentinel and encrypted storage metadata is stored
+- [ ] Maintain focus on Add Token Drawer -> token secret box, when reveal button is clicked.
+  - This is especially problematic in mobile, where the keyboard dissapears on lost focus.
 
 - [x] When data is imported from settings page, it adds data into tokensContext state, and then immediately persists it. However after navigating to '/', the $effect to make tokens context in +page.svelte re-runs, which causes #load to run, and that blindly merges persisted data (i.e. tokens that were just persisted) and existing tokens in memory state, resulting in duplicate tokens.
   - [x] Can be possibly solved by de-duping against IDs. But is that a good idea?

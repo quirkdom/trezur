@@ -12,8 +12,6 @@
 	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from 'lucide-svelte';
 	import { asset } from '$app/paths';
 
-	const { data } = $props();
-
 	const settingsContext = useSettingsContext();
 	const conditionsContext = useConditionsContext();
 	const tokensContext = useTokensContext();
@@ -26,30 +24,33 @@
 	 * Auto-corrects if tokens context gets out of sync with current storage.
 	 * Won't cause duplicate inits because we check if storage instance actually changed.
 	 */
-	let isInitializing = $state(true);
+	let isLoading = $state(true);
 
 	$effect(() => {
 		const storage = encryptedLocalStorage.current;
 		const currentCtx = tokensContext.current;
-		
+
 		if (browser && storage) {
 			// Initialize if no context, or re-init if storage instance changed
 			if (!currentCtx || storage !== currentCtx.storage) {
 				(async () => {
-					isInitializing = true;
-					if (dev) console.log('[Home] Initializing tokens context with current storage');
+					isLoading = true;
+
+					if (dev)
+						if (!currentCtx) console.log('[Home] Initializing tokens context with current storage');
+						else console.log('[Home] Re-initializing tokens context with new storage');
+
 					await tokensContext.iMake(storage);
-					isInitializing = false;
+					isLoading = false;
 				})();
 			} else {
 				// Storage exists and matches - no init needed
-				isInitializing = false;
+				isLoading = false;
 			}
 		}
 	});
 
 	let tokens = $derived(tokensContext.current?.getTokens() || []);
-	let isLoading = $derived(isInitializing);
 
 	// $inspect(tokensContext, tokens);
 
@@ -101,7 +102,7 @@
 			<TokenList {tokens} {searchQuery} />
 		</div>
 	{:else}
-		<div class="mt-12 flex h-auto flex-col items-center justify-center gap-8 text-center sm:mt-18">
+		<div class="mt-12 flex flex-col items-center justify-center gap-8 text-center sm:mt-18">
 			<h2 class="px-4 text-2xl font-semibold">
 				Trezur is a web-app to generate <abbr title="Time-based One-Time Password">TOTP</abbr> and
 				<abbr title="HMAC-based One-Time Password">HOTP</abbr>

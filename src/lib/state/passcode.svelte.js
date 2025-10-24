@@ -1,35 +1,29 @@
 /**
- * Passcode utilities for app lock and encryption
+ * Session level passcode store for app lock and encryption
  * @module Passcode
  */
 
 /**
- * Reactive session storage for passcode (cleared on browser close/refresh).
- * Using $state module pattern for reactivity across the app.
+ * Reactive class for session passcode management
  */
-export let sessionPasscode = $state({
-	value: /** @type {string | null} */ (null)
-});
+class PasscodeStore {
+	/** @type {string | null} */
+	#value = $state(null);
 
-/**
- * Set the passcode for the current session (never persisted)
- * @param {string} passcode
- */
-export function setSessionPasscode(passcode) {
-	sessionPasscode.value = passcode;
+	get passcode() {
+		return this.#value;
+	}
+
+	set passcode(passcode) {
+		this.#value = passcode;
+	}
+
+	clear() {
+		this.#value = null;
+	}
 }
 
 /**
- * Get the passcode for the current session
- * @returns {string | null}
+ * Instance of the passcode store
  */
-export function getSessionPasscode() {
-	return sessionPasscode.value;
-}
-
-/**
- * Clear the passcode from session
- */
-export function clearSessionPasscode() {
-	sessionPasscode.value = null;
-}
+export const sessionPasscode = new PasscodeStore();

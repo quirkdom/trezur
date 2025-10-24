@@ -5,18 +5,23 @@
 	import { createConditionsContext } from '$lib/state/conditions.svelte';
 	import { browser } from '$app/environment';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { createTokensContext, useTokensContext } from '$lib/state/tokens.svelte';
+	import { createTokensContext } from '$lib/state/tokens.svelte';
 	import { untrack } from 'svelte';
-	import { getSessionPasscode } from '$lib/state/passcode.svelte';
+	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import UnlockScreen from '$lib/components/UnlockScreen.svelte';
+	import { dev } from '$app/environment';
 
 	const { children, data } = $props();
 
 	createSettingsContext(data.settings);
-	const tokensContext = createTokensContext();
+	createTokensContext();
 
 	const conditionsContext = createConditionsContext(data.conditions);
 	const conditions = $derived(conditionsContext.getConditions());
+
+	$inspect('conditions.isAppLocked', conditions.isAppLocked); // for debugging
+	$inspect('conditions.isUserPasscodeSet', conditions.isUserPasscodeSet); // for debugging
+	$inspect('sessionPasscode.passcode', sessionPasscode.passcode); // for debugging
 
 	/**
 	 * Updates conditions context with conditions derived from load-time data.
@@ -33,34 +38,42 @@
 	 */
 	$effect(() => {
 		if (browser) {
-			const passkey = conditions.isUserPasscodeSet ? getSessionPasscode() : conditions.clientId;
+			const passkey = conditions.isUserPasscodeSet ? sessionPasscode.passcode : conditions.clientId;
 
 			if (passkey) {
-				encryptedLocalStorage.init(passkey);
+				if (dev) console.log('[Layout] Initializing encrypted local storage with passkey:', passkey);
+
+				encryptedLocalStorage.init(passkey); // async method; not awaited
+
+				return () => {
+					if (dev) console.log('[Layout] Uninitializing encrypted local storage');
+					encryptedLocalStorage.current = null;
+				};
 			}
 		}
 	});
 
 	/**
 	 * Lock the app if passcode is set and no session passcode is available
+	 * @todo TODO: See if this can be simplified.
 	 */
 	$effect(() => {
-		if (browser && conditions.isUserPasscodeSet && !getSessionPasscode() && !conditions.isAppLocked) {
+		if (browser && conditions.isUserPasscodeSet && !sessionPasscode.passcode && !conditions.isAppLocked) {
 			conditionsContext.updateCondition('isAppLocked', true);
 		}
 	});
 </script>
 
-{#if conditions.isAppLocked && conditions.isUserPasscodeSet}
-	<UnlockScreen />
-{:else}
-	<div class="min-h-screen bg-black p-4 text-white">
-		<div class="mx-auto max-w-md">
+<div class="min-h-screen bg-black p-4 text-white">
+	<div class="mx-auto max-w-md">
+		{#if conditions.isAppLocked}
+			<UnlockScreen />
+		{:else}
 			{@render children()}
+		{/if}
 
-			<footer class="mt-24">
-				<FooterNav isLocked={conditions.isAppLocked} isAppleDevice={conditions.isAppleDevice} />
-			</footer>
-		</div>
+		<footer class="mt-24">
+			<FooterNav toggleAppLockAction={(willLockApp) => willLockApp && sessionPasscode.clear()} />
+		</footer>
 	</div>
-{/if}
+</div>

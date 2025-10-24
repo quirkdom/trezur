@@ -1,6 +1,6 @@
 <script>
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { AESGCMEncryptedStorage, LocalStorageEngine } from '$lib/utils/encrypted-storage';
+	import Drawer from '$lib/components/ui/Drawer.svelte';
 
 	let { open = $bindable(false), mode = 'verify', onSuccess } = $props();
 
@@ -15,8 +15,7 @@
 
 		try {
 			if (mode === 'verify') {
-				const tempStorage = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passcode);
-				const isValid = await tempStorage.verifySentinel();
+				const isValid = await encryptedLocalStorage.test(passcode);
 
 				if (isValid) {
 					onSuccess?.(passcode);
@@ -64,81 +63,70 @@
 	});
 </script>
 
-{#if open}
-	<div
-		class="bg-opacity-75 fixed inset-0 z-50 flex items-center justify-center bg-black"
-		onclick={mode === 'verify' ? undefined : handleCancel}
-		role="button"
-		tabindex="-1"
+<Drawer
+	bind:open
+	title={mode === 'verify' ? 'Enter Passcode' : mode === 'create' ? 'Create Passcode' : 'Change Passcode'}
+	onClose={handleCancel}
+	class="mx-auto max-w-lg"
+>
+	<form
+		onsubmit={(e) => {
+			e.preventDefault();
+			handleSubmit();
+		}}
+		class="space-y-4"
 	>
-		<div
-			class="w-full max-w-md rounded-lg bg-zinc-900 p-6 shadow-xl"
-			onclick={(e) => e.stopPropagation()}
-			role="dialog"
-			aria-modal="true"
-		>
-			<h2 class="mb-4 text-xl font-bold">
-				{mode === 'verify' ? 'Enter Passcode' : mode === 'create' ? 'Create Passcode' : 'Change Passcode'}
-			</h2>
-
-			<form
-				onsubmit={(e) => {
-					e.preventDefault();
-					handleSubmit();
-				}}
-				class="space-y-4"
-			>
-				<div>
-					<label for="passcode" class="mb-1 block text-sm">Passcode</label>
-					<input
-						type="password"
-						id="passcode"
-						class="w-full rounded bg-zinc-800 p-3 text-white"
-						bind:value={passcode}
-						autocomplete="off"
-						disabled={processing}
-						autofocus
-					/>
-				</div>
-
-				{#if mode === 'create' || mode === 'change'}
-					<div>
-						<label for="confirmPasscode" class="mb-1 block text-sm">Confirm Passcode</label>
-						<input
-							type="password"
-							id="confirmPasscode"
-							class="w-full rounded bg-zinc-800 p-3 text-white"
-							bind:value={confirmPasscode}
-							autocomplete="off"
-							disabled={processing}
-						/>
-					</div>
-				{/if}
-
-				{#if error}
-					<div class="text-sm text-red-400">{error}</div>
-				{/if}
-
-				<div class="flex gap-4">
-					{#if mode !== 'verify'}
-						<button
-							type="button"
-							class="w-full rounded-lg bg-zinc-800 py-3 font-medium transition-colors hover:bg-zinc-700"
-							onclick={handleCancel}
-							disabled={processing}
-						>
-							Cancel
-						</button>
-					{/if}
-					<button
-						type="submit"
-						class="w-full rounded-lg bg-blue-600 py-3 font-medium transition-colors hover:bg-blue-700"
-						disabled={processing}
-					>
-						{processing ? 'Processing...' : mode === 'verify' ? 'Unlock' : 'Set Passcode'}
-					</button>
-				</div>
-			</form>
+		<div>
+		<label for="passcode" class="mb-1 block text-sm text-gray-400">Passcode</label>
+		<!-- svelte-ignore a11y_autofocus : This is ok because this dialog is the only element to be interacted with.
+		See https://github.com/sveltejs/svelte/issues/6629#issuecomment-2905635643 -->
+		<input
+		type="password"
+		id="passcode"
+		class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-[#EB3912] focus:outline-none"
+		bind:value={passcode}
+		autocomplete="off"
+		disabled={processing}
+		autofocus
+		/>
 		</div>
-	</div>
-{/if}
+
+		{#if mode === 'create' || mode === 'change'}
+			<div>
+				<label for="confirmPasscode" class="mb-1 block text-sm text-gray-400">Confirm Passcode</label>
+				<input
+					type="password"
+					id="confirmPasscode"
+					class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-[#EB3912] focus:outline-none"
+					bind:value={confirmPasscode}
+					autocomplete="off"
+					disabled={processing}
+				/>
+			</div>
+		{/if}
+
+		{#if error}
+			<div class="text-sm text-red-400">{error}</div>
+		{/if}
+
+		<div class="flex gap-4">
+			{#if mode !== 'verify'}
+				<button
+					type="button"
+					class="flex-1 rounded-lg bg-zinc-800 py-3 text-white transition-colors hover:bg-zinc-700"
+					onclick={handleCancel}
+					disabled={processing}
+				>
+					Cancel
+				</button>
+			{/if}
+			<button
+				type="submit"
+				class="flex-1 rounded-lg bg-[#EB3912] py-3 text-white transition-colors hover:bg-[#D83511]"
+				disabled={processing}
+			>
+				{processing ? 'Processing...' : mode === 'verify' ? 'Unlock' : 'Set Passcode'}
+			</button>
+		</div>
+	</form>
+</Drawer>
