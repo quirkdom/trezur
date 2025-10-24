@@ -1,5 +1,5 @@
 <script>
-	import { Eye, EyeOff, ScanQrCodeIcon } from 'lucide-svelte';
+	import { Eye, EyeOff, ScanQrCodeIcon } from '@lucide/svelte';
 	import Drawer from '../ui/Drawer.svelte';
 	import { onDestroy, tick } from 'svelte';
 	import { TOTP, URI } from 'otpauth';

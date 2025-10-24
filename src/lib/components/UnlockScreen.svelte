@@ -3,7 +3,7 @@
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import { asset } from '$app/paths';
-	import { Lock } from 'lucide-svelte';
+	import { Lock } from '@lucide/svelte';
 	import { dev, version } from '$app/environment';
 
 	const conditionsContext = useConditionsContext();

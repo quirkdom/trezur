@@ -1,5 +1,5 @@
 <script>
-	import { X } from 'lucide-svelte';
+	import { X } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 
 	let {

@@ -1,7 +1,7 @@
 <script>
 	import { useTokensContext } from '$lib/state/tokens.svelte';
 	import NumberFlow, { NumberFlowGroup } from '@number-flow/svelte';
-	import { ClipboardCopy, EllipsisVertical, QrCode, Trash2 } from 'lucide-svelte';
+	import { ClipboardCopy, EllipsisVertical, QrCode, Trash2 } from '@lucide/svelte';
 	import { TOTP } from 'otpauth';
 	import { onMount } from 'svelte';
 	import Editable from '../ui/Editable.svelte';

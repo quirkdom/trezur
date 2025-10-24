@@ -1,5 +1,5 @@
 <script>
-	import { Search } from 'lucide-svelte';
+	import { Search } from '@lucide/svelte';
 
 	let { searchQuery = $bindable(''), isAppleDevice = false } = $props();
 

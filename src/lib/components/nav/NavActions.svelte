@@ -1,5 +1,5 @@
 <script>
-	import { ArrowLeft, ArrowUpDown, Plus, ArrowDownZA, ArrowDownAZ } from 'lucide-svelte';
+	import { ArrowLeft, ArrowUpDown, Plus, ArrowDownZA, ArrowDownAZ } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	let {

@@ -9,7 +9,7 @@
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
-	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from 'lucide-svelte';
+	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from '@lucide/svelte';
 	import { asset } from '$app/paths';
 
 	const settingsContext = useSettingsContext();

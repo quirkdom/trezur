@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/state';
-	import { Cog, Lock, LockOpen, Settings } from 'lucide-svelte';
+	import { Cog, Lock, LockOpen, Settings } from '@lucide/svelte';
 	import { longpress } from '$lib/utils/interactions';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 
