@@ -3,6 +3,7 @@
  * @typedef {import('$lib/types').EncryptedStorage} EncryptedStorage
  */
 import { browser, dev } from '$app/environment';
+import { devconsole } from '$lib/utils';
 import { nanoid } from 'nanoid';
 import { getContext, hasContext, setContext } from 'svelte';
 
@@ -39,19 +40,19 @@ class TokensCtx {
 		if (options?.extraTokens && options.extraTokens.length > 0) {
 			// Merge and deduplicate
 			const tokenMap = new Map();
-			
+
 			// Add existing tokens
 			for (const token of instance.#tokens) {
 				const key = `${token.id}:${token.secret}`;
 				tokenMap.set(key, token);
 			}
-			
+
 			// Merge in extra tokens (will overwrite if duplicate)
 			for (const token of options.extraTokens) {
 				const key = `${token.id}:${token.secret}`;
 				tokenMap.set(key, token);
 			}
-			
+
 			instance.#tokens = [...tokenMap.values()];
 			await instance.#persist(); // Ensure changes are persisted
 		}
@@ -133,7 +134,7 @@ class TokensCtx {
 	updateToken(id, updates) {
 		const tokenIndex = this.#tokens.findIndex((t) => t.id === id);
 		if (tokenIndex === -1) {
-			if (dev) console.warn(`Token with id ${id} not found for update.`);
+			devconsole.warn(`Token with id ${id} not found for update.`);
 			return; // Token not found
 		}
 
@@ -192,10 +193,9 @@ const tokensContext = $state({
 	 * This leaves the app without a valid tokens context; subsequent token operations will fail.
 	 */
 	resetTokens() {
-		if (dev)
-			console.warn(
-				'App without valid Tokens context; subsequent token operations will fail. Remember to invalidate app state and reload the app.'
-			);
+		devconsole.warn(
+			'App without valid Tokens context; subsequent token operations will fail. Remember to invalidate app state and reload the app.'
+		);
 
 		this.current?.clearTokens();
 		this.current = null;

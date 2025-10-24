@@ -9,7 +9,7 @@
 	import { untrack } from 'svelte';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import UnlockScreen from '$lib/components/UnlockScreen.svelte';
-	import { dev } from '$app/environment';
+	import { devconsole } from '$lib/utils';
 
 	const { children, data } = $props();
 
@@ -37,16 +37,18 @@
 	 * - Otherwise: uses clientId
 	 */
 	$effect(() => {
+		$inspect.trace('encryptedLocalStorage init effect'); // for debugging
+
 		if (browser) {
 			const passkey = conditions.isUserPasscodeSet ? sessionPasscode.passcode : conditions.clientId;
 
 			if (passkey) {
-				if (dev) console.log('[Layout] Initializing encrypted local storage with passkey:', passkey);
-
+				devconsole.log('[Layout] Initializing encrypted local storage with passkey:', passkey);
 				encryptedLocalStorage.init(passkey); // async method; not awaited
 
 				return () => {
-					if (dev) console.log('[Layout] Uninitializing encrypted local storage');
+					// this is returned immediately; doesn't await initialization of encryptedLocalStorage
+					devconsole.log('[Layout] Uninitializing encrypted local storage');
 					encryptedLocalStorage.current = null;
 				};
 			}

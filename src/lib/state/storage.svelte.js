@@ -1,7 +1,8 @@
 /**
  * @typedef {import('$lib/types').EncryptedStorage} EncryptedStorage
  */
-import { browser, dev } from '$app/environment';
+import { browser } from '$app/environment';
+import { devconsole } from '$lib/utils';
 import { AESGCMEncryptedStorage, LocalStorageEngine } from '$lib/utils/encrypted-storage';
 
 /**
@@ -21,7 +22,7 @@ export let encryptedLocalStorage = $state({
 		// artificial delay to simulate loading (for testing)
 		// await new Promise((resolve) => setTimeout(resolve, 2000));
 
-		if (dev) console.log('[Storage] Initializing encrypted local storage with passkey:', passkey);
+		devconsole.log('[Storage] Initializing encrypted local storage with passkey:', passkey);
 
 		this.current = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey);
 	},
@@ -32,7 +33,7 @@ export let encryptedLocalStorage = $state({
 	 */
 	async test(passkey) {
 		if (!browser) {
-			if (dev) console.warn('SSR safety: Encrypted Local Storage can only be used in the browser.');
+			devconsole.warn('SSR safety: Encrypted Local Storage can only be used in the browser.');
 			return false;
 		}
 

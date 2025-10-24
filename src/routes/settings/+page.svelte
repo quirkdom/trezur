@@ -12,6 +12,7 @@
 	import { updated } from '$app/state';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
+	import { resolve } from '$app/paths';
 
 	const settingsContext = useSettingsContext();
 	let settings = $derived(settingsContext.getSettings());
@@ -100,7 +101,7 @@
 		conditionsContext.resetConditions();
 		tokensContext.resetTokens();
 
-		goto('/', { invalidate: ['app:conditions'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
+		goto(resolve('/'), { invalidate: ['app:conditions'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
 	}
 
 	/**

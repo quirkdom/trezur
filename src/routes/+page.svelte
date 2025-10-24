@@ -1,5 +1,5 @@
 <script>
-	import { browser, dev } from '$app/environment';
+	import { browser } from '$app/environment';
 	import NavActions from '$lib/components/nav/NavActions.svelte';
 	import AddTokenForm from '$lib/components/tokens/AddTokenForm.svelte';
 	import TokenList from '$lib/components/tokens/TokenList.svelte';
@@ -11,6 +11,8 @@
 	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
 	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from '@lucide/svelte';
 	import { asset } from '$app/paths';
+	import { devconsole } from '$lib/utils';
+	import { untrack } from 'svelte';
 
 	const settingsContext = useSettingsContext();
 	const conditionsContext = useConditionsContext();
@@ -27,24 +29,27 @@
 	let isLoading = $state(true);
 
 	$effect(() => {
+		$inspect.trace('tokensContext init effect'); // for debugging
+
 		const storage = encryptedLocalStorage.current;
 		const currentCtx = tokensContext.current;
 
 		if (browser && storage) {
-			// Initialize if no context, or re-init if storage instance changed
 			if (!currentCtx || storage !== currentCtx.storage) {
+				// Initialize if no context yet, or re-init if storage instance changed
+				devconsole.log(
+					`[Codes] ${storage === currentCtx?.storage ? 'Re-' : ''}Initializing tokens context with ${storage === currentCtx?.storage ? 'current' : 'new'} storage`
+				);
+
 				(async () => {
 					isLoading = true;
-
-					if (dev)
-						if (!currentCtx) console.log('[Home] Initializing tokens context with current storage');
-						else console.log('[Home] Re-initializing tokens context with new storage');
-
-					await tokensContext.iMake(storage);
+					await untrack(() => tokensContext.iMake(storage));
 					isLoading = false;
 				})();
 			} else {
 				// Storage exists and matches - no init needed
+				devconsole.log('[Codes] Tokens context already initialized with current storage');
+
 				isLoading = false;
 			}
 		}
