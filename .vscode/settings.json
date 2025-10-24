@@ -3,5 +3,6 @@
 	"editor.formatOnSaveMode": "file",
 	"editor.formatOnPaste": true,
 	"editor.tabSize": 4,
-	"editor.rulers": [120]
+	"editor.rulers": [120],
+	"eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact", "svelte"]
 }
