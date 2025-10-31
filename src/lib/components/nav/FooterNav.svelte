@@ -3,6 +3,7 @@
 	import { Cog, Lock, LockOpen, Settings } from '@lucide/svelte';
 	import { longpress } from '$lib/utils/interactions';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
+	import { resolve } from '$app/paths';
 
 	/** @type {{toggleAppLockAction?: (willLockApp: boolean) => void}} */
 	let { toggleAppLockAction = undefined } = $props();
@@ -22,7 +23,7 @@
 <nav
 	class="fixed inset-x-0 bottom-6 mx-auto flex max-w-sm justify-center gap-32 rounded-3xl border-b-2 border-[#EB3912] bg-black/50 p-4 backdrop-blur-sm"
 >
-	<a href="/">
+	<a href={resolve('/')}>
 		<!-- TODO: Move to Tailwind theming -->
 		<button
 			class="flex flex-col items-center"
@@ -45,7 +46,7 @@
 			<span class="mt-1 text-sm">Codes</span>
 		</button>
 	</a>
-	<a href="/settings">
+	<a href={resolve('/settings')}>
 		<!-- TODO: Move to Tailwind theming -->
 		<button
 			class="flex flex-col items-center"

@@ -10,7 +10,7 @@
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
 	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from '@lucide/svelte';
-	import { asset } from '$app/paths';
+	import { asset, resolve } from '$app/paths';
 	import { devconsole } from '$lib/utils';
 	import { untrack } from 'svelte';
 
@@ -20,6 +20,8 @@
 
 	const conditions = $derived(conditionsContext.getConditions());
 	let isAppleDevice = $derived(conditions.isAppleDevice);
+
+	$inspect('tokensContext.current', tokensContext.current);
 
 	/**
 	 * Initialize or re-initialize tokens when storage changes.
@@ -180,9 +182,9 @@
 			</button> button.
 		</p>
 		<p>
-			Or import tokens from another app in the <a href="/settings">Settings </a>
+			Or import tokens from another app in the <a href={resolve('/settings')}>Settings </a>
 			<a
-				href="/settings"
+				href={resolve('/settings')}
 				class="inline-flex items-center align-middle transition duration-800 ease-in-out hover:rotate-90 hover:text-[#EB3912]"
 				aria-label="Settings page"
 			>

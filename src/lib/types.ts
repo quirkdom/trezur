@@ -1,6 +1,6 @@
 /**
  * Same as {@link Token} but with some optional fields.
- * Any Token candidate starts it's life as a Tokenable; post-validation, it can be stored as a Token.
+ * Any Token candidate starts its life as a Tokenable; post-validation, it can be stored as a Token.
  */
 export interface Tokenable {
 	digits?: number;

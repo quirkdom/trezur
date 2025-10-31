@@ -6,6 +6,7 @@ import { browser, dev } from '$app/environment';
 import { devconsole } from '$lib/utils';
 import { nanoid } from 'nanoid';
 import { getContext, hasContext, setContext } from 'svelte';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
 const T_TOKENS = 'T_tokens';
@@ -39,7 +40,7 @@ class TokensCtx {
 
 		if (options?.extraTokens && options.extraTokens.length > 0) {
 			// Merge and deduplicate
-			const tokenMap = new Map();
+			const tokenMap = new SvelteMap();
 
 			// Add existing tokens
 			for (const token of instance.#tokens) {
@@ -67,7 +68,7 @@ class TokensCtx {
 		const loadedTokens = (await this.storage.get(T_TOKENS)) || [];
 
 		// Use a map to track tokens by their canonical identifier for deduplication
-		const tokenMap = new Map();
+		const tokenMap = new SvelteMap();
 
 		for (const token of loadedTokens) {
 			const key = `${token.id}:${token.secret}`;
@@ -105,7 +106,7 @@ class TokensCtx {
 	 */
 	addTokens(...tokensToAdd) {
 		// Create a set of keys for existing tokens for efficient lookup
-		const existingTokenKeys = new Set();
+		const existingTokenKeys = new SvelteSet();
 		for (const token of this.#tokens) {
 			existingTokenKeys.add(`${token.id}:${token.secret}`);
 		}

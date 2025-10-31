@@ -7,9 +7,7 @@
 	let searchInput;
 	let isInputFocused = $state(false);
 
-	/** @type {import('svelte/attachments').Attachment} */
-	function keyboardActions(_element) {
-		// TODO: Check using Svelte actions to handle focus and blur events
+	function keyboardActions() {
 		const handleKeyDown = (/** @type {KeyboardEvent} */ event) => {
 			// Check for Meta+K (Mac) or Ctrl+K (Windows/Linux) to focus search input
 			if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
@@ -84,9 +82,8 @@
 
 {#snippet Kbd(/** @type {string[]} */ keys)}
 	<div class="pointer-events-none absolute top-1/2 right-3 flex -translate-y-1/2 gap-1 select-none">
-		{#each keys as key}
-			<span
-				class="inline-block rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400"
+		{#each keys as key (key)}
+			<span class="inline-block rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400"
 				>{key}</span
 			>
 		{/each}
