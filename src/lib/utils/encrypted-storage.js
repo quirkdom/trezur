@@ -25,9 +25,7 @@ export class AESGCMEncryptedStorage {
 	 */
 	constructor(engine, initToken) {
 		if (initToken !== ANTI_CTOR_TOKEN)
-			throw new Error(
-				'Cannot construct EncryptedStorage directly; await EncryptedStorage.make() instead.'
-			);
+			throw new Error('Cannot construct EncryptedStorage directly; await EncryptedStorage.make() instead.');
 
 		this.storageEngine = engine;
 	}
@@ -71,13 +69,9 @@ export class AESGCMEncryptedStorage {
 		const metadata = await this.#getOrCreateMetadata();
 		const saltBytes = Uint8Array.from(atob(metadata.salt), (c) => c.charCodeAt(0));
 
-		const keyMaterial = await crypto.subtle.importKey(
-			'raw',
-			new TextEncoder().encode(passkey),
-			'PBKDF2',
-			false,
-			['deriveKey']
-		);
+		const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passkey), 'PBKDF2', false, [
+			'deriveKey'
+		]);
 
 		return crypto.subtle.deriveKey(
 			{
@@ -98,17 +92,12 @@ export class AESGCMEncryptedStorage {
 	 * @param {any} value
 	 */
 	async set(key, value) {
-		if (!this.#cryptoKey)
-			throw new Error('Encryption not available. Did you await EncryptedLocalStorage.make()?');
+		if (!this.#cryptoKey) throw new Error('Encryption not available. Did you await EncryptedLocalStorage.make()?');
 
 		const iv = crypto.getRandomValues(new Uint8Array(12));
 		const encodedValue = new TextEncoder().encode(JSON.stringify(value));
 
-		const encrypted = await crypto.subtle.encrypt(
-			{ name: 'AES-GCM', iv },
-			this.#cryptoKey,
-			encodedValue
-		);
+		const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, this.#cryptoKey, encodedValue);
 
 		const storageValue = {
 			iv: Array.from(iv),
@@ -126,8 +115,7 @@ export class AESGCMEncryptedStorage {
 		const stored = await this.storageEngine.getItem(cip('T_ES_' + key));
 		if (!stored) return null;
 
-		if (!this.#cryptoKey)
-			throw new Error('Encryption not available. Did you await EncryptedLocalStorage.make()?');
+		if (!this.#cryptoKey) throw new Error('Encryption not available. Did you await EncryptedLocalStorage.make()?');
 
 		const { iv, data } = JSON.parse(stored);
 		try {

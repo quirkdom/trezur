@@ -83,10 +83,7 @@
 	 * @param {KeyboardEvent} event
 	 */
 	function handleCardKeydown(event) {
-		if (
-			event.target instanceof HTMLElement &&
-			(event.target.tagName === 'INPUT' || event.target.isContentEditable)
-		)
+		if (event.target instanceof HTMLElement && (event.target.tagName === 'INPUT' || event.target.isContentEditable))
 			return; // let event propagate
 
 		if (event.key === 'Enter' || event.key === ' ') {
@@ -117,8 +114,7 @@
 			<div>
 				<Editable
 					value={issuer}
-					onEdit={(/** @type {string} */ val) =>
-						tokensContext.current?.updateToken(id, { issuer: val })}
+					onEdit={(/** @type {string} */ val) => tokensContext.current?.updateToken(id, { issuer: val })}
 					class="max-w-[300px] truncate text-lg font-medium text-white"
 				/>
 				{#if account.length > 40}
@@ -151,10 +147,7 @@
 			<!-- Show the actual codes -->
 			<div class="font-mono text-3xl tracking-wider">
 				<NumberFlowGroup>
-					<NumberFlow
-						format={{ minimumIntegerDigits: token.digits, useGrouping: false }}
-						value={code}
-					/>
+					<NumberFlow format={{ minimumIntegerDigits: token.digits, useGrouping: false }} value={code} />
 					{#if showNextCode}
 						<span
 							class={[
@@ -174,26 +167,24 @@
 			<!-- Actions button group with hover effect -->
 			<div class="group relative mb-1">
 				{#if showCopyAnimation}
-					<div
-						class="absolute right-0 bottom-0 flex p-1.5 text-[#EB3912] transition duration-300 ease-in-out"
-					>
+					<div class="absolute right-0 bottom-0 flex p-1.5 text-[#EB3912] transition duration-300 ease-in-out">
 						<ClipboardCopy size={20} />
 						<span class="sr-only">{issuer} token code copied to clipboard.</span>
 					</div>
 				{:else}
 					<!-- Main button (Ellipsis) - hidden on hover and on touch screens -->
 					<button
-						class="touch-device:hidden rounded-lg p-1.5 text-zinc-500 opacity-50 transition duration-300 group-hover:invisible group-hover:opacity-0"
+						class="rounded-lg p-1.5 text-zinc-500 opacity-50 transition duration-300 group-hover:invisible group-hover:opacity-0 touch-device:hidden"
 					>
 						<EllipsisVertical size={20} />
 						<span class="sr-only">Edit {issuer} token</span>
 					</button>
 					<!-- Expanded buttons (QR, Copy and Delete) - visible on hover or always on touch screens -->
 					<div
-						class="touch-device:static touch-device:border-envelope touch-device:opacity-100 absolute right-0 bottom-0 flex text-zinc-500 opacity-0 transition duration-500 ease-in-out group-hover:opacity-100"
+						class="touch-device:border-envelope absolute right-0 bottom-0 flex text-zinc-500 opacity-0 transition duration-500 ease-in-out group-hover:opacity-100 touch-device:static touch-device:opacity-100"
 					>
 						<button
-							class="touch-device:border-l touch-device:border-y touch-device:border-[#EB3912] rounded-l-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
+							class="rounded-l-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100 touch-device:border-y touch-device:border-l touch-device:border-[#EB3912]"
 							onclick={() => (showTokenQRModal = true)}
 						>
 							<QrCode size={20} />
@@ -201,10 +192,8 @@
 						</button>
 						<button
 							class={[
-								'touch-device:border-y touch-device:border-[#EB3912] bg-zinc-800 p-1.5 transition duration-300 ease-in-out',
-								showCopyAnimation
-									? 'text-[#EB3912] opacity-100'
-									: 'opacity-70 hover:text-[#EB3912] hover:opacity-100'
+								'bg-zinc-800 p-1.5 transition duration-300 ease-in-out touch-device:border-y touch-device:border-[#EB3912]',
+								showCopyAnimation ? 'text-[#EB3912] opacity-100' : 'opacity-70 hover:text-[#EB3912] hover:opacity-100'
 							]}
 							onclick={copyCodeToClipboard}
 						>
@@ -212,7 +201,7 @@
 							<span class="sr-only">Copy {issuer} token code</span>
 						</button>
 						<button
-							class="touch-device:border-y touch-device:border-r touch-device:border-[#EB3912] rounded-r-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100"
+							class="rounded-r-lg bg-zinc-800 p-1.5 opacity-70 transition duration-300 ease-in-out hover:text-[#EB3912] hover:opacity-100 touch-device:border-y touch-device:border-r touch-device:border-[#EB3912]"
 							onclick={handleDelete}
 						>
 							<Trash2 size={20} />
@@ -244,10 +233,7 @@
 				class="text-[#EB3912]"
 			/>
 		</svg>
-		<NumberFlow
-			value={remaining}
-			class="absolute inset-0 flex items-center justify-center text-xs"
-		/>
+		<NumberFlow value={remaining} class="absolute inset-0 flex items-center justify-center text-xs" />
 	</div>
 {/snippet}
 

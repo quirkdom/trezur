@@ -72,9 +72,7 @@
 			<p>
 				This will export {tokens.length} token{tokens.length !== 1 ? 's' : ''} as a JSON file.
 			</p>
-			<p class="mt-1 text-sm text-zinc-500">
-				The exported file contains sensitive information. Store it securely.
-			</p>
+			<p class="mt-1 text-sm text-zinc-500">The exported file contains sensitive information. Store it securely.</p>
 		</div>
 
 		<div class="form-field">
@@ -96,10 +94,7 @@
 			>
 				Cancel
 			</button>
-			<button
-				type="submit"
-				class="flex-1 rounded-lg bg-[#EB3912] py-3 transition-colors hover:bg-[#D83511]"
-			>
+			<button type="submit" class="flex-1 rounded-lg bg-[#EB3912] py-3 transition-colors hover:bg-[#D83511]">
 				Export
 			</button>
 		</div>

@@ -66,8 +66,7 @@
 			if (isProcessing) return;
 
 			// Skip frames until video is actually playing
-			if (!videoElement || videoElement.paused || videoElement.ended || videoElement.readyState < 2)
-				return;
+			if (!videoElement || videoElement.paused || videoElement.ended || videoElement.readyState < 2) return;
 
 			// TODO: Investiagate errors when full resolution is used
 			const qrData = frontCamera.readFrame(qrCanvas, true);
@@ -157,11 +156,8 @@
 <Drawer bind:open title="Add Token" onClose={close} class="mx-auto max-w-lg">
 	{#if showCameraFeed}
 		<div class="relative mb-6 overflow-hidden rounded-lg bg-black">
-			<video bind:this={videoElement} autoplay muted playsinline class="h-64 w-full object-cover"
-			></video>
-			<canvas
-				bind:this={overlayCanvas}
-				class="pointer-events-none absolute top-0 left-0 h-full w-full opacity-70"
+			<video bind:this={videoElement} autoplay muted playsinline class="h-64 w-full object-cover"></video>
+			<canvas bind:this={overlayCanvas} class="pointer-events-none absolute top-0 left-0 h-full w-full opacity-70"
 			></canvas>
 		</div>
 	{:else}
@@ -234,10 +230,7 @@
 			>
 				Cancel
 			</button>
-			<button
-				type="submit"
-				class="flex-1 rounded-lg bg-[#EB3912] py-3 text-white transition-colors hover:bg-[#D83511]"
-			>
+			<button type="submit" class="flex-1 rounded-lg bg-[#EB3912] py-3 text-white transition-colors hover:bg-[#D83511]">
 				Add
 			</button>
 		</div>

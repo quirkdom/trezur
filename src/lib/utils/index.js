@@ -8,7 +8,7 @@ export function isAppleDevice(userAgentString) {
 }
 
 export const devconsole = {
-  log: dev ? console.log.bind(console) : () => {},
-  warn: dev ? console.warn.bind(console) : () => {},
-  error: dev ? console.error.bind(console) : () => {},
+	log: dev ? console.log.bind(console) : () => {},
+	warn: dev ? console.warn.bind(console) : () => {},
+	error: dev ? console.error.bind(console) : () => {}
 };

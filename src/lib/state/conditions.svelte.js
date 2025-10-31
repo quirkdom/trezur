@@ -104,9 +104,7 @@ function createConditionsContext(initialConditions) {
  */
 function useConditionsContext() {
 	if (!hasContext(T_CONDITIONS))
-		throw new Error(
-			'Conditions context not found. Did you forget to call createConditionsContext()?'
-		);
+		throw new Error('Conditions context not found. Did you forget to call createConditionsContext()?');
 
 	return getContext(T_CONDITIONS);
 }
