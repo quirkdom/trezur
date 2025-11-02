@@ -8,10 +8,12 @@
 	import { createTokensContext } from '$lib/state/tokens.svelte';
 	import { untrack } from 'svelte';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
-	import UnlockScreen from '$lib/components/UnlockScreen.svelte';
+	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
 	import { devconsole } from '$lib/utils';
 
 	const { children, data } = $props();
+
+	devconsole.log(data);
 
 	createSettingsContext(data.settings);
 	createTokensContext();
@@ -44,12 +46,12 @@
 
 			if (passkey) {
 				devconsole.log('[Layout] Initializing encrypted local storage with passkey:', passkey);
-				encryptedLocalStorage.init(passkey); // async method; not awaited
+				encryptedLocalStorage.init(passkey); // async method; not awaited. This is dangerous.
 
 				return () => {
 					// this is returned immediately; doesn't await initialization of encryptedLocalStorage
 					devconsole.log('[Layout] Uninitializing encrypted local storage');
-					encryptedLocalStorage.current = null;
+					encryptedLocalStorage.reset(); // async method; not awaited. This is dangerous.
 				};
 			}
 		}

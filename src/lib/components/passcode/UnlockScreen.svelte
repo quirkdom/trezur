@@ -1,13 +1,19 @@
 <script>
 	import PasscodeDialog from './PasscodeDialog.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
+	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
-	import { asset } from '$app/paths';
+	import { asset, resolve } from '$app/paths';
 	import { Lock } from '@lucide/svelte';
 	import { dev, version } from '$app/environment';
+	import { goto } from '$app/navigation';
+	// import { encryptedLocalStorage } from '$lib/state/storage.svelte';
+	import { createTokensContext } from '$lib/state/tokens.svelte';
 
 	const conditionsContext = useConditionsContext();
 	const conditions = $derived(conditionsContext.getConditions());
+	const settingsContext = useSettingsContext();
+	const tokensContext = createTokensContext();
 
 	let showPasscodeDialog = $derived(conditions.isUserPasscodeSet || false);
 
@@ -20,23 +26,25 @@
 		conditionsContext.updateCondition('isAppLocked', false);
 	}
 
-	// TODO - fix this
-	function handleForgotPasscode() {
-		const confirmed = confirm(
-			'If you forgot your passcode, the only option is to delete all app data and start fresh. This will permanently delete all your tokens.\n\nDo you want to proceed?'
-		);
+	async function handleForgotPasscode() {
+		if (
+			prompt(
+				`If you forgot your passcode, the only option is to delete all data and start afresh.
 
-		if (!confirmed) return;
+All tokens will be lost. This action cannot be undone!
 
-		const doubleConfirm = prompt(
-			'This action cannot be undone. All your tokens will be lost!\n\nType "DELETE" to confirm:',
-			''
-		);
+Are you sure you want to proceed? Please type "YES" to confirm this action.`,
+				'NO'
+			) !== 'YES'
+		)
+			return;
 
-		if (doubleConfirm === 'DELETE') {
-			conditionsContext.resetConditions();
-			window.location.reload();
-		}
+		settingsContext.resetSettings();
+		conditionsContext.resetConditions();
+		tokensContext.resetTokens();
+		// encryptedLocalStorage.reset(true);
+
+		goto(resolve('/'), { invalidate: ['app://layout-load'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
 	}
 </script>
 
@@ -56,4 +64,4 @@
 	</p>
 </main>
 
-<PasscodeDialog bind:open={showPasscodeDialog} mode="verify" onSuccess={handleUnlock} />
+<PasscodeDialog bind:open={showPasscodeDialog} mode="verify" onSuccess={handleUnlock} onForgot={handleForgotPasscode} />

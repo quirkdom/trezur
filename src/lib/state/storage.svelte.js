@@ -40,8 +40,19 @@ export let encryptedLocalStorage = $state({
 		try {
 			const tempStorage = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey);
 			return await tempStorage.verifySentinel();
-		} catch {
+		} catch (err) {
+			devconsole.error(`Error testing encrypted local storage with passkey candidate '${passkey}':`, err);
 			return false;
 		}
+	},
+
+	async reset(purge = false) {
+		if (!browser) throw new Error('SSR safety: Encrypted Local Storage can only be used in the browser.');
+		if (!this.current) return;
+
+		devconsole.log('[Storage] Resetting encrypted local storage');
+
+		if (purge) await this.current.purge();
+		this.current = null;
 	}
 });

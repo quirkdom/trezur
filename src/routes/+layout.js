@@ -6,11 +6,9 @@ import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 
 /** @type {import('./$types').LayoutLoad} */
 export async function load({ depends, data }) {
-	depends('app:conditions');
+	depends('app://layout-load');
 	// run all invalidation side-effects (if necessary; not needed on first load)
-	if (browser) {
-		encryptedLocalStorage.current = null;
-	}
+	if (browser) await encryptedLocalStorage.reset();
 
 	// return new app data
 	return {

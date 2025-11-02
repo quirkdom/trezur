@@ -34,9 +34,10 @@
 		$inspect.trace('tokensContext init effect'); // for debugging
 
 		const storage = encryptedLocalStorage.current;
-		const currentCtx = tokensContext.current;
 
 		if (browser && storage) {
+			const currentCtx = tokensContext.current;
+
 			if (!currentCtx || storage !== currentCtx.storage) {
 				// Initialize if no context yet, or re-init if storage instance changed
 				devconsole.log(

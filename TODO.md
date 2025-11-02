@@ -5,15 +5,12 @@ Individual files have small, inline TODO reminders.
 ## Bugs
 
 - [ ] (P0) Fix repeated tokens context init and re-init (upto 5 times consecutively now) on page load, when a user passcode is already set.
-
-  - [x] This was fixed by removing manual `await encryptedLocalStorage.init(passcode);` in [UnlockScreen.svelte#handleUnlock](src/lib/components/UnlockScreen.svelte#L17)
+  - [x] This was fixed by removing manual `await encryptedLocalStorage.init(passcode);` in [UnlockScreen.svelte#handleUnlock](src/lib/components/passcode/UnlockScreen.svelte)
   - [ ] However, the fix surfaced that whenever we do changes to passcode (e.g. in settings page, or on unlock), we often also manually init the storage instance. This is then duplicated by effects in [src/routes/+page.svelte](src/routes/+page.svelte) and [src/routes/+layout.svelte](src/routes/+layout.svelte). We need to either remove init/syncing effects entirely and move to manual calls **_OR_** figure out how to wait for the storage instance to be ready before running side-effects of setting/changing passcode.
 
 - [ ] (P0) [Hard to repro] Sometimes, after running the dev server after a long break, on initial load, the app wipes out tokens stored in encrypted local storage.
-
   - Example error trace:
-
-    ```
+  ```
     Tokens context initializing with new storage.
     Decryption failed: DOMException: The operation failed for an operation-specific reason encrypted-storage.js:116:12
         get encrypted-storage.js:116
@@ -60,18 +57,17 @@ Individual files have small, inline TODO reminders.
         <anonymous> (index):1528
         (Async: promise callback)
         <anonymous> (index):1527
-    ```
+  ```
 
 - [ ] (P1) Fix the container layout of the pages to better position and align text content on Codes screen
-
   - Currently, the header takes up some vertical space and the text container is a flexbox below it, which makes it hard to align the text contents to vertical center of app viewport. This is further complicated by the footer, which is sticky and inset to the bottom.
   - [ ] The right way to go about this is probably to have header, main content and footer all inside a single flexbox container, with the main content growing to eat up all vertical space possible and the header and footer of fixed sizes being fixed at the top and bottom respectively.
 
-- [ ] Reset Option on Wrong Passcode missing from view
+- [x] Reset Option on Wrong Passcode missing from view
 - [ ] Refactor how sentinel and encrypted storage metadata is stored
 - [ ] Maintain focus on Add Token Drawer -> token secret box, when reveal button is clicked.
-
   - This is especially problematic in mobile, where the keyboard dissapears on lost focus.
+  - [ ] This can be fixed by adding a `ref` to the token secret box and calling `ref.focus()` when the reveal button is clicked.
 
 - [x] When data is imported from settings page, it adds data into tokensContext state, and then immediately persists it. However after navigating to '/', the $effect to make tokens context in +page.svelte re-runs, which causes #load to run, and that blindly merges persisted data (i.e. tokens that were just persisted) and existing tokens in memory state, resulting in duplicate tokens.
   - [x] Can be possibly solved by de-duping against IDs. But is that a good idea?
@@ -87,6 +83,7 @@ Individual files have small, inline TODO reminders.
 ## Next steps
 
 - [ ] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
+  - [ ] Investigate WebAuthn / Passkey support. [[Client side WebAuthn](https://github.com/mylofi/webauthn-local-client)]
 - [ ] Move settings and conditions to exported global states. Contexts are overkill for that.
 - [ ] Setup GDrive [app folder backup](https://developers.google.com/drive/api/guides/appdata)
 - [ ] Setup iCloud backup using [CloudKit](https://developer.apple.com/documentation/cloudkit)
@@ -103,6 +100,7 @@ Individual files have small, inline TODO reminders.
     - [Detect touch screens](https://stackoverflow.com/a/63666289/2844164)
     - [Svelte Gestures package](https://github.com/Rezi/svelte-gestures)
 - [ ] Standardize CSS across components by making a tailwind theme
+  - [ ] Also, look into CSS icons. See [SvelteKit best practices](https://svelte.dev/docs/kit/icons).
 
 ## Next Gen
 

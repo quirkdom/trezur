@@ -13,6 +13,7 @@
 /* eslint-enable */
 
 /**
+ * @deprecated (Legacy; only kept for migration) Use salt from encryption metadata instead.
  * @param {string} passcode
  */
 async function deriveSalt(passcode) {

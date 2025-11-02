@@ -3,7 +3,7 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import ImportTokensDialog from '$lib/components/tokens/ImportTokens.svelte';
 	import ExportTokensDialog from '$lib/components/tokens/ExportTokens.svelte';
-	import PasscodeDialog from '$lib/components/PasscodeDialog.svelte';
+	import PasscodeDialog from '$lib/components/passcode/PasscodeDialog.svelte';
 	import { dev, version } from '$app/environment';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
@@ -27,7 +27,7 @@
 	let showImportDialog = $state(false);
 	let showExportDialog = $state(false);
 	let showPasscodeDialog = $state(false);
-	let passcodeMode = $state('create');
+	/** @type {'verify' | 'create' | 'change'} */ let passcodeDialogMode = $state('create');
 
 	/**
 	 * @param {string} passcode
@@ -101,7 +101,7 @@
 		conditionsContext.resetConditions();
 		tokensContext.resetTokens();
 
-		goto(resolve('/'), { invalidate: ['app:conditions'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
+		goto(resolve('/'), { invalidate: ['app://layout-load'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
 	}
 
 	/**
@@ -184,7 +184,7 @@
 							<button
 								class="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700"
 								onclick={() => {
-									passcodeMode = 'change';
+									passcodeDialogMode = 'change';
 									showPasscodeDialog = true;
 								}}
 							>
@@ -200,7 +200,7 @@
 							<button
 								class="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700"
 								onclick={() => {
-									passcodeMode = 'create';
+									passcodeDialogMode = 'create';
 									showPasscodeDialog = true;
 								}}
 							>
@@ -279,6 +279,6 @@
 
 <PasscodeDialog
 	bind:open={showPasscodeDialog}
-	mode={passcodeMode}
-	onSuccess={passcodeMode === 'create' ? handleSetPasscode : handleChangePasscode}
+	mode={passcodeDialogMode}
+	onSuccess={passcodeDialogMode === 'create' ? handleSetPasscode : handleChangePasscode}
 />
