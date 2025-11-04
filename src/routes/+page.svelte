@@ -3,15 +3,17 @@
 	import NavActions from '$lib/components/nav/NavActions.svelte';
 	import AddTokenForm from '$lib/components/tokens/AddTokenForm.svelte';
 	import TokenList from '$lib/components/tokens/TokenList.svelte';
-	import SearchBar from '$lib/components/ui/SearchBar.svelte';
 	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+	import SearchBar from '$lib/components/ui/SearchBar.svelte';
+
+	import { asset, resolve } from '$app/paths';
+	import { exportTokensDownload } from '$lib/components/tokens/ExportTokens.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte.js';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
-	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from '@lucide/svelte';
-	import { asset, resolve } from '$app/paths';
 	import { devconsole } from '$lib/utils';
+	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
 	const settingsContext = useSettingsContext();
@@ -48,6 +50,21 @@
 					isLoading = true;
 					await untrack(() => tokensContext.iMake(storage));
 					isLoading = false;
+
+					// Check if migration is needed and prompt
+					if (encryptedLocalStorage.current?.needsMigration) {
+						alert(
+							'This app has been updated to a newer version. Your tokens need to be migrated to a more secure encryption. Click OK to automatically download a backup and proceed with the migration.'
+						);
+						handleMigration();
+
+						await untrack(async () => {
+							// Re-init storage with new key
+							if (conditions.clientId) await encryptedLocalStorage.init(conditions.clientId);
+							// Re-make tokens context with new storage (auto-migrates)
+							// if (encryptedLocalStorage.current) await tokensContext.iMake(encryptedLocalStorage.current);
+						});
+					}
 				})();
 			} else {
 				// Storage exists and matches - no init needed
@@ -74,6 +91,12 @@
 	 */
 	function handleAddToken(tokenable) {
 		tokensContext.current?.addTokens(tokenize(tokenable));
+	}
+
+	function handleMigration() {
+		const tokens = tokensContext.current?.getTokens() || [];
+		const filename = `trezur_backup_${new Date().toISOString().split('T')[0]}.json`;
+		exportTokensDownload(tokens, filename);
 	}
 
 	/** @type {import('./$types').Snapshot<string>} */

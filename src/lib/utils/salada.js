@@ -35,4 +35,23 @@ async function deriveSalt(passcode) {
 	return new Uint8Array(saltBits);
 }
 
-export { deriveSalt as ds, cip, pic };
+/**
+ * Derive key derivation props from algorithm and salt bytes
+ * @param {string} algorithm
+ * @param {Uint8Array<ArrayBuffer>} saltBytes
+ */
+function generateKDFParams(algorithm, saltBytes) {
+	switch (algorithm) {
+		case 'PBKDF2-SHA256':
+			return {
+				name: 'PBKDF2',
+				hash: 'SHA-256',
+				salt: btoa(String.fromCharCode(...saltBytes)),
+				iterations: 400000
+			};
+		default:
+			throw new Error(`Unsupported algorithm: ${algorithm}`);
+	}
+}
+
+export { deriveSalt as ds, cip, pic, generateKDFParams };

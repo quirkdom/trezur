@@ -50,4 +50,5 @@ export interface EncryptedStorage {
 	purge(): Promise<void>;
 	setSentinel(): Promise<void>;
 	verifySentinel(): Promise<boolean>;
+	needsMigration: boolean;
 }

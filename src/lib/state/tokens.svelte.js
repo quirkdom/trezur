@@ -38,7 +38,7 @@ class TokensCtx {
 
 		await instance.#load(); // first, load any tokens from storage
 
-		if (options?.extraTokens && options.extraTokens.length > 0) {
+		if (options?.extraTokens?.length) {
 			// Merge and deduplicate
 			const tokenMap = new SvelteMap();
 

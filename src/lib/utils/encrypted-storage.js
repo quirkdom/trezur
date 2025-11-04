@@ -3,7 +3,7 @@
  * @typedef {import('$lib/types').EncryptedStorage} EncryptedStorage
  */
 import { browser } from '$app/environment';
-import { cip } from './salada';
+import { cip, ds, generateKDFParams } from './salada';
 
 const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
 const METADATA_KEY = 'T_ES_meta';
@@ -14,10 +14,14 @@ const DEFAULT_ITERATIONS = 400000;
  * @implements {EncryptedStorage}
  */
 export class AESGCMEncryptedStorage {
+	static #CRYPTO_KEY_TYPE = 'AES-GCM';
+
 	/** @type {AsyncStorageEngine} */
 	storageEngine;
 	/** @type {CryptoKey | undefined}*/
 	#cryptoKey;
+	/** @type {boolean} */
+	needsMigration = false;
 
 	/**
 	 * @param {AsyncStorageEngine} engine
@@ -41,32 +45,77 @@ export class AESGCMEncryptedStorage {
 	}
 
 	/**
-	 * Get or create metadata with KDF parameters and random salt
-	 * @returns {Promise<{v: number, kdf: string, iterations: number, salt: string}>}
+	 * @param {string} algorithm
+	 * @param {Uint8Array<ArrayBuffer>} saltBytes
+	 * @param {boolean} [isLegacy=false]
 	 */
-	async #getOrCreateMetadata() {
+	#makeMetadata(algorithm, saltBytes, isLegacy = false) {
+		const kdfProps = generateKDFParams(algorithm, saltBytes);
+
+		return {
+			v: isLegacy ? 0 : 1,
+			...kdfProps,
+			...(isLegacy ? { iterations: 10000 } : {})
+		};
+	}
+
+	/**
+	 * Get or create metadata with KDF parameters and random salt
+	 * @param {string} passkey
+	 * @returns {Promise<{metadata: {v: number, kdf: string, iterations: number, salt: string}, isNew: boolean}>}
+	 */
+	async #getOrCreateMetadata(passkey) {
 		const stored = await this.storageEngine.getItem(METADATA_KEY);
 		if (stored) {
-			return JSON.parse(stored);
+			const metadata = JSON.parse(stored);
+			if (metadata.v < 1) {
+				// Force upgrade: create new metadata with random salt for migration
+				const saltBytes = crypto.getRandomValues(new Uint8Array(32));
+				const newMetadata = {
+					v: 1,
+					kdf: 'PBKDF2-SHA256',
+					iterations: DEFAULT_ITERATIONS,
+					salt: btoa(String.fromCharCode(...saltBytes))
+				};
+				await this.storageEngine.setItem(METADATA_KEY, JSON.stringify(newMetadata));
+				return { metadata: newMetadata, isNew: true };
+			} else {
+				return { metadata, isNew: false };
+			}
 		}
 
-		const saltBytes = crypto.getRandomValues(new Uint8Array(32));
-		const metadata = {
-			v: 1,
-			kdf: 'PBKDF2-SHA256',
-			iterations: DEFAULT_ITERATIONS,
-			salt: btoa(String.fromCharCode(...saltBytes))
-		};
-
-		await this.storageEngine.setItem(METADATA_KEY, JSON.stringify(metadata));
-		return metadata;
+		const hasData = (await this.storageEngine.keys()).some((k) => k.startsWith(cip('T_ES_')));
+		if (hasData) {
+			// Use old salt derived from passkey
+			const oldSalt = await ds(passkey);
+			const metadata = {
+				v: 0, // legacy
+				kdf: 'PBKDF2-SHA256',
+				iterations: 100000,
+				salt: btoa(String.fromCharCode(...oldSalt))
+			};
+			await this.storageEngine.setItem(METADATA_KEY, JSON.stringify(metadata));
+			this.needsMigration = true;
+			return { metadata, isNew: true };
+		} else {
+			// Create new random salt
+			const saltBytes = crypto.getRandomValues(new Uint8Array(32));
+			const metadata = {
+				v: 1,
+				kdf: 'PBKDF2-SHA256',
+				iterations: DEFAULT_ITERATIONS,
+				salt: btoa(String.fromCharCode(...saltBytes))
+			};
+			await this.storageEngine.setItem(METADATA_KEY, JSON.stringify(metadata));
+			return { metadata, isNew: true };
+		}
 	}
 
 	/**
 	 * @param {string} passkey
 	 */
 	async #makeCryptoKey(passkey) {
-		const metadata = await this.#getOrCreateMetadata();
+		const { metadata } = await this.#getOrCreateMetadata(passkey);
 		const saltBytes = Uint8Array.from(atob(metadata.salt), (c) => c.charCodeAt(0));
 
 		const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passkey), 'PBKDF2', false, [
@@ -81,7 +130,7 @@ export class AESGCMEncryptedStorage {
 				hash: 'SHA-256'
 			},
 			keyMaterial,
-			{ name: 'AES-GCM', length: 256 },
+			{ name: AESGCMEncryptedStorage.#CRYPTO_KEY_TYPE, length: 256 },
 			false,
 			['encrypt', 'decrypt']
 		);
@@ -92,12 +141,16 @@ export class AESGCMEncryptedStorage {
 	 * @param {any} value
 	 */
 	async set(key, value) {
-		if (!this.#cryptoKey) throw new Error('Encryption not available. Did you await EncryptedLocalStorage.make()?');
+		if (!this.#cryptoKey) throw new Error('Encryption not available. Did you await EncryptedStorage.make()?');
 
 		const iv = crypto.getRandomValues(new Uint8Array(12));
 		const encodedValue = new TextEncoder().encode(JSON.stringify(value));
 
-		const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, this.#cryptoKey, encodedValue);
+		const encrypted = await crypto.subtle.encrypt(
+			{ name: AESGCMEncryptedStorage.#CRYPTO_KEY_TYPE, iv },
+			this.#cryptoKey,
+			encodedValue
+		);
 
 		const storageValue = {
 			iv: Array.from(iv),
@@ -115,12 +168,12 @@ export class AESGCMEncryptedStorage {
 		const stored = await this.storageEngine.getItem(cip('T_ES_' + key));
 		if (!stored) return null;
 
-		if (!this.#cryptoKey) throw new Error('Encryption not available. Did you await EncryptedLocalStorage.make()?');
+		if (!this.#cryptoKey) throw new Error('Encryption not available. Did you await EncryptedStorage.make()?');
 
 		const { iv, data } = JSON.parse(stored);
 		try {
 			const decrypted = await crypto.subtle.decrypt(
-				{ name: 'AES-GCM', iv: new Uint8Array(iv) },
+				{ name: AESGCMEncryptedStorage.#CRYPTO_KEY_TYPE, iv: new Uint8Array(iv) },
 				this.#cryptoKey,
 				new Uint8Array(data)
 			);
