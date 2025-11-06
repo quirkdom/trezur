@@ -3,24 +3,26 @@
  * @typedef {import('$lib/types').EncryptedStorage} EncryptedStorage
  */
 import { browser } from '$app/environment';
-import { cip, ds, generateKDFParams } from './salada';
+import { cip, ds, generateKDFParams, pic } from './salada';
 
 const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
-const METADATA_KEY = 'T_ES_meta';
-const SENTINEL_KEY = '__passcode_sentinel__';
-const DEFAULT_ITERATIONS = 400000;
+const T_ES_ = 'T_ES_';
+const T_ES_KDF_META = T_ES_ + '_kdf_meta__';
+const T_ES_SENTINEL = T_ES_ + '_sentinel__';
+const AES_GCM = 'AES-GCM';
 
 /**
  * @implements {EncryptedStorage}
  */
 export class AESGCMEncryptedStorage {
-	static #CRYPTO_KEY_TYPE = 'AES-GCM';
-
 	/** @type {AsyncStorageEngine} */
 	storageEngine;
 	/** @type {CryptoKey | undefined}*/
 	#cryptoKey;
-	/** @type {boolean} */
+	/**
+	 * @type {boolean}
+	 * @todo Remove this once we have migrated all users
+	 */
 	needsMigration = false;
 
 	/**
@@ -45,69 +47,57 @@ export class AESGCMEncryptedStorage {
 	}
 
 	/**
-	 * @param {string} algorithm
+	 * @param {string} kdfAlgorithm
 	 * @param {Uint8Array<ArrayBuffer>} saltBytes
 	 * @param {boolean} [isLegacy=false]
+	 *
+	 * @todo Remove isLegacy opt and simpilfy, after all users have migrated
 	 */
-	#makeMetadata(algorithm, saltBytes, isLegacy = false) {
-		const kdfProps = generateKDFParams(algorithm, saltBytes);
+	#makeKDFMetadata(kdfAlgorithm, saltBytes, isLegacy = false) {
+		const kdfProps = generateKDFParams(kdfAlgorithm, saltBytes);
 
 		return {
 			v: isLegacy ? 0 : 1,
 			...kdfProps,
-			...(isLegacy ? { iterations: 10000 } : {})
+			...(isLegacy ? { iterations: 100000 } : {})
 		};
 	}
 
 	/**
 	 * Get or create metadata with KDF parameters and random salt
 	 * @param {string} passkey
-	 * @returns {Promise<{metadata: {v: number, kdf: string, iterations: number, salt: string}, isNew: boolean}>}
+	 *
+	 * @todo Once majority of users have migrated, remove the legacy salt derivation
 	 */
-	async #getOrCreateMetadata(passkey) {
-		const stored = await this.storageEngine.getItem(METADATA_KEY);
+	async #getOrCreateKDFMetadata(passkey) {
+		const stored = await this.storageEngine.getItem(T_ES_KDF_META);
 		if (stored) {
 			const metadata = JSON.parse(stored);
 			if (metadata.v < 1) {
 				// Force upgrade: create new metadata with random salt for migration
 				const saltBytes = crypto.getRandomValues(new Uint8Array(32));
-				const newMetadata = {
-					v: 1,
-					kdf: 'PBKDF2-SHA256',
-					iterations: DEFAULT_ITERATIONS,
-					salt: btoa(String.fromCharCode(...saltBytes))
-				};
-				await this.storageEngine.setItem(METADATA_KEY, JSON.stringify(newMetadata));
-				return { metadata: newMetadata, isNew: true };
+				const newMetadata = this.#makeKDFMetadata('PBKDF2-SHA256', saltBytes);
+				await this.storageEngine.setItem(T_ES_KDF_META, JSON.stringify(newMetadata));
+				return newMetadata;
 			} else {
-				return { metadata, isNew: false };
+				return metadata;
 			}
 		}
 
-		const hasData = (await this.storageEngine.keys()).some((k) => k.startsWith(cip('T_ES_')));
+		const hasData = (await this.storageEngine.keys()).some((key) => pic(key).startsWith(T_ES_));
 		if (hasData) {
 			// Use old salt derived from passkey
 			const oldSalt = await ds(passkey);
-			const metadata = {
-				v: 0, // legacy
-				kdf: 'PBKDF2-SHA256',
-				iterations: 100000,
-				salt: btoa(String.fromCharCode(...oldSalt))
-			};
-			await this.storageEngine.setItem(METADATA_KEY, JSON.stringify(metadata));
+			const metadata = this.#makeKDFMetadata('PBKDF2-SHA256', oldSalt, true);
+			await this.storageEngine.setItem(T_ES_KDF_META, JSON.stringify(metadata));
 			this.needsMigration = true;
-			return { metadata, isNew: true };
+			return metadata;
 		} else {
 			// Create new random salt
 			const saltBytes = crypto.getRandomValues(new Uint8Array(32));
-			const metadata = {
-				v: 1,
-				kdf: 'PBKDF2-SHA256',
-				iterations: DEFAULT_ITERATIONS,
-				salt: btoa(String.fromCharCode(...saltBytes))
-			};
-			await this.storageEngine.setItem(METADATA_KEY, JSON.stringify(metadata));
-			return { metadata, isNew: true };
+			const metadata = this.#makeKDFMetadata('PBKDF2-SHA256', saltBytes);
+			await this.storageEngine.setItem(T_ES_KDF_META, JSON.stringify(metadata));
+			return metadata;
 		}
 	}
 
@@ -115,22 +105,22 @@ export class AESGCMEncryptedStorage {
 	 * @param {string} passkey
 	 */
 	async #makeCryptoKey(passkey) {
-		const { metadata } = await this.#getOrCreateMetadata(passkey);
+		const metadata = await this.#getOrCreateKDFMetadata(passkey);
 		const saltBytes = Uint8Array.from(atob(metadata.salt), (c) => c.charCodeAt(0));
 
-		const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passkey), 'PBKDF2', false, [
+		const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passkey), metadata.name, false, [
 			'deriveKey'
 		]);
 
 		return crypto.subtle.deriveKey(
 			{
-				name: 'PBKDF2',
+				name: metadata.name,
 				salt: saltBytes,
 				iterations: metadata.iterations,
-				hash: 'SHA-256'
+				hash: metadata.hash
 			},
 			keyMaterial,
-			{ name: AESGCMEncryptedStorage.#CRYPTO_KEY_TYPE, length: 256 },
+			{ name: AES_GCM, length: 256 },
 			false,
 			['encrypt', 'decrypt']
 		);
@@ -146,26 +136,21 @@ export class AESGCMEncryptedStorage {
 		const iv = crypto.getRandomValues(new Uint8Array(12));
 		const encodedValue = new TextEncoder().encode(JSON.stringify(value));
 
-		const encrypted = await crypto.subtle.encrypt(
-			{ name: AESGCMEncryptedStorage.#CRYPTO_KEY_TYPE, iv },
-			this.#cryptoKey,
-			encodedValue
-		);
+		const encrypted = await crypto.subtle.encrypt({ name: AES_GCM, iv }, this.#cryptoKey, encodedValue);
 
 		const storageValue = {
 			iv: Array.from(iv),
 			data: Array.from(new Uint8Array(encrypted))
 		};
 
-		await this.storageEngine.setItem(cip('T_ES_' + key), JSON.stringify(storageValue));
+		await this.storageEngine.setItem(cip(T_ES_ + key), JSON.stringify(storageValue));
 	}
 
 	/**
 	 * @param {string} key
-	 * @returns {Promise<any>}
 	 */
 	async get(key) {
-		const stored = await this.storageEngine.getItem(cip('T_ES_' + key));
+		const stored = await this.storageEngine.getItem(cip(T_ES_ + key));
 		if (!stored) return null;
 
 		if (!this.#cryptoKey) throw new Error('Encryption not available. Did you await EncryptedStorage.make()?');
@@ -173,7 +158,7 @@ export class AESGCMEncryptedStorage {
 		const { iv, data } = JSON.parse(stored);
 		try {
 			const decrypted = await crypto.subtle.decrypt(
-				{ name: AESGCMEncryptedStorage.#CRYPTO_KEY_TYPE, iv: new Uint8Array(iv) },
+				{ name: AES_GCM, iv: new Uint8Array(iv) },
 				this.#cryptoKey,
 				new Uint8Array(data)
 			);
@@ -188,14 +173,14 @@ export class AESGCMEncryptedStorage {
 	 * @param {string} key
 	 */
 	async delete(key) {
-		await this.storageEngine.removeItem(cip('T_ES_' + key));
+		await this.storageEngine.removeItem(cip(T_ES_ + key));
 	}
 
 	/**
 	 * Set the sentinel value to verify passcode on unlock
 	 */
 	async setSentinel() {
-		await this.set(SENTINEL_KEY, { v: 1, ok: true });
+		await this.set(T_ES_SENTINEL, { v: 1, ok: 'ok' });
 	}
 
 	/**
@@ -203,17 +188,15 @@ export class AESGCMEncryptedStorage {
 	 * @returns {Promise<boolean>}
 	 */
 	async verifySentinel() {
-		const sentinel = await this.get(SENTINEL_KEY);
-		return sentinel?.v === 1 && sentinel?.ok === true;
+		const sentinel = await this.get(T_ES_SENTINEL);
+		return sentinel?.v === 1 && sentinel?.ok === 'ok';
 	}
 
 	async purge() {
 		const keys = await this.storageEngine.keys();
-		keys.forEach((key) => {
-			if (key.startsWith(cip('T_ES_')) || key === METADATA_KEY) {
-				this.storageEngine.removeItem(key);
-			}
-		});
+		for (const key of keys) {
+			if (key.startsWith(T_ES_) || pic(key).startsWith(T_ES_)) await this.storageEngine.removeItem(key);
+		}
 	}
 }
 

@@ -59,6 +59,8 @@ Individual files have small, inline TODO reminders.
         <anonymous> (index):1527
   ```
 
+- [ ] (P0) Revisit the reset and purge mechanism of Settings -> Purge All and Forgot Passcode -> Reset options
+
 - [ ] (P1) Fix the container layout of the pages to better position and align text content on Codes screen
   - Currently, the header takes up some vertical space and the text container is a flexbox below it, which makes it hard to align the text contents to vertical center of app viewport. This is further complicated by the footer, which is sticky and inset to the bottom.
   - [ ] The right way to go about this is probably to have header, main content and footer all inside a single flexbox container, with the main content growing to eat up all vertical space possible and the header and footer of fixed sizes being fixed at the top and bottom respectively.
