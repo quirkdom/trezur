@@ -48,14 +48,15 @@
 		}
 	}
 
+	function handleForgotPasscode() {
+		handleClose();
+		onForgot?.();
+	}
+
 	function handleClose() {
 		open = false;
 		resetAllState();
 	}
-
-	// $effect(() => {
-	// 	if (open) resetTextStates();
-	// });
 </script>
 
 <Drawer
@@ -105,7 +106,9 @@
 				{errorText}
 
 				{#if mode === 'verify' && onForgot}
-					<button type="button" class="text-sm text-zinc-400 underline" onclick={onForgot}> Forgot passcode? </button>
+					<button type="button" class="text-sm text-zinc-400 underline" onclick={handleForgotPasscode}>
+						Forgot passcode?
+					</button>
 				{/if}
 			</div>
 		{/if}

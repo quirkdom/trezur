@@ -8,65 +8,20 @@ Individual files have small, inline TODO reminders.
   - [x] This was fixed by removing manual `await encryptedLocalStorage.init(passcode);` in [UnlockScreen.svelte#handleUnlock](src/lib/components/passcode/UnlockScreen.svelte)
   - [ ] However, the fix surfaced that whenever we do changes to passcode (e.g. in settings page, or on unlock), we often also manually init the storage instance. This is then duplicated by effects in [src/routes/+page.svelte](src/routes/+page.svelte) and [src/routes/+layout.svelte](src/routes/+layout.svelte). We need to either remove init/syncing effects entirely and move to manual calls **_OR_** figure out how to wait for the storage instance to be ready before running side-effects of setting/changing passcode.
 
-- [ ] (P0) [Hard to repro] Sometimes, after running the dev server after a long break, on initial load, the app wipes out tokens stored in encrypted local storage.
-  - Example error trace:
-  ```
-    Tokens context initializing with new storage.
-    Decryption failed: DOMException: The operation failed for an operation-specific reason encrypted-storage.js:116:12
-        get encrypted-storage.js:116
-        #load tokens.svelte.js:51
-        make tokens.svelte.js:37
-        iMake tokens.svelte.js:168
-        _page +page.svelte:46
-        _page +page.svelte:64
-        update_reaction runtime.js:292
-        update_effect runtime.js:472
-        flush_queued_effects batch.js:604
-        process batch.js:179
-        flush_effects batch.js:559
-        flush batch.js:290
-        ensure batch.js:413
-        run_all utils.js:45
-        run_micro_tasks task.js:10
-        queue_micro_task task.js:28
-        (Async: VoidFunction)
-        queue_micro_task task.js:19
-        enqueue batch.js:423
-        ensure batch.js:407
-        internal_set sources.js:183
-        set sources.js:162
-        set proxy.js:302
-        init storage.svelte.js:25
-        _layout +layout.svelte:33
-        update_reaction runtime.js:292
-        update_effect runtime.js:472
-        flush_queued_effects batch.js:604
-        process batch.js:179
-        flush_effects batch.js:559
-        flush batch.js:290
-        ensure batch.js:413
-        run_all utils.js:45
-        run_micro_tasks task.js:10
-        flush_tasks task.js:40
-        flushSync batch.js:500
-        Svelte4Component legacy-client.js:127
-        <anonymous> legacy-client.js:54
-        initialize client.js:558
-        _hydrate client.js:2797
-        start client.js:356
-        <anonymous> (index):1528
-        (Async: promise callback)
-        <anonymous> (index):1527
-  ```
+- [ ] (P0 🚨) User passcode can be bypassed by simply dismissing password prompt, and long pressing the lock icon. 🤦‍♂️
 
 - [ ] (P0) Revisit the reset and purge mechanism of Settings -> Purge All and Forgot Passcode -> Reset options
+  - [x] Settings -> Purge All: probably fixed. Needed to clear the encrypted storage before resetting conditions, since encrypted storage is inited by an $effect dependent on conditions [see [+layout.svelte](src/routes/+layout.svelte)]
+  - [ ] Forgot Passcode -> Reset: Needs further investigation. encrypted storage is being inited and reset (and repeat) multiple times unecessarily, through the aforementioned $effect.
+    - Biggest issue is that isAppLocked is somehow resetting first, before encrypted storage is reset (and purged).
 
 - [ ] (P1) Fix the container layout of the pages to better position and align text content on Codes screen
   - Currently, the header takes up some vertical space and the text container is a flexbox below it, which makes it hard to align the text contents to vertical center of app viewport. This is further complicated by the footer, which is sticky and inset to the bottom.
   - [ ] The right way to go about this is probably to have header, main content and footer all inside a single flexbox container, with the main content growing to eat up all vertical space possible and the header and footer of fixed sizes being fixed at the top and bottom respectively.
 
+- [x] Fix the longpress interaction on the app lock button. The longpress animation keeps on playing even after the longpress event has been triggered, in all browsers except FF.
 - [x] Reset Option on Wrong Passcode missing from view
-- [ ] Refactor how sentinel and encrypted storage metadata is stored
+- [x] Refactor how sentinel and encrypted storage metadata is stored
 - [ ] Maintain focus on Add Token Drawer -> token secret box, when reveal button is clicked.
   - This is especially problematic in mobile, where the keyboard dissapears on lost focus.
   - [ ] This can be fixed by adding a `ref` to the token secret box and calling `ref.focus()` when the reveal button is clicked.
