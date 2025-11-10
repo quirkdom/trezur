@@ -15,8 +15,9 @@
 	let isBeingLongPressed = $state(false);
 
 	function toggleAppLock() {
-		toggleAppLockAction?.(!conditions.isAppLocked);
-		conditionsContext.updateCondition('isAppLocked', !conditions.isAppLocked);
+		const willLockApp = !conditions.isAppLocked;
+		toggleAppLockAction?.(willLockApp);
+		conditionsContext.updateCondition('isAppLocked', willLockApp);
 	}
 </script>
 

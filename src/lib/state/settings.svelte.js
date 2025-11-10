@@ -61,12 +61,12 @@ class SettingsCtx {
 	}
 
 	/**
-	 * @param {keyof Settings} key
-	 * @param {Settings[keyof Settings]} value
+	 * @template {keyof Settings} K
+	 * @param {K} key
+	 * @param {Settings[K]} value
 	 */
 	updateSetting(key, value, shouldPersist = true) {
-		// Using a type assertion to fix the type checking issue
-		this.state = { ...this.state, [key]: value };
+		this.state[key] = value;
 		if (shouldPersist) persist($state.snapshot(this.state));
 	}
 

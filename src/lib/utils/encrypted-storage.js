@@ -7,8 +7,8 @@ import { cip, ds, generateKDFParams, pic } from './salada';
 
 const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
 const T_ES_ = 'T_ES_';
-const T_ES_KDF_META = T_ES_ + '_kdf_meta__';
-const T_ES_SENTINEL = T_ES_ + '_sentinel__';
+const T_ES_KDF_META = 'T_ES__kdf_meta__';
+const T_ES_SENTINEL = '_sentinel__';
 const AES_GCM = 'AES-GCM';
 
 /**

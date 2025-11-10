@@ -66,13 +66,13 @@ class ConditionsCtx {
 	}
 
 	/**
-	 * @param {keyof Conditions} key
-	 * @param {Conditions[keyof Conditions]} value
+	 * @template {keyof Conditions} K
+	 * @param {K} key
+	 * @param {Conditions[K]} value
 	 */
 	updateCondition(key, value) {
-		// Using a type assertion to fix the type checking issue
-		this.state = { ...this.state, [key]: value };
-		persist($state.snapshot(this.state));
+		this.state[key] = value;
+		if (PERSISTABLE_KEYS.includes(key)) persist($state.snapshot(this.state));
 	}
 
 	/**
