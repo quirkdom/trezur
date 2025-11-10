@@ -1,0 +1,26 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "SvelteKit: Dev Server",
+			"request": "launch",
+			"type": "node-terminal",
+			"command": "npm run dev",
+			"skipFiles": ["<node_internals>/**"]
+		},
+		{
+			"name": "SvelteKit: Dev Server + Edge",
+			"request": "launch",
+			"type": "node-terminal",
+			"command": "NODE_OPTIONS=\"--inspect\" npm run dev",
+			"skipFiles": ["<node_internals>/**"],
+
+			"serverReadyAction": {
+				"action": "debugWithEdge",
+				"pattern": "Local:   (https?://\\S+|[0-9]+)",
+				"uriFormat": "%s",
+				"webRoot": "${workspaceFolder}/src"
+			}
+		}
+	]
+}

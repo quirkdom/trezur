@@ -4,8 +4,14 @@
 	"editor.formatOnPaste": true,
 	"editor.tabSize": 4,
 	"editor.rulers": [120],
+	"editor.quickSuggestions": {
+		"strings": "on"
+	},
 	"eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact", "svelte"],
 	"[markdown]": {
 		"editor.tabSize": 2
+	},
+	"files.associations": {
+		"*.css": "tailwindcss"
 	}
 }
