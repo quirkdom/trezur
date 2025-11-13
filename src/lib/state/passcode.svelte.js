@@ -1,10 +1,5 @@
 /**
  * Session level passcode store for app lock and encryption
- * @module Passcode
- */
-
-/**
- * Reactive class for session passcode management
  */
 class PasscodeStore {
 	/** @type {string | null} */

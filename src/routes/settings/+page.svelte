@@ -91,7 +91,7 @@
 	function purgeAll() {
 		if (
 			prompt(
-				'Are you sure? This will delete all data and reset the app. All security tokens will be lost! Please type "YES" to confirm this action.',
+				'Are you sure? This will delete all data and reset the app. All tokens will be lost! Please type "YES" to confirm this action.',
 				'NO'
 			) !== 'YES'
 		)

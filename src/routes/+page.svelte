@@ -25,13 +25,13 @@
 
 	$inspect('tokensContext.current', tokensContext.current);
 
+	let isLoading = $state(browser);
+
 	/**
 	 * Initialize or re-initialize tokens when storage changes.
 	 * Auto-corrects if tokens context gets out of sync with current storage.
 	 * Won't cause duplicate inits because we check if storage instance actually changed.
 	 */
-	let isLoading = $state(true);
-
 	$effect(() => {
 		$inspect.trace('tokensContext init effect'); // for debugging
 

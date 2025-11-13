@@ -15,7 +15,7 @@ export async function load({ depends, data }) {
 		settings: loadSettings() ?? DEFAULT_SETTINGS,
 		conditions: {
 			...(loadConditions() ?? DEFAULT_CONDITIONS),
-			clientId: loadConditions()?.clientId || nanoid(),
+			clientId: loadConditions()?.clientId || (browser ? nanoid() : undefined),
 			isAppleDevice: data.isAppleDevice
 		}
 	};

@@ -79,7 +79,7 @@ class ConditionsCtx {
 	 * @param {Partial<{[key in keyof Conditions]: Conditions[key]}>} conditions
 	 */
 	updateConditions(conditions) {
-		this.state = { ...this.state, ...conditions };
+		Object.assign(this.state, conditions);
 		persist($state.snapshot(this.state));
 	}
 

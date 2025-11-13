@@ -25,6 +25,8 @@ export class AESGCMEncryptedStorage {
 	 */
 	needsMigration = false;
 
+	someId = -1; // for debugging. TODO: remove this before production
+
 	/**
 	 * @param {AsyncStorageEngine} engine
 	 * @param {symbol} [initToken]
@@ -34,6 +36,7 @@ export class AESGCMEncryptedStorage {
 			throw new Error('Cannot construct EncryptedStorage directly; await EncryptedStorage.make() instead.');
 
 		this.storageEngine = engine;
+		this.someId = Math.random();
 	}
 
 	/**

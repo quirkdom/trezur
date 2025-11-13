@@ -13,7 +13,7 @@
 
 	const { children, data } = $props();
 
-	devconsole.log(data);
+	devconsole.log('+layout.js load data', data);
 
 	createSettingsContext(data.settings);
 	createTokensContext();
@@ -23,7 +23,9 @@
 
 	$inspect('conditions.isAppLocked', conditions.isAppLocked); // for debugging
 	$inspect('conditions.isUserPasscodeSet', conditions.isUserPasscodeSet); // for debugging
+	$inspect('conditions.clientId', conditions.clientId); // for debugging
 	$inspect('sessionPasscode.passcode', sessionPasscode.passcode); // for debugging
+	$inspect('encryptedLocalStorage.current', encryptedLocalStorage.current); // for debugging
 
 	/**
 	 * Updates conditions context with conditions derived from load-time data.

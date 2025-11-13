@@ -198,6 +198,7 @@
 		<div>
 			<label for="secret" class="mb-1 block text-sm text-gray-400">Secret</label>
 			<div class="relative">
+				<!-- TODO: Move to stricter regex for Base32 secret: ^(?:[A-Z2-7]{8})*(?:[A-Z2-7]{2}={6}|[A-Z2-7]{4}={4}|[A-Z2-7]{5}={3}|[A-Z2-7]{7}=)?$ -->
 				<input
 					id="secret"
 					type={revealSecret ? 'text' : 'password'}
