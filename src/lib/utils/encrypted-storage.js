@@ -179,6 +179,13 @@ export class AESGCMEncryptedStorage {
 		await this.storageEngine.removeItem(cip(T_ES_ + key));
 	}
 
+	async #keys() {
+		return (await this.storageEngine.keys())
+			.map((key) => pic(key))
+			.filter((key) => key.startsWith(T_ES_))
+			.map((key) => key.slice(T_ES_.length));
+	}
+
 	/**
 	 * Set the sentinel value to verify passcode on unlock
 	 */
@@ -195,11 +202,17 @@ export class AESGCMEncryptedStorage {
 		return sentinel?.v === 1 && sentinel?.ok === 'ok';
 	}
 
+	/**
+	 * Remove the sentinel value
+	 */
+	async removeSentinel() {
+		await this.delete(T_ES_SENTINEL);
+	}
+
 	async purge() {
-		const keys = await this.storageEngine.keys();
-		for (const key of keys) {
-			if (key.startsWith(T_ES_) || pic(key).startsWith(T_ES_)) await this.storageEngine.removeItem(key);
-		}
+		await Promise.allSettled((await this.#keys()).map((key) => this.delete(key)));
+		await this.removeSentinel();
+		await this.storageEngine.removeItem(T_ES_KDF_META);
 	}
 }
 

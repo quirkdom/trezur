@@ -48,7 +48,7 @@
 
 				(async () => {
 					isLoading = true;
-					await untrack(() => tokensContext.iMake(storage));
+					await untrack(() => tokensContext.iMake(storage)); // this updates tokensContext.current, which is read earlier in this effect; so it must be untracked
 					isLoading = false;
 
 					// Check if migration is needed and prompt

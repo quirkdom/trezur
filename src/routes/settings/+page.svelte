@@ -79,16 +79,23 @@
 			return;
 
 		sessionPasscode.clear();
-		conditionsContext.updateCondition('isUserPasscodeSet', false);
 
 		if (conditions.clientId) {
+			await encryptedLocalStorage.current?.removeSentinel();
 			await encryptedLocalStorage.init(conditions.clientId);
+
+			// Explicitly migrate tokens to new storage
+			if (encryptedLocalStorage.current) {
+				await tokensContext.iMake(encryptedLocalStorage.current);
+			}
 		}
+
+		conditionsContext.updateCondition('isUserPasscodeSet', false);
 
 		alert('Passcode removed. Your tokens are now encrypted with a device-specific key.');
 	}
 
-	function purgeAll() {
+	async function purgeAll() {
 		if (
 			prompt(
 				'Are you sure? This will delete all data and reset the app. All tokens will be lost! Please type "YES" to confirm this action.',
@@ -98,10 +105,14 @@
 			return;
 
 		settingsContext.resetSettings();
-		conditionsContext.resetConditions();
-		tokensContext.resetTokens();
 
-		goto(resolve('/'), { invalidate: ['app://layout-load'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
+		await tokensContext.resetTokens();
+		await encryptedLocalStorage.reset(true);
+
+		sessionPasscode.clear();
+		conditionsContext.resetConditions();
+
+		await goto(resolve('/'), { invalidate: ['app://layout-load'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
 	}
 
 	/**

@@ -6,12 +6,16 @@ import { devconsole } from '$lib/utils';
 import { AESGCMEncryptedStorage, LocalStorageEngine } from '$lib/utils/encrypted-storage';
 
 /**
- * Reactive singleton instance of EncryptedStorage.
- * Starts undefined and updates when initialized.
+ * Reactive singleton class for managing encrypted local storage.
+ * Provides methods to initialize, test, and reset the storage instance.
  */
-export let encryptedLocalStorage = $state({
+class EncryptedLocalStorage {
 	/** @type {EncryptedStorage | null} */
-	current: null,
+	#current = $state(null);
+
+	get current() {
+		return this.#current;
+	}
 
 	/**
 	 * @param {string} passkey
@@ -24,8 +28,8 @@ export let encryptedLocalStorage = $state({
 
 		devconsole.log('[Storage] Initializing encrypted local storage with passkey:', passkey);
 
-		this.current = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey);
-	},
+		this.#current = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey);
+	}
 
 	/**
 	 * @param {string} passkey
@@ -44,15 +48,20 @@ export let encryptedLocalStorage = $state({
 			devconsole.error(`Error testing encrypted local storage with passkey candidate '${passkey}':`, err);
 			return false;
 		}
-	},
+	}
 
 	async reset(purge = false) {
 		if (!browser) throw new Error('SSR safety: Encrypted Local Storage can only be used in the browser.');
-		if (!this.current) return;
+		if (!this.#current) return;
 
 		devconsole.log('[Storage] Resetting encrypted local storage');
 
-		if (purge) await this.current.purge();
-		this.current = null;
+		if (purge) await this.#current.purge();
+		this.#current = null;
 	}
-});
+}
+
+/**
+ * Reactive singleton instance of EncryptedLocalStorage.
+ */
+export let encryptedLocalStorage = new EncryptedLocalStorage();

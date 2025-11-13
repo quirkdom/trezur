@@ -27,47 +27,31 @@
 	$inspect('sessionPasscode.passcode', sessionPasscode.passcode); // for debugging
 	$inspect('encryptedLocalStorage.current', encryptedLocalStorage.current); // for debugging
 
-	/**
-	 * Updates conditions context with conditions derived from load-time data.
-	 * We have to untrack this to avoid infinite loop with the next effect.
-	 */
-	$effect(() => {
-		if (browser && data.conditions) untrack(() => conditionsContext.updateConditions(data.conditions));
-	});
+	if (browser) {
+		$effect(() => {
+			$inspect.trace('Layout update conditions effect'); // for debugging
 
-	/**
-	 * Initializes encrypted local storage.
-	 * - If passcode is set: uses passcode from session (requires unlock)
-	 * - Otherwise: uses clientId
-	 */
-	$effect(() => {
-		$inspect.trace('encryptedLocalStorage init effect'); // for debugging
+			if (data.conditions) untrack(() => conditionsContext.updateConditions(data.conditions));
+		});
 
-		if (browser) {
-			const passkey = conditions.isUserPasscodeSet ? sessionPasscode.passcode : conditions.clientId;
+		$effect(() => {
+			$inspect.trace('Layout ELS init effect'); // for debugging
 
-			if (passkey) {
-				devconsole.log('[Layout] Initializing encrypted local storage with passkey:', passkey);
-				encryptedLocalStorage.init(passkey); // async method; not awaited. This is dangerous.
+			if (!conditions.isUserPasscodeSet && conditions.clientId && !encryptedLocalStorage.current)
+				encryptedLocalStorage.init(conditions.clientId);
+		});
 
-				return () => {
-					// this is returned immediately; doesn't await initialization of encryptedLocalStorage
-					devconsole.log('[Layout] Uninitializing encrypted local storage');
-					encryptedLocalStorage.reset(); // async method; not awaited. This is dangerous.
-				};
-			}
-		}
-	});
+		/**
+		 * Lock the app if passcode is set and no session passcode is available
+		 * @todo TODO: See if this can be simplified.
+		 */
+		$effect(() => {
+			$inspect.trace('Layout lock app effect'); // for debugging
 
-	/**
-	 * Lock the app if passcode is set and no session passcode is available
-	 * @todo TODO: See if this can be simplified.
-	 */
-	$effect(() => {
-		if (browser && conditions.isUserPasscodeSet && !sessionPasscode.passcode && !conditions.isAppLocked) {
-			conditionsContext.updateCondition('isAppLocked', true);
-		}
-	});
+			if (conditions.isUserPasscodeSet && !sessionPasscode.passcode && !conditions.isAppLocked)
+				conditionsContext.updateCondition('isAppLocked', true);
+		});
+	}
 </script>
 
 <div class="min-h-screen bg-black p-4 text-white">

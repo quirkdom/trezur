@@ -50,5 +50,6 @@ export interface EncryptedStorage {
 	purge(): Promise<void>;
 	setSentinel(): Promise<void>;
 	verifySentinel(): Promise<boolean>;
-	needsMigration: boolean;
+	removeSentinel(): Promise<void>;
+	needsMigration: boolean; // TODO: remove this once we have migrated all users
 }

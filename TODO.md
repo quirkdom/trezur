@@ -4,16 +4,19 @@ Individual files have small, inline TODO reminders.
 
 ## Bugs
 
-- [ ] (P0) Fix repeated tokens context init and re-init (upto 5 times consecutively now) on page load, when a user passcode is already set.
+- [x] (P0) Fix repeated tokens context init and re-init (upto 5 times consecutively now) on page load, when a user passcode is already set.
   - [x] This was fixed by removing manual `await encryptedLocalStorage.init(passcode);` in [UnlockScreen.svelte#handleUnlock](src/lib/components/passcode/UnlockScreen.svelte)
-  - [ ] However, the fix surfaced that whenever we do changes to passcode (e.g. in settings page, or on unlock), we often also manually init the storage instance. This is then duplicated by effects in [src/routes/+page.svelte](src/routes/+page.svelte) and [src/routes/+layout.svelte](src/routes/+layout.svelte). We need to either remove init/syncing effects entirely and move to manual calls **_OR_** figure out how to wait for the storage instance to be ready before running side-effects of setting/changing passcode.
+  - [x] However, the fix surfaced that whenever we do changes to passcode (e.g. in settings page, or on unlock), we often also manually init the storage instance. This is then duplicated by effects in [src/routes/+page.svelte](src/routes/+page.svelte) and [src/routes/+layout.svelte](src/routes/+layout.svelte). We need to either remove init/syncing effects entirely and move to manual calls **_OR_** figure out how to wait for the storage instance to be ready before running side-effects of setting/changing passcode.
 
-- [ ] (P0 🚨) User passcode can be bypassed by simply dismissing password prompt, and long pressing the lock icon. 🤦‍♂️
+- [x] (P0 🚨) User passcode can be bypassed by simply dismissing password prompt, and long pressing the lock icon. 🤦‍♂️
 
-- [ ] (P0) Revisit the reset and purge mechanism of Settings -> Purge All and Forgot Passcode -> Reset options
+- [x] (P0) Revisit the reset and purge mechanism of Settings -> Purge All and Forgot Passcode -> Reset options
   - [x] Settings -> Purge All: probably fixed. Needed to clear the encrypted storage before resetting conditions, since encrypted storage is inited by an $effect dependent on conditions [see [+layout.svelte](src/routes/+layout.svelte)]
-  - [ ] Forgot Passcode -> Reset: Needs further investigation. encrypted storage is being inited and reset (and repeat) multiple times unecessarily, through the aforementioned $effect.
-    - Biggest issue is that isAppLocked is somehow resetting first, before encrypted storage is reset (and purged).
+  - [x] Forgot Passcode -> Reset: Needs further investigation. encrypted storage is being inited and reset (and repeat) multiple times unecessarily, through the aforementioned $effect.
+    - By the time we try to purge encryptedStorage.current, it has been already set to null by the aforementioned $effect. tokensContext still holds a reference to the old storage instance, but we don't use it. We should probably just investigate the $effect that resets encrypted storage.
+
+- [ ] (P0) [Bug: Settings -> Import/Export/Migrate]: If the settings page is directly loaded, there is no tokensContext.current inited. Any imports or exports will _silently_ fail. This is because the $effect that inits tokensContext.current is in the Codes page.
+  - [ ] We need to either move the $effect to the +layout.svelte or Settings +page.svelte, or we need to manually init tokensContext.current in the settings page.
 
 - [ ] (P1) Fix the container layout of the pages to better position and align text content on Codes screen
   - Currently, the header takes up some vertical space and the text container is a flexbox below it, which makes it hard to align the text contents to vertical center of app viewport. This is further complicated by the footer, which is sticky and inset to the bottom.
@@ -39,7 +42,7 @@ Individual files have small, inline TODO reminders.
 
 ## Next steps
 
-- [ ] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
+- [x] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
   - [ ] Investigate WebAuthn / Passkey support. [[Client side WebAuthn](https://github.com/mylofi/webauthn-local-client)]
 - [ ] Move settings and conditions to exported global states. Contexts are overkill for that.
 - [ ] Setup GDrive [app folder backup](https://developers.google.com/drive/api/guides/appdata)

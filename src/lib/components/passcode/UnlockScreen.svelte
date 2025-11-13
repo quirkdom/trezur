@@ -1,19 +1,17 @@
 <script>
-	import PasscodeDialog from './PasscodeDialog.svelte';
-	import { useConditionsContext } from '$lib/state/conditions.svelte';
-	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { sessionPasscode } from '$lib/state/passcode.svelte';
-	import { asset, resolve } from '$app/paths';
-	import { Lock } from '@lucide/svelte';
 	import { dev, version } from '$app/environment';
 	import { goto } from '$app/navigation';
-	// import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { createTokensContext } from '$lib/state/tokens.svelte';
+	import { asset, resolve } from '$app/paths';
+	import { useConditionsContext } from '$lib/state/conditions.svelte';
+	import { sessionPasscode } from '$lib/state/passcode.svelte';
+	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
+	import { useTokensContext } from '$lib/state/tokens.svelte';
+	import { Lock } from '@lucide/svelte';
+	import PasscodeDialog from './PasscodeDialog.svelte';
 
 	const conditionsContext = useConditionsContext();
 	const conditions = $derived(conditionsContext.getConditions());
-	const settingsContext = useSettingsContext();
-	const tokensContext = createTokensContext();
+	const tokensContext = useTokensContext();
 
 	let showPasscodeDialog = $derived(conditions.isUserPasscodeSet || false);
 
@@ -22,7 +20,7 @@
 	 */
 	async function handleUnlock(passcode) {
 		sessionPasscode.passcode = passcode;
-		// await encryptedLocalStorage.init(passcode);
+		await encryptedLocalStorage.init(passcode);
 		conditionsContext.updateCondition('isAppLocked', false);
 	}
 
@@ -39,12 +37,13 @@ Are you sure you want to proceed? Please type "YES" to confirm this action.`,
 		)
 			return;
 
-		settingsContext.resetSettings();
-		conditionsContext.resetConditions();
-		tokensContext.resetTokens();
-		// encryptedLocalStorage.reset(true);
+		await tokensContext.resetTokens();
+		await encryptedLocalStorage.reset(true);
 
-		goto(resolve('/'), { invalidate: ['app://layout-load'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
+		sessionPasscode.clear();
+		conditionsContext.updateCondition('isUserPasscodeSet', false);
+
+		await goto(resolve('/'), { invalidate: ['app://layout-load'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
 	}
 </script>
 

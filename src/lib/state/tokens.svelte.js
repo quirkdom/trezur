@@ -123,7 +123,7 @@ class TokensCtx {
 
 		if (newTokens.length > 0) {
 			this.#tokens.push(...newTokens);
-			this.#persist();
+			return this.#persist();
 		}
 	}
 
@@ -144,7 +144,7 @@ class TokensCtx {
 
 		// Apply the update.
 		this.#tokens[tokenIndex] = updatedToken;
-		this.#persist();
+		return this.#persist();
 	}
 
 	/**
@@ -152,12 +152,12 @@ class TokensCtx {
 	 */
 	removeToken(id) {
 		this.#tokens = this.#tokens.filter((t) => t.id !== id);
-		this.#persist();
+		return this.#persist();
 	}
 
 	clearTokens() {
 		this.#tokens = [];
-		this.#clear();
+		return this.#clear();
 	}
 }
 
@@ -166,7 +166,7 @@ class TokensCtx {
  * @typedef {Object} TokensContextContainer
  * @property {TokensCtx | null} current
  * @property {function(EncryptedStorage): Promise<TokensCtx>} iMake
- * @property {function(): void} resetTokens
+ * @property {function(): Promise<void>} resetTokens
  */
 const tokensContext = $state({
 	/** @type {TokensCtx | null} */
@@ -193,13 +193,13 @@ const tokensContext = $state({
 	 * **CAUTION:** You must always invalidate app state and reload the app after calling this.
 	 * This leaves the app without a valid tokens context; subsequent token operations will fail.
 	 */
-	resetTokens() {
+	async resetTokens() {
+		await this.current?.clearTokens();
+		this.current = null;
+
 		devconsole.warn(
 			'App without valid Tokens context; subsequent token operations will fail. Remember to invalidate app state and reload the app.'
 		);
-
-		this.current?.clearTokens();
-		this.current = null;
 	}
 });
 
