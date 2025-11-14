@@ -34,13 +34,10 @@
 	 */
 	async function handleSetPasscode(passcode) {
 		sessionPasscode.passcode = passcode;
-		await encryptedLocalStorage.init(passcode);
+		const newStorage = await encryptedLocalStorage.init(passcode);
 
-		if (encryptedLocalStorage.current) {
-			// Explicitly migrate tokens to new storage
-			await tokensContext.iMake(encryptedLocalStorage.current);
-			await encryptedLocalStorage.current.setSentinel();
-		}
+		await tokensContext.iMake(newStorage);
+		await newStorage.setSentinel();
 
 		conditionsContext.updateCondition('isUserPasscodeSet', true);
 
@@ -57,13 +54,10 @@
 	 */
 	async function handleChangePasscode(passcode) {
 		sessionPasscode.passcode = passcode;
-		await encryptedLocalStorage.init(passcode);
+		const newStorage = await encryptedLocalStorage.init(passcode);
 
-		if (encryptedLocalStorage.current) {
-			// Explicitly migrate tokens to new storage
-			await tokensContext.iMake(encryptedLocalStorage.current);
-			await encryptedLocalStorage.current.setSentinel();
-		}
+		await tokensContext.iMake(newStorage);
+		await newStorage.setSentinel(); // this will overwrite the old sentinel
 
 		const tokenCount = tokensContext.current?.getTokens().length || 0;
 		alert(`Passcode changed! ${tokenCount} token${tokenCount > 1 ? 's' : ''} re-encrypted.`);
@@ -78,19 +72,15 @@
 		)
 			return;
 
-		sessionPasscode.clear();
-
 		if (conditions.clientId) {
 			await encryptedLocalStorage.current?.removeSentinel();
-			await encryptedLocalStorage.init(conditions.clientId);
+			const newStorage = await encryptedLocalStorage.init(conditions.clientId);
 
-			// Explicitly migrate tokens to new storage
-			if (encryptedLocalStorage.current) {
-				await tokensContext.iMake(encryptedLocalStorage.current);
-			}
+			await tokensContext.iMake(newStorage);
 		}
 
 		conditionsContext.updateCondition('isUserPasscodeSet', false);
+		sessionPasscode.clear();
 
 		alert('Passcode removed. Your tokens are now encrypted with a device-specific key.');
 	}
@@ -186,7 +176,7 @@
 		</section>
 
 		<section>
-			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Security & Preferences</h2>
+			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Security</h2>
 			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<div>
@@ -230,20 +220,23 @@
 					<Switch
 						disabled
 						checked={settings.useBiometricUnlock}
-						onCheckedChange={(/** @type {boolean} */ checked) => {
-							settingsContext.updateSetting('useBiometricUnlock', checked);
-						}}
+						onCheckedChange={(/** @type {boolean} */ checked) =>
+							settingsContext.updateSetting('useBiometricUnlock', checked)}
 						class={nonAppleSwitchTheme}
 					/>
 				</div>
+			</div>
+		</section>
+
+		<section>
+			<h2 class="mb-4 text-sm text-zinc-500 uppercase">Preferences</h2>
+			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<span>Show next token</span>
 					<Switch
 						disabled={conditions.isAppLocked}
 						checked={settings.showNextCode}
-						onCheckedChange={(/** @type {boolean} */ checked) => {
-							settingsContext.updateSetting('showNextCode', checked);
-						}}
+						onCheckedChange={(/** @type {boolean} */ checked) => settingsContext.updateSetting('showNextCode', checked)}
 						class={nonAppleSwitchTheme}
 					/>
 				</div>

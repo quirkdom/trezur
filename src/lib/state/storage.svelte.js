@@ -19,6 +19,7 @@ class EncryptedLocalStorage {
 
 	/**
 	 * @param {string} passkey
+	 * @returns {Promise<EncryptedStorage>}
 	 */
 	async init(passkey) {
 		if (!browser) throw new Error('SSR safety: Encrypted Local Storage can only be used in the browser.');

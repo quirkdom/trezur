@@ -15,10 +15,10 @@ Individual files have small, inline TODO reminders.
   - [x] Forgot Passcode -> Reset: Needs further investigation. encrypted storage is being inited and reset (and repeat) multiple times unecessarily, through the aforementioned $effect.
     - By the time we try to purge encryptedStorage.current, it has been already set to null by the aforementioned $effect. tokensContext still holds a reference to the old storage instance, but we don't use it. We should probably just investigate the $effect that resets encrypted storage.
 
-- [ ] (P0) [Bug: Settings -> Import/Export/Migrate]: If the settings page is directly loaded, there is no tokensContext.current inited. Any imports or exports will _silently_ fail. This is because the $effect that inits tokensContext.current is in the Codes page.
-  - [ ] We need to either move the $effect to the +layout.svelte or Settings +page.svelte, or we need to manually init tokensContext.current in the settings page.
+- [x] (P0) [Bug: Settings -> Import/Export/Migrate]: If the settings page is directly loaded, there is no tokensContext.current inited. Any imports or exports will _silently_ fail. This is because the $effect that inits tokensContext.current is in the Codes page.
+  - [x] We need to either move the $effect to the +layout.svelte or Settings +page.svelte, or we need to manually init tokensContext.current in the settings page.
 
-- [ ] (P1) Fix the container layout of the pages to better position and align text content on Codes screen
+- [ ] Fix the container layout of the pages to better position and align text content on Codes screen
   - Currently, the header takes up some vertical space and the text container is a flexbox below it, which makes it hard to align the text contents to vertical center of app viewport. This is further complicated by the footer, which is sticky and inset to the bottom.
   - [ ] The right way to go about this is probably to have header, main content and footer all inside a single flexbox container, with the main content growing to eat up all vertical space possible and the header and footer of fixed sizes being fixed at the top and bottom respectively.
 
@@ -47,6 +47,7 @@ Individual files have small, inline TODO reminders.
 - [ ] Move settings and conditions to exported global states. Contexts are overkill for that.
 - [ ] Setup GDrive [app folder backup](https://developers.google.com/drive/api/guides/appdata)
 - [ ] Setup iCloud backup using [CloudKit](https://developer.apple.com/documentation/cloudkit)
+- [ ] Most Recently Used sort order
 - [ ] Better PWA support
   - [ ] [iOS Tips](https://www.netguru.com/blog/pwa-ios)
   - [ ] [Webmanifest tips](https://web.dev/learn/pwa/web-app-manifest)
