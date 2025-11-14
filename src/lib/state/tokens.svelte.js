@@ -179,12 +179,13 @@ const tokensContext = $state({
 	 * @param {EncryptedStorage} storage
 	 */
 	async iMake(storage) {
+		// artificial delay to simulate loading (for testing)
+		// await new Promise((resolve) => setTimeout(resolve, 1500));
+
 		if (this.current) {
 			const existingTokens = $state.snapshot(this.current.getTokens());
-			this.current = await TokensCtx.make(storage, { extraTokens: existingTokens });
-		} else this.current = await TokensCtx.make(storage);
-
-		return this.current;
+			return (this.current = await TokensCtx.make(storage, { extraTokens: existingTokens }));
+		} else return (this.current = await TokensCtx.make(storage));
 	},
 
 	/**

@@ -8,6 +8,7 @@
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { useTokensContext } from '$lib/state/tokens.svelte';
+	import { devconsole } from '$lib/utils';
 	import { goto } from '$app/navigation';
 	import { updated } from '$app/state';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
@@ -121,7 +122,12 @@
 	 */
 	function handleImport(tokens) {
 		if (tokens?.length) {
-			tokensContext.current?.addTokens(...tokens);
+			if (!tokensContext.current) {
+				devconsole.warn('App without valid Tokens context. Attempts to import tokens will fail.');
+				return;
+			}
+
+			tokensContext.current.addTokens(...tokens);
 			alert(`Successfully imported ${tokens.length} token${tokens.length !== 1 ? 's' : ''}.`);
 		}
 	}
@@ -147,10 +153,10 @@
 					<span>iCloud Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
 					<Switch disabled checked={false} class={nonAppleSwitchTheme} />
 				</div>
-				<div class="flex items-center justify-between p-4">
+				<!-- <div class="flex items-center justify-between p-4">
 					<span>Last Synced</span>
 					<span class="text-zinc-500">Never</span>
-				</div>
+				</div> -->
 			</div>
 
 			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
@@ -158,10 +164,10 @@
 					<span>Google Drive Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
 					<Switch disabled checked={false} class={nonAppleSwitchTheme} />
 				</div>
-				<div class="flex items-center justify-between p-4">
+				<!-- <div class="flex items-center justify-between p-4">
 					<span>Last Synced</span>
 					<span class="text-zinc-500">Never</span>
-				</div>
+				</div> -->
 			</div>
 
 			<div class="flex gap-4">

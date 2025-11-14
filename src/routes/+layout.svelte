@@ -16,7 +16,7 @@
 	devconsole.log('+layout.js load data', data);
 
 	createSettingsContext(data.settings);
-	createTokensContext();
+	const tokensContext = createTokensContext();
 
 	const conditionsContext = createConditionsContext(data.conditions);
 	const conditions = $derived(conditionsContext.getConditions());
@@ -29,16 +29,22 @@
 
 	if (browser) {
 		$effect(() => {
-			$inspect.trace('Layout update conditions effect'); // for debugging
+			$inspect.trace('[Layout] update conditions effect'); // for debugging
 
 			if (data.conditions) untrack(() => conditionsContext.updateConditions(data.conditions));
 		});
 
 		$effect(() => {
-			$inspect.trace('Layout ELS init effect'); // for debugging
+			$inspect.trace('[Layout] ELS init effect'); // for debugging
 
-			if (!conditions.isUserPasscodeSet && conditions.clientId && !encryptedLocalStorage.current)
-				encryptedLocalStorage.init(conditions.clientId);
+			if (!conditions.isUserPasscodeSet && conditions.clientId && !encryptedLocalStorage.current) {
+				const clientId = conditions.clientId; // temporarily doing this because TS complains about sending possibly-undefined into encryptedLocalStorage.init (lost type safety inference inside async IIFE)
+
+				(async () => {
+					const storage = await encryptedLocalStorage.init(clientId);
+					await tokensContext.iMake(storage);
+				})();
+			}
 		});
 
 		/**
@@ -46,7 +52,7 @@
 		 * @todo TODO: See if this can be simplified.
 		 */
 		$effect(() => {
-			$inspect.trace('Layout lock app effect'); // for debugging
+			$inspect.trace('[Layout] lock app effect'); // for debugging
 
 			if (conditions.isUserPasscodeSet && !sessionPasscode.passcode && !conditions.isAppLocked)
 				conditionsContext.updateCondition('isAppLocked', true);

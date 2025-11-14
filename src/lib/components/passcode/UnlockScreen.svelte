@@ -20,7 +20,10 @@
 	 */
 	async function handleUnlock(passcode) {
 		sessionPasscode.passcode = passcode;
+
 		await encryptedLocalStorage.init(passcode);
+		if (encryptedLocalStorage.current) await tokensContext.iMake(encryptedLocalStorage.current);
+
 		conditionsContext.updateCondition('isAppLocked', false);
 	}
 

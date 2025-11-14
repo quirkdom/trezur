@@ -14,7 +14,6 @@
 	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
 	import { devconsole } from '$lib/utils';
 	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from '@lucide/svelte';
-	import { untrack } from 'svelte';
 
 	const settingsContext = useSettingsContext();
 	const conditionsContext = useConditionsContext();
@@ -25,53 +24,21 @@
 
 	$inspect('tokensContext.current', tokensContext.current);
 
-	let isLoading = $state(browser);
+	let isLoading = $derived(browser && tokensContext.current?.storage !== encryptedLocalStorage.current);
 
-	/**
-	 * Initialize or re-initialize tokens when storage changes.
-	 * Auto-corrects if tokens context gets out of sync with current storage.
-	 * Won't cause duplicate inits because we check if storage instance actually changed.
-	 */
 	$effect(() => {
-		$inspect.trace('tokensContext init effect'); // for debugging
+		if (encryptedLocalStorage.current?.needsMigration && tokensContext.current) {
+			alert(
+				'This app has been updated to a newer version. Your tokens need to be migrated to more secure encryption. Click OK to automatically download a backup and proceed with the migration.'
+			);
+			handleMigration();
 
-		const storage = encryptedLocalStorage.current;
-
-		if (browser && storage) {
-			const currentCtx = tokensContext.current;
-
-			if (!currentCtx || storage !== currentCtx.storage) {
-				// Initialize if no context yet, or re-init if storage instance changed
-				devconsole.log(
-					`[Codes] ${storage === currentCtx?.storage ? 'Re-' : ''}Initializing tokens context with ${storage === currentCtx?.storage ? 'current' : 'new'} storage`
-				);
-
-				(async () => {
-					isLoading = true;
-					await untrack(() => tokensContext.iMake(storage)); // this updates tokensContext.current, which is read earlier in this effect; so it must be untracked
-					isLoading = false;
-
-					// Check if migration is needed and prompt
-					if (encryptedLocalStorage.current?.needsMigration) {
-						alert(
-							'This app has been updated to a newer version. Your tokens need to be migrated to a more secure encryption. Click OK to automatically download a backup and proceed with the migration.'
-						);
-						handleMigration();
-
-						await untrack(async () => {
-							// Re-init storage with new key
-							if (conditions.clientId) await encryptedLocalStorage.init(conditions.clientId);
-							// Re-make tokens context with new storage (auto-migrates)
-							// if (encryptedLocalStorage.current) await tokensContext.iMake(encryptedLocalStorage.current);
-						});
-					}
-				})();
-			} else {
-				// Storage exists and matches - no init needed
-				devconsole.log('[Codes] Tokens context already initialized with current storage');
-
-				isLoading = false;
-			}
+			(async () => {
+				// Re-init storage with new key
+				if (conditions.clientId) await encryptedLocalStorage.init(conditions.clientId);
+				// Re-make tokens context with new storage (auto-migrates)
+				if (encryptedLocalStorage.current) await tokensContext.iMake(encryptedLocalStorage.current);
+			})();
 		}
 	});
 
@@ -90,7 +57,12 @@
 	 * @param {import('$lib/types').Tokenable} tokenable
 	 */
 	function handleAddToken(tokenable) {
-		tokensContext.current?.addTokens(tokenize(tokenable));
+		if (!tokensContext.current) {
+			devconsole.warn('App without valid Tokens context. Attempts to add token will fail.');
+			return;
+		}
+
+		tokensContext.current.addTokens(tokenize(tokenable));
 	}
 
 	function handleMigration() {

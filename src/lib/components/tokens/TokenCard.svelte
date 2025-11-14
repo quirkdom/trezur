@@ -1,5 +1,6 @@
 <script>
 	import { useTokensContext } from '$lib/state/tokens.svelte';
+	import { devconsole } from '$lib/utils';
 	import NumberFlow, { NumberFlowGroup } from '@number-flow/svelte';
 	import { ClipboardCopy, EllipsisVertical, QrCode, Trash2 } from '@lucide/svelte';
 	import { TOTP } from 'otpauth';
@@ -51,9 +52,25 @@
 	let showCopyAnimation = $state(false);
 	let showTokenQRModal = $state(false);
 
+	/**
+	 * @typedef {import('$lib/types').Tokenable} Tokenable
+	 * @param {Partial<{[key in keyof Tokenable]: Tokenable[key]}>} updates The updates to apply.
+	 */
+	function handleUpdate(updates) {
+		if (!tokensContext.current) {
+			devconsole.warn('App without valid Tokens context. Attempts to update token will fail.');
+			return;
+		}
+		tokensContext.current.updateToken(id, updates);
+	}
+
 	function handleDelete() {
-		confirm(`Are you sure you want to delete the ${issuer || account} token?`) &&
-			tokensContext.current?.removeToken(id);
+		if (!tokensContext.current) {
+			devconsole.warn('App without valid Tokens context. Attempts to delete token will fail.');
+			return;
+		}
+
+		confirm(`Are you sure you want to delete the ${issuer || account} token?`) && tokensContext.current.removeToken(id);
 	}
 
 	function copyCodeToClipboard() {
@@ -114,15 +131,13 @@
 			<div>
 				<Editable
 					value={issuer}
-					onEdit={(/** @type {string} */ val) => tokensContext.current?.updateToken(id, { issuer: val })}
+					onEdit={(/** @type {string} */ val) => handleUpdate({ issuer: val })}
 					class="max-w-[300px] truncate text-lg font-medium text-white"
 				/>
 				{#if account.length > 40}
 					<Editable
 						value={account}
-						onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => {
-							tokensContext.current?.updateToken(id, { account: val || prev }); // Account (token label) cannot be empty
-						}}
+						onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => handleUpdate({ account: val || prev })}
 						class="max-w-[300px] overflow-hidden"
 					>
 						<div class="animate-marquee text-sm whitespace-nowrap text-zinc-500">
@@ -132,9 +147,7 @@
 				{:else}
 					<Editable
 						value={account}
-						onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => {
-							tokensContext.current?.updateToken(id, { account: val || prev }); // Account (token label) cannot be empty
-						}}
+						onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => handleUpdate({ account: val || prev })}
 						class="text-sm text-zinc-500"
 					/>
 				{/if}

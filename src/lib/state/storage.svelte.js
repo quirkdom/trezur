@@ -28,7 +28,7 @@ class EncryptedLocalStorage {
 
 		devconsole.log('[Storage] Initializing encrypted local storage with passkey:', passkey);
 
-		this.#current = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey);
+		return (this.#current = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey));
 	}
 
 	/**
