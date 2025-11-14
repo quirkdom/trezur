@@ -1,5 +1,5 @@
 <script>
-	import { useTokensContext } from '$lib/state/tokens.svelte';
+	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { devconsole } from '$lib/utils';
 	import NumberFlow, { NumberFlowGroup } from '@number-flow/svelte';
 	import { ClipboardCopy, EllipsisVertical, QrCode, Trash2 } from '@lucide/svelte';
@@ -9,8 +9,6 @@
 	import TokenQrCode from './TokenQRCode.svelte';
 
 	const { id, digits, account, secret, period, issuer, algorithm, showNextCode } = $props();
-
-	const tokensContext = useTokensContext();
 
 	// Generate code, and setup ticker for every period
 	const token = $derived(

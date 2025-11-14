@@ -5,7 +5,7 @@
 	import { createConditionsContext } from '$lib/state/conditions.svelte';
 	import { browser } from '$app/environment';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { createTokensContext } from '$lib/state/tokens.svelte';
+	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { untrack } from 'svelte';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
@@ -16,7 +16,6 @@
 	devconsole.log('+layout.js load data', data);
 
 	createSettingsContext(data.settings);
-	const tokensContext = createTokensContext();
 
 	const conditionsContext = createConditionsContext(data.conditions);
 	const conditions = $derived(conditionsContext.getConditions());

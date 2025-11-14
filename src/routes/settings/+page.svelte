@@ -7,7 +7,7 @@
 	import { dev, version } from '$app/environment';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
-	import { useTokensContext } from '$lib/state/tokens.svelte';
+	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { devconsole } from '$lib/utils';
 	import { goto } from '$app/navigation';
 	import { updated } from '$app/state';
@@ -22,7 +22,6 @@
 	let conditions = $derived(conditionsContext.getConditions());
 	let nonAppleSwitchTheme = $derived.by(() => (conditions.isAppleDevice ? '' : 'data-[state=on]:bg-[#EB3912]'));
 
-	const tokensContext = useTokensContext();
 	let tokens = $derived(tokensContext.current?.getTokens() || []);
 
 	let showImportDialog = $state(false);

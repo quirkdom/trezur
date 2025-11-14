@@ -5,13 +5,12 @@
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { useTokensContext } from '$lib/state/tokens.svelte';
+	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { Lock } from '@lucide/svelte';
 	import PasscodeDialog from './PasscodeDialog.svelte';
 
 	const conditionsContext = useConditionsContext();
 	const conditions = $derived(conditionsContext.getConditions());
-	const tokensContext = useTokensContext();
 
 	let showPasscodeDialog = $derived(conditions.isUserPasscodeSet || false);
 

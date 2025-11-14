@@ -11,13 +11,12 @@
 	import { useConditionsContext } from '$lib/state/conditions.svelte.js';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { tokenize, useTokensContext } from '$lib/state/tokens.svelte';
+	import { tokenize, tokensContext } from '$lib/state/tokens.svelte';
 	import { devconsole } from '$lib/utils';
 	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from '@lucide/svelte';
 
 	const settingsContext = useSettingsContext();
 	const conditionsContext = useConditionsContext();
-	const tokensContext = useTokensContext();
 
 	const conditions = $derived(conditionsContext.getConditions());
 	let isAppleDevice = $derived(conditions.isAppleDevice);

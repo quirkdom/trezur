@@ -5,7 +5,6 @@
 import { browser, dev } from '$app/environment';
 import { devconsole } from '$lib/utils';
 import { nanoid } from 'nanoid';
-import { getContext, hasContext, setContext } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
@@ -162,15 +161,16 @@ class TokensCtx {
 }
 
 /**
- * Reactive container to hold a token context instance; can be updated when underlying storage engine changes.
- * @typedef {Object} TokensContextContainer
- * @property {TokensCtx | null} current
- * @property {function(EncryptedStorage): Promise<TokensCtx>} iMake
- * @property {function(): Promise<void>} resetTokens
+ * Reactive singleton class for managing the current token context instance.
+ * Provides methods to initialize and reset the context.
  */
-const tokensContext = $state({
+class TokensContext {
 	/** @type {TokensCtx | null} */
-	current: null,
+	#current = $state(null);
+
+	get current() {
+		return this.#current;
+	}
 
 	/**
 	 * (Intelligently) Make a new Tokens context.
@@ -182,11 +182,11 @@ const tokensContext = $state({
 		// artificial delay to simulate loading (for testing)
 		// await new Promise((resolve) => setTimeout(resolve, 1500));
 
-		if (this.current) {
-			const existingTokens = $state.snapshot(this.current.getTokens());
-			return (this.current = await TokensCtx.make(storage, { extraTokens: existingTokens }));
-		} else return (this.current = await TokensCtx.make(storage));
-	},
+		if (this.#current) {
+			const existingTokens = $state.snapshot(this.#current.getTokens());
+			this.#current = await TokensCtx.make(storage, { extraTokens: existingTokens });
+		} else this.#current = await TokensCtx.make(storage);
+	}
 
 	/**
 	 * Reset Tokens context by wiping out all tokens (both in memory and storage) and clearing the current context instance.
@@ -195,44 +195,26 @@ const tokensContext = $state({
 	 * This leaves the app without a valid tokens context; subsequent token operations will fail.
 	 */
 	async resetTokens() {
-		await this.current?.clearTokens();
-		this.current = null;
+		await this.#current?.clearTokens();
+		this.#current = null;
 
 		devconsole.warn(
 			'App without valid Tokens context; subsequent token operations will fail. Remember to invalidate app state and reload the app.'
 		);
 	}
-});
-
-/**
- *
- * @returns {TokensContextContainer}
- */
-function createTokensContext() {
-	// Store the ref in context, not the instance directly
-	setContext(T_TOKENS, tokensContext);
-
-	// Return the ref and the updater function
-	return tokensContext;
 }
 
 /**
- * @returns {TokensContextContainer}
+ * Reactive singleton instance of TokensContext.
  */
-function useTokensContext() {
-	if (!hasContext(T_TOKENS)) {
-		throw new Error('Tokens context not found. Did you forget to call createTokensContext()?');
-	}
-
-	return getContext(T_TOKENS);
-}
+export let tokensContext = new TokensContext();
 
 /**
  * Creates a new Token from a Tokenable.
  * @param {Tokenable} tokenable
  * @returns {Token}
  */
-function tokenize(tokenable) {
+export function tokenize(tokenable) {
 	return {
 		id: nanoid(10),
 		digits: 6,
@@ -243,5 +225,3 @@ function tokenize(tokenable) {
 		...tokenable
 	};
 }
-
-export { createTokensContext, useTokensContext, tokenize };
