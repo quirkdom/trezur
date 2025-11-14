@@ -204,6 +204,7 @@
 					type={revealSecret ? 'text' : 'password'}
 					pattern={'([A-Z2-7=]{8})+'}
 					required
+					autocomplete="off"
 					placeholder="Enter token secret"
 					title="A valid Base32 encoded secret"
 					bind:value={secret}
@@ -212,7 +213,10 @@
 				<button
 					type="button"
 					class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-400 hover:text-white"
-					onclick={() => (revealSecret = !revealSecret)}
+					onclick={() => {
+						revealSecret = !revealSecret;
+						tick().then(() => document.getElementById('secret')?.focus());
+					}}
 				>
 					{#if revealSecret}
 						<EyeOff size={20} />

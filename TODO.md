@@ -25,9 +25,8 @@ Individual files have small, inline TODO reminders.
 - [x] Fix the longpress interaction on the app lock button. The longpress animation keeps on playing even after the longpress event has been triggered, in all browsers except FF.
 - [x] Reset Option on Wrong Passcode missing from view
 - [x] Refactor how sentinel and encrypted storage metadata is stored
-- [ ] Maintain focus on Add Token Drawer -> token secret box, when reveal button is clicked.
+- [x] Maintain focus on Add Token Drawer -> token secret box, when reveal button is clicked.
   - This is especially problematic in mobile, where the keyboard dissapears on lost focus.
-  - [ ] This can be fixed by adding a `ref` to the token secret box and calling `ref.focus()` when the reveal button is clicked.
 
 - [x] When data is imported from settings page, it adds data into tokensContext state, and then immediately persists it. However after navigating to '/', the $effect to make tokens context in +page.svelte re-runs, which causes #load to run, and that blindly merges persisted data (i.e. tokens that were just persisted) and existing tokens in memory state, resulting in duplicate tokens.
   - [x] Can be possibly solved by de-duping against IDs. But is that a good idea?

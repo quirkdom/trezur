@@ -76,12 +76,12 @@
 				id="passcode"
 				class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-[#EB3912] focus:outline-none"
 				bind:value={passcode}
-				autocomplete="off"
+				autocomplete={mode === 'verify' ? 'current-password' : 'new-password'}
 				disabled={processing}
 				aria-label="Enter passcode to unlock"
 				autofocus
 				{@attach (element) => {
-					errorText && element.focus();
+					if (errorText) element.focus();
 				}}
 			/>
 		</div>
@@ -94,7 +94,7 @@
 					id="confirmPasscode"
 					class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-[#EB3912] focus:outline-none"
 					bind:value={confirmPasscode}
-					autocomplete="off"
+					autocomplete="new-password"
 					disabled={processing}
 					aria-label="Confirm passcode to unlock"
 				/>
