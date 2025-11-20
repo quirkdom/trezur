@@ -59,6 +59,7 @@ Individual files have small, inline TODO reminders.
     - [MDN contextmenu](https://developer.mozilla.org/en-US/docs/Web/API/Element/contextmenu_event)
     - [Detect touch screens](https://stackoverflow.com/a/63666289/2844164)
     - [Svelte Gestures package](https://github.com/Rezi/svelte-gestures)
+    - Haptics (or vibrate) [navigator.vibrate API](https://developer.mozilla.org/en-US/docs/Web/API/Vibration_API), [tactus lib](https://github.com/aadeexyz/tactus)
 - [ ] Standardize CSS across components by making a tailwind theme
   - [ ] Also, look into CSS icons. See [SvelteKit best practices](https://svelte.dev/docs/kit/icons).
 
