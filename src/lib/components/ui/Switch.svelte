@@ -1,14 +1,23 @@
 <script>
+	/**
+	 * @type {{
+	 * 	checked?: boolean,
+	 * 	disabled?: boolean,
+	 * 	class?: string,
+	 * 	onCheckedChange?: (willBeChecked: boolean) => void | Promise<void>,
+	 * }}
+	 */
 	let {
-		/** @type {boolean | undefined} */ checked = $bindable(undefined),
-		/** @type {boolean | undefined} */ disabled = undefined,
-		/** @type {string} */ class: className = '',
-		/** @type {((checked: boolean) => void) | undefined} */ onCheckedChange = undefined
+		checked = $bindable(undefined),
+		disabled = undefined,
+		class: className = '',
+		onCheckedChange = undefined
 	} = $props();
 
-	function handleClick() {
-		checked = !checked;
-		onCheckedChange?.(checked);
+	async function handleClick() {
+		const willBeChecked = !checked;
+		await onCheckedChange?.(willBeChecked);
+		checked = willBeChecked;
 	}
 
 	/** @param {KeyboardEvent} event */

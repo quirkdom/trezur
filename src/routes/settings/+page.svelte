@@ -14,12 +14,15 @@
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { resolve } from '$app/paths';
 
+	import { driveClient } from '$lib/utils/drive.svelte';
+	import { backupService } from '$lib/state/backup.svelte';
+
 	const settingsContext = useSettingsContext();
 	let settings = $derived(settingsContext.getSettings());
 
 	const conditionsContext = useConditionsContext();
 	let conditions = $derived(conditionsContext.getConditions());
-	let nonAppleSwitchTheme = $derived.by(() => (conditions.isAppleDevice ? '' : 'data-[state=on]:bg-[#EB3912]'));
+	let nonAppleSwitchTheme = $derived(conditions.isAppleDevice ? '' : 'data-[state=on]:bg-[#EB3912]');
 
 	let tokens = $derived(tokensContext.current?.getTokens() || []);
 
@@ -27,6 +30,60 @@
 	let showExportDialog = $state(false);
 	let showPasscodeDialog = $state(false);
 	/** @type {'verify' | 'create' | 'change'} */ let passcodeDialogMode = $state('create');
+
+	let showBackupPasscodeDialog = $state(false);
+	let isRestoring = $state(false);
+	let whileAttemptingToConnectGDrive = $state(false);
+	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
+
+	$inspect('isBackupEnabled', isBackupEnabled); // for debugging
+	$inspect('driveClient.isSignedIn', driveClient.isSignedIn); // for debugging
+	$inspect('backupService.autoSyncEnabled', backupService.autoSyncEnabled); // for debugging
+
+	async function attemptToConnectGDrive() {
+		whileAttemptingToConnectGDrive = true;
+		// Turning ON
+		if (!conditions.isUserPasscodeSet) {
+			alert('Please set an App Passcode first in the Security section.');
+
+			passcodeDialogMode = 'create';
+			showPasscodeDialog = true;
+
+			isBackupEnabled = false;
+			return;
+		}
+
+		alert(
+			'Your App Passcode will be used to encrypt the backup. If you have a previous backup, ensure your current passcode matches the one used previously.'
+		);
+
+		try {
+			await driveClient.signIn();
+			await backupService.enable();
+			alert('Backup enabled and initial sync completed!');
+		} catch (e) {
+			alert('Failed to enable backup: ' + e);
+			driveClient.signOut();
+			backupService.disable();
+		}
+
+		whileAttemptingToConnectGDrive = false;
+	}
+
+	/**
+	 * @param {string} passcode
+	 */
+	async function handleBackupPasscode(passcode) {
+		if (isRestoring) {
+			try {
+				await backupService.restore(passcode);
+				alert('Restore completed successfully!');
+			} catch (e) {
+				alert('Restore failed: ' + e);
+			}
+		}
+		isRestoring = false;
+	}
 
 	/**
 	 * @param {string} passcode
@@ -165,26 +222,71 @@
 		<section class="space-y-4">
 			<h2 class="text-sm text-zinc-500 uppercase">Backup</h2>
 
-			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
+			<!-- <div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<span>iCloud Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
 					<Switch disabled checked={false} class={nonAppleSwitchTheme} />
 				</div>
-				<!-- <div class="flex items-center justify-between p-4">
+				<div class="flex items-center justify-between p-4">
 					<span>Last Synced</span>
 					<span class="text-zinc-500">Never</span>
-				</div> -->
-			</div>
+				</div>
+			</div> -->
 
 			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
-				<div class="flex items-center justify-between p-4">
-					<span>Google Drive Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
-					<Switch disabled checked={false} class={nonAppleSwitchTheme} />
+				<div class="flex flex-col gap-4 p-4">
+					<div class="flex items-center justify-between">
+						<span>Google Drive Backup</span>
+						{#key whileAttemptingToConnectGDrive}
+							<!-- We have to do this to ensure the switch is re-rendered to the correct state even when the async connection process doesn't necessarily complete -->
+							<Switch
+								checked={isBackupEnabled}
+								onCheckedChange={async (toBeChecked) => {
+									if (toBeChecked) {
+										// Turning ON
+										await attemptToConnectGDrive();
+									} else {
+										// Turning OFF
+										await backupService.disable();
+										driveClient.signOut();
+									}
+								}}
+							/>
+						{/key}
+					</div>
+
+					{#if driveClient.isSignedIn}
+						<div class="flex items-center justify-between">
+							<span class="text-sm text-zinc-400">Status</span>
+							<span class="text-sm text-green-500">Active</span>
+						</div>
+						<div class="flex items-center justify-between">
+							<span class="text-sm text-zinc-400">Last Synced</span>
+							<span class="text-sm text-zinc-300">
+								{settings.lastSyncTime ? new Date(settings.lastSyncTime).toLocaleString() : 'Never'}
+							</span>
+						</div>
+						<div class="flex gap-2">
+							<button
+								class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700 disabled:opacity-50"
+								disabled={backupService.isSyncing}
+								onclick={() => backupService.sync()}
+							>
+								{backupService.isSyncing ? 'Syncing...' : 'Sync Now'}
+							</button>
+							<button
+								class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700"
+								onclick={() => {
+									passcodeDialogMode = 'verify';
+									showBackupPasscodeDialog = true;
+									isRestoring = true;
+								}}
+							>
+								Restore
+							</button>
+						</div>
+					{/if}
 				</div>
-				<!-- <div class="flex items-center justify-between p-4">
-					<span>Last Synced</span>
-					<span class="text-zinc-500">Never</span>
-				</div> -->
 			</div>
 
 			<div class="flex gap-4">
@@ -319,3 +421,5 @@
 	mode={passcodeDialogMode}
 	onSuccess={passcodeDialogMode === 'create' ? handleSetPasscode : handleChangePasscode}
 />
+
+<PasscodeDialog bind:open={showBackupPasscodeDialog} mode={passcodeDialogMode} onSuccess={handleBackupPasscode} />

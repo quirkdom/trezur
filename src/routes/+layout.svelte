@@ -9,12 +9,14 @@
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
 	import { devconsole } from '$lib/utils';
+	import { backupService } from '$lib/state/backup.svelte';
 
 	const { children, data } = $props();
 
 	devconsole.log('+layout.js load data', data);
 
-	createSettingsContext(data.settings);
+	const settingsContext = createSettingsContext(data.settings);
+	backupService.init(settingsContext);
 
 	const conditionsContext = createConditionsContext(data.conditions);
 	const conditions = $derived(conditionsContext.getConditions());
@@ -32,6 +34,12 @@
 		if (!conditions.isUserPasscodeSet && conditions.clientId && !encryptedLocalStorage.current) {
 			initStorageAndTokens(conditions.clientId);
 		}
+
+		$effect(() => {
+			if (encryptedLocalStorage.current) {
+				backupService.loadFromStorage();
+			}
+		});
 
 		/**
 		 * Lock the app if passcode is set and no session passcode is available
