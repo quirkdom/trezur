@@ -2,7 +2,6 @@ import { browser } from '$app/environment';
 import { devconsole } from '$lib/utils';
 
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
-const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const GSI_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 
 /**
@@ -13,12 +12,17 @@ const GSI_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
  */
 
 class DriveClient {
+	/** @type {'implicit' | 'pkce'} */
+	flow;
+
 	/** @type {boolean} */
 	isReady = $state(false);
 	/** @type {boolean} */
 	isSignedIn = $state(false);
 	/** @type {string | null} */
 	accessToken = $state(null);
+	/** @type {string | null} */
+	refreshToken = $state(null);
 	/** @type {number} */
 	tokenExpiry = $state(0);
 
@@ -28,7 +32,9 @@ class DriveClient {
 	/** @type {Promise<void> | null} */
 	#loadingPromise = null;
 
-	constructor() {
+	/** @param {'implicit' | 'pkce'} flow */
+	constructor(flow = 'implicit') {
+		this.flow = flow;
 		// Lazy load, don't init in constructor
 	}
 
@@ -66,14 +72,24 @@ class DriveClient {
 		if (typeof window === 'undefined' || !window.google) return;
 
 		try {
-			// @ts-ignore
-			this.tokenClient = google.accounts.oauth2.initTokenClient({
-				client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-				scope: SCOPES,
-				callback: (resp) => this.#handleTokenResponse(resp)
-			});
+			if (this.flow === 'implicit') {
+				// @ts-ignore
+				this.tokenClient = google.accounts.oauth2.initTokenClient({
+					client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+					scope: SCOPES,
+					callback: (resp) => this.#handleTokenResponse(resp)
+				});
+			} else if (this.flow === 'pkce') {
+				// @ts-ignore
+				this.tokenClient = google.accounts.oauth2.initCodeClient({
+					client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+					scope: SCOPES,
+					ux_mode: 'popup',
+					callback: (resp) => this.#handleCodeResponse(resp)
+				});
+			}
 			this.isReady = true;
-			devconsole.log('[Drive] GSI Client initialized');
+			devconsole.log(`[Drive] GSI Client initialized (${this.flow} flow)`);
 		} catch (e) {
 			devconsole.error('[Drive] Failed to initialize GSI', e);
 		}
@@ -116,6 +132,66 @@ class DriveClient {
 		}
 	}
 
+	/**
+	 * @param {any} resp
+	 */
+	async #handleCodeResponse(resp) {
+		if (resp.error) {
+			devconsole.error('[Drive] Code error', resp);
+			if (this.#signInRejecter) {
+				this.#signInRejecter(resp.error);
+				this.#signInResolver = null;
+				this.#signInRejecter = null;
+			}
+			return;
+		}
+
+		try {
+			// Exchange code for tokens
+			/** @type {Record<string, string>} */
+			const params = {
+				client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+				code: resp.code,
+				grant_type: 'authorization_code',
+				redirect_uri: window.location.origin // Matches default in initCodeClient
+			};
+			// Include client_secret if configured (for confidential clients)
+			if (import.meta.env.VITE_GOOGLE_CLIENT_SECRET) {
+				params.client_secret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
+			}
+			const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams(params)
+			});
+
+			if (!tokenResp.ok) {
+				throw new Error('Token exchange failed');
+			}
+
+			const tokens = await tokenResp.json();
+			this.accessToken = tokens.access_token;
+			this.refreshToken = tokens.refresh_token;
+			this.tokenExpiry = Date.now() + tokens.expires_in * 1000 - 60000;
+			this.isSignedIn = true;
+
+			devconsole.log('[Drive] Tokens received (PKCE)', tokens);
+
+			if (this.#signInResolver) {
+				this.#signInResolver(this.accessToken || '');
+				this.#signInResolver = null;
+				this.#signInRejecter = null;
+			}
+		} catch (e) {
+			devconsole.error('[Drive] Token exchange error', e);
+			if (this.#signInRejecter) {
+				this.#signInRejecter(e);
+				this.#signInResolver = null;
+				this.#signInRejecter = null;
+			}
+		}
+	}
+
 	async signIn() {
 		await this.load();
 		if (!this.tokenClient) return;
@@ -123,8 +199,13 @@ class DriveClient {
 		return new Promise((resolve, reject) => {
 			this.#signInResolver = resolve;
 			this.#signInRejecter = reject;
-			// Request explicit consent
-			this.tokenClient.requestAccessToken({ prompt: 'consent' });
+			if (this.flow === 'implicit') {
+				// Request explicit consent
+				this.tokenClient.requestAccessToken({ prompt: 'consent' });
+			} else if (this.flow === 'pkce') {
+				// Request code with consent
+				this.tokenClient.requestCode();
+			}
 		});
 	}
 
@@ -132,11 +213,21 @@ class DriveClient {
 		await this.load();
 		if (!this.tokenClient) return;
 
+		if (this.flow === 'pkce' && this.refreshToken) {
+			// Use refresh token for silent refresh
+			return this.#refreshToken();
+		}
+
 		return new Promise((resolve, reject) => {
 			this.#signInResolver = resolve;
 			this.#signInRejecter = reject;
-			// Try to refresh silently
-			this.tokenClient.requestAccessToken({ prompt: '' });
+			if (this.flow === 'implicit') {
+				// Try to refresh silently
+				this.tokenClient.requestAccessToken({ prompt: '' });
+			} else if (this.flow === 'pkce') {
+				// No refresh token, fall back to full sign-in
+				this.tokenClient.requestCode();
+			}
 		});
 	}
 
@@ -149,6 +240,7 @@ class DriveClient {
 			});
 		}
 		this.accessToken = null;
+		this.refreshToken = null;
 		this.isSignedIn = false;
 		this.tokenExpiry = 0;
 	}
@@ -168,6 +260,38 @@ class DriveClient {
 				throw new Error('Failed to refresh token silently');
 			}
 		}
+		return this.accessToken;
+	}
+
+	/**
+	 * Refresh access token using refresh token (PKCE only).
+	 */
+	async #refreshToken() {
+		if (!this.refreshToken) throw new Error('No refresh token');
+
+		/** @type {Record<string, string>} */
+		const params = {
+			client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+			refresh_token: this.refreshToken,
+			grant_type: 'refresh_token'
+		};
+		// Include client_secret if configured
+		if (import.meta.env.VITE_GOOGLE_CLIENT_SECRET) {
+			params.client_secret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
+		}
+		const resp = await fetch('https://oauth2.googleapis.com/token', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: new URLSearchParams(params)
+		});
+
+		if (!resp.ok) throw new Error('Refresh failed');
+
+		const tokens = await resp.json();
+		this.accessToken = tokens.access_token;
+		this.tokenExpiry = Date.now() + tokens.expires_in * 1000 - 60000;
+
+		devconsole.log('[Drive] Token refreshed (PKCE)');
 		return this.accessToken;
 	}
 
@@ -248,4 +372,7 @@ class DriveClient {
 	}
 }
 
-export const driveClient = new DriveClient();
+// Default to implicit flow for backward compatibility
+export const driveClient = new DriveClient('implicit');
+
+// For testing PKCE, use: new DriveClient('pkce')
