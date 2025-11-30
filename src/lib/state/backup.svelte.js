@@ -5,6 +5,7 @@ import { encryptedLocalStorage } from '$lib/state/storage.svelte.js';
 import { sessionPasscode } from '$lib/state/passcode.svelte.js';
 
 const T_BACKUP_ENABLED = 'T_backup_enabled';
+const T_LAST_ERROR = 'T_last_error';
 const BACKUP_FILENAME = 'trezur_backup.enc';
 const SYNC_INTERVAL = 60 * 60 * 1000; // 1 hour
 
@@ -13,6 +14,8 @@ class BackupService {
 	isSyncing = $state(false);
 	/** @type {number} */
 	lastSync = $state(0);
+	/** @type {string | null} */
+	lastError = $state(null);
 	/** @type {boolean} */
 	autoSyncEnabled = $state(false);
 	/** @type {any} */
@@ -39,6 +42,12 @@ class BackupService {
 		if (enabled) {
 			this.autoSyncEnabled = true;
 			this.startAutoSync();
+		}
+
+		// Load last error
+		const lastError = await encryptedLocalStorage.current.get(T_LAST_ERROR);
+		if (lastError) {
+			this.lastError = lastError;
 		}
 
 		// Also load last sync time from settings
@@ -156,8 +165,12 @@ class BackupService {
 			if (this.settingsContext) {
 				this.settingsContext.updateSetting('lastSyncTime', this.lastSync);
 			}
+			this.lastError = null;
+			await encryptedLocalStorage.current?.delete(T_LAST_ERROR);
 			devconsole.log('[Backup] Sync completed');
 		} catch (e) {
+			this.lastError = e instanceof Error ? e.message : String(e);
+			await encryptedLocalStorage.current?.set(T_LAST_ERROR, this.lastError);
 			devconsole.error('[Backup] Sync failed', e);
 		} finally {
 			this.isSyncing = false;

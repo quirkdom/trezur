@@ -1,21 +1,24 @@
 <script>
-	import NavActions from '$lib/components/nav/NavActions.svelte';
-	import Switch from '$lib/components/ui/Switch.svelte';
-	import ImportTokensDialog from '$lib/components/tokens/ImportTokens.svelte';
-	import ExportTokensDialog from '$lib/components/tokens/ExportTokens.svelte';
-	import PasscodeDialog from '$lib/components/passcode/PasscodeDialog.svelte';
 	import { dev, version } from '$app/environment';
-	import { useSettingsContext } from '$lib/state/settings.svelte';
+	import { resolve } from '$app/paths';
+	import { updated } from '$app/state';
+	import NavActions from '$lib/components/nav/NavActions.svelte';
+	import PasscodeDialog from '$lib/components/passcode/PasscodeDialog.svelte';
+	import ExportTokensDialog from '$lib/components/tokens/ExportTokens.svelte';
+	import ImportTokensDialog from '$lib/components/tokens/ImportTokens.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
+	import { backupService } from '$lib/state/backup.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
+	import { sessionPasscode } from '$lib/state/passcode.svelte';
+	import { useSettingsContext } from '$lib/state/settings.svelte';
+	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { devconsole } from '$lib/utils';
-	import { updated } from '$app/state';
-	import { sessionPasscode } from '$lib/state/passcode.svelte';
-	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { resolve } from '$app/paths';
 
 	import { driveClient } from '$lib/utils/drive.svelte';
-	import { backupService } from '$lib/state/backup.svelte';
+	import { ChevronDown } from '@lucide/svelte';
+	import { cubicInOut } from 'svelte/easing';
+	import { slide } from 'svelte/transition';
 
 	const settingsContext = useSettingsContext();
 	let settings = $derived(settingsContext.getSettings());
@@ -36,9 +39,46 @@
 	let whileAttemptingToConnectGDrive = $state(false);
 	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
 
-	$inspect('isBackupEnabled', isBackupEnabled); // for debugging
-	$inspect('driveClient.isSignedIn', driveClient.isSignedIn); // for debugging
-	$inspect('backupService.autoSyncEnabled', backupService.autoSyncEnabled); // for debugging
+	let backupStatus = $derived.by(() => {
+		if (whileAttemptingToConnectGDrive) return null;
+
+		if (backupService.lastError) {
+			// Check for critical auth errors
+			if (/(token|auth|refresh|sign in)/.test(backupService.lastError.toLowerCase()))
+				return { state: 'error', color: 'bg-red-500', message: 'Signed Out' };
+
+			return { state: 'warning', color: 'bg-yellow-500', message: 'Sync Error' };
+		}
+
+		const lastSync = settings.lastSyncTime || 0;
+		// If never synced or synced more than 1 hour ago
+		if (!lastSync || Date.now() - lastSync > 60 * 60 * 1000) {
+			return { state: 'warning', color: 'bg-yellow-500', message: 'Sync Overdue' };
+		}
+
+		return { state: 'ok', color: 'bg-green-500', message: 'Active' };
+	});
+
+	let isBackupDetailsOpen = $derived(
+		backupStatus && (backupStatus.state === 'error' || backupStatus.message.toLowerCase().includes('error'))
+	);
+
+	/**
+	 * @param {number} timestamp
+	 */
+	function getRelativeSyncTime(timestamp) {
+		if (!timestamp) return 'Never synced';
+
+		const diff = Date.now() - timestamp;
+		const seconds = Math.floor(diff / 1000);
+		const minutes = Math.floor(seconds / 60);
+		const hours = Math.floor(minutes / 60);
+
+		if (hours >= 2) return 'a long time ago.';
+		if (hours >= 1) return 'an hour ago.';
+		if (minutes >= 2) return 'a few minutes ago.';
+		return 'a few seconds ago.';
+	}
 
 	async function attemptToConnectGDrive() {
 		whileAttemptingToConnectGDrive = true;
@@ -234,70 +274,105 @@
 			</div> -->
 
 			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
-				<div class="flex flex-col gap-4 p-4">
-					<div class="flex items-center justify-between">
-						<span>Google Drive Backup</span>
-						{#key whileAttemptingToConnectGDrive}
-							<!-- We have to do this to ensure the switch is re-rendered to the correct state even when the async connection process doesn't necessarily complete -->
-							<Switch
-								checked={isBackupEnabled}
-								onCheckedChange={async (toBeChecked) => {
-									if (toBeChecked) {
-										// Turning ON
-										await attemptToConnectGDrive();
-									} else {
-										// Turning OFF
-										await backupService.disable();
-										driveClient.signOut();
-									}
-								}}
-							/>
-						{/key}
-					</div>
-
-					{#if driveClient.isSignedIn}
-						<div class="flex items-center justify-between">
-							<span class="text-sm text-zinc-400">Status</span>
-							<span class="text-sm text-green-500">Active</span>
-						</div>
-						<div class="flex items-center justify-between">
-							<span class="text-sm text-zinc-400">Last Synced</span>
-							<span class="text-sm text-zinc-300">
-								{settings.lastSyncTime ? new Date(settings.lastSyncTime).toLocaleString() : 'Never'}
-							</span>
-						</div>
-						<div class="flex gap-2">
-							<button
-								class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700 disabled:opacity-50"
-								disabled={backupService.isSyncing}
-								onclick={() => backupService.sync()}
-							>
-								{backupService.isSyncing ? 'Syncing...' : 'Sync Now'}
-							</button>
-							<button
-								class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700"
-								onclick={() => {
-									passcodeDialogMode = 'verify';
-									showBackupPasscodeDialog = true;
-									isRestoring = true;
-								}}
-							>
-								Restore
-							</button>
-						</div>
-					{/if}
+				<div class="flex items-center justify-between p-4">
+					<span>Google Drive Backup</span>
+					{#key whileAttemptingToConnectGDrive}
+						<!-- We have to do this to ensure the switch is re-rendered to the correct state even when the async connection process doesn't necessarily complete -->
+						<Switch
+							checked={isBackupEnabled}
+							onCheckedChange={async (toBeChecked) => {
+								if (toBeChecked) {
+									// Turning ON
+									await attemptToConnectGDrive();
+								} else {
+									// Turning OFF
+									await backupService.disable();
+									driveClient.signOut();
+								}
+							}}
+						/>
+					{/key}
 				</div>
+				{#if isBackupEnabled}
+					<div class="flex flex-col gap-4 p-4">
+						<button
+							class="flex w-full items-center justify-between text-left"
+							onclick={() => (isBackupDetailsOpen = !isBackupDetailsOpen)}
+						>
+							<div class="flex items-center gap-3">
+								{#if backupStatus}
+									<div
+										class="h-2.5 w-2.5 rounded-full {backupStatus.color} shadow-[0_0_8px] shadow-{backupStatus.color}/50"
+									></div>
+								{/if}
+								<div class="flex flex-col">
+									<span class="text-sm text-zinc-300">
+										Last synced
+										<abbr title={settings.lastSyncTime ? new Date(settings.lastSyncTime).toLocaleString() : ''}>
+											{getRelativeSyncTime(settings.lastSyncTime || 0)}
+										</abbr>
+									</span>
+								</div>
+							</div>
+							<div class="transition-transform duration-200" class:rotate-180={isBackupDetailsOpen}>
+								<ChevronDown size={16} />
+							</div>
+						</button>
+
+						{#if isBackupDetailsOpen}
+							<div transition:slide={{ duration: 200, easing: cubicInOut }} class="space-y-4">
+								{#if backupStatus?.state === 'error'}
+									<div class="px-2 text-xs text-red-400">Could not sign in to Google Drive. Please reconnect.</div>
+								{:else if backupStatus?.state === 'warning' && backupService.lastError}
+									<div class="px-2 text-xs break-all text-yellow-500">
+										Error: {backupService.lastError}
+									</div>
+								{/if}
+
+								<div class="flex gap-2">
+									{#if backupStatus?.state === 'error'}
+										<button
+											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-red-500 transition-colors hover:bg-zinc-700"
+											onclick={attemptToConnectGDrive}
+										>
+											Reconnect
+										</button>
+									{:else}
+										<button
+											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+											disabled={backupService.isSyncing || isRestoring}
+											onclick={() => backupService.sync()}
+										>
+											{backupService.isSyncing ? 'Syncing...' : 'Sync Now'}
+										</button>
+										<button
+											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+											disabled={isRestoring || backupService.isSyncing}
+											onclick={() => {
+												passcodeDialogMode = 'verify';
+												showBackupPasscodeDialog = true;
+												isRestoring = true;
+											}}
+										>
+											{isRestoring ? 'Restoring...' : 'Restore'}
+										</button>
+									{/if}
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 
 			<div class="flex gap-4">
 				<button
-					class="w-full rounded-lg bg-zinc-900 p-4 text-center text-blue-500 transition-colors hover:bg-zinc-700"
+					class="flex-1 rounded-lg bg-zinc-900 p-4 text-blue-500 transition-colors hover:bg-zinc-700"
 					onclick={() => (showImportDialog = true)}
 				>
 					Import
 				</button>
 				<button
-					class="w-full rounded-lg bg-zinc-900 p-4 text-center text-blue-500 transition-colors hover:bg-zinc-700"
+					class="flex-1 rounded-lg bg-zinc-900 p-4 text-blue-500 transition-colors hover:bg-zinc-700"
 					onclick={() => (showExportDialog = true)}
 				>
 					Export
@@ -315,7 +390,7 @@
 							{conditions.isUserPasscodeSet ? 'Passcode is set' : 'No passcode set'}
 						</div>
 					</div>
-					<div class="flex gap-2">
+					<div class="flex flex-wrap justify-end gap-2">
 						{#if conditions.isUserPasscodeSet}
 							<button
 								class="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700"
