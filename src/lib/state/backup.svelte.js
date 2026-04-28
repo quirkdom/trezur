@@ -206,6 +206,21 @@ class BackupService {
 		}
 	}
 
+	/**
+	 * @param {string} passcode
+	 * @returns {Promise<boolean>}
+	 */
+	async verifyBackupPasscode(passcode) {
+		try {
+			const content = await driveClient.download(BACKUP_FILENAME);
+			await this.#decrypt(content, passcode);
+			return true;
+		} catch (e) {
+			devconsole.warn('[Backup] Passcode verification failed', e);
+			return false;
+		}
+	}
+
 	/** @type {any} */
 	#intervalId;
 

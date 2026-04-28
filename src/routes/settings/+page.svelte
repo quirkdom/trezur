@@ -35,6 +35,8 @@
 	/** @type {'verify' | 'create' | 'change'} */ let passcodeDialogMode = $state('create');
 
 	let showBackupPasscodeDialog = $state(false);
+	let backupPasscodeDialogTitle = $state('');
+	let backupPasscodeDialogDescription = $state('');
 	let isRestoring = $state(false);
 	let whileAttemptingToConnectGDrive = $state(false);
 	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
@@ -90,15 +92,29 @@
 			showPasscodeDialog = true;
 
 			isBackupEnabled = false;
+			whileAttemptingToConnectGDrive = false;
 			return;
 		}
 
-		alert(
-			'Your App Passcode will be used to encrypt the backup. If you have a previous backup, ensure your current passcode matches the one used previously.'
-		);
-
 		try {
 			await driveClient.signIn();
+
+			// Check if backup exists and if we can decrypt it with current passcode
+			const backupFile = await driveClient.findFile('trezur_backup.enc');
+			if (backupFile) {
+				const isValid = await backupService.verifyBackupPasscode(sessionPasscode.passcode);
+				if (!isValid) {
+					// Passcode mismatch!
+					backupPasscodeDialogTitle = 'Backup Passcode Required';
+					backupPasscodeDialogDescription =
+						'A backup was found but it is encrypted with a different passcode. Please enter the passcode used for the backup to continue.';
+					passcodeDialogMode = 'verify';
+					showBackupPasscodeDialog = true;
+					whileAttemptingToConnectGDrive = false;
+					return;
+				}
+			}
+
 			await backupService.enable();
 			alert('Backup enabled and initial sync completed!');
 		} catch (e) {
@@ -114,15 +130,41 @@
 	 * @param {string} passcode
 	 */
 	async function handleBackupPasscode(passcode) {
-		if (isRestoring) {
-			try {
-				await backupService.restore(passcode);
-				alert('Restore completed successfully!');
-			} catch (e) {
-				alert('Restore failed: ' + e);
+		// This handler is now ONLY for the mismatch case during connection
+		// Restore is handled directly via button click now (using session passcode)
+
+		try {
+			const isValid = await backupService.verifyBackupPasscode(passcode);
+			if (isValid) {
+				// Update local passcode to match backup
+				await handleSetPasscode(passcode);
+				// Enable backup
+				await backupService.enable();
+				alert('Passcode updated to match backup, and backup enabled successfully!');
+			} else {
+				alert('Incorrect backup passcode. Backup could not be enabled.');
+				driveClient.signOut();
+				backupService.disable();
 			}
+		} catch (e) {
+			alert('Error verifying passcode: ' + e);
+			driveClient.signOut();
+			backupService.disable();
 		}
-		isRestoring = false;
+		showBackupPasscodeDialog = false;
+	}
+
+	async function handleRestore() {
+		if (!sessionPasscode.passcode) return;
+		isRestoring = true;
+		try {
+			await backupService.restore(sessionPasscode.passcode);
+			alert('Restore completed successfully!');
+		} catch (e) {
+			alert('Restore failed: ' + e);
+		} finally {
+			isRestoring = false;
+		}
 	}
 
 	/**
@@ -348,11 +390,7 @@
 										<button
 											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
 											disabled={isRestoring || backupService.isSyncing}
-											onclick={() => {
-												passcodeDialogMode = 'verify';
-												showBackupPasscodeDialog = true;
-												isRestoring = true;
-											}}
+											onclick={handleRestore}
 										>
 											{isRestoring ? 'Restoring...' : 'Restore'}
 										</button>
@@ -497,4 +535,10 @@
 	onSuccess={passcodeDialogMode === 'create' ? handleSetPasscode : handleChangePasscode}
 />
 
-<PasscodeDialog bind:open={showBackupPasscodeDialog} mode={passcodeDialogMode} onSuccess={handleBackupPasscode} />
+<PasscodeDialog
+	bind:open={showBackupPasscodeDialog}
+	mode={passcodeDialogMode}
+	title={backupPasscodeDialogTitle}
+	description={backupPasscodeDialogDescription}
+	onSuccess={handleBackupPasscode}
+/>

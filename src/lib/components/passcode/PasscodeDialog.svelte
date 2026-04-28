@@ -2,8 +2,15 @@
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import Drawer from '$lib/components/ui/Drawer.svelte';
 
-	/** @type {{open: boolean, mode: 'verify' | 'create' | 'change', onSuccess: (passcode: string) => void, onForgot?: () => void}} */
-	let { open = $bindable(false), mode = 'verify', onSuccess, onForgot = undefined } = $props();
+	/** @type {{open: boolean, mode: 'verify' | 'create' | 'change', title?: string, description?: string, onSuccess: (passcode: string) => void, onForgot?: () => void}} */
+	let {
+		open = $bindable(false),
+		mode = 'verify',
+		title = '',
+		description = '',
+		onSuccess,
+		onForgot = undefined
+	} = $props();
 
 	let passcode = $state('');
 	let confirmPasscode = $state('');
@@ -61,10 +68,13 @@
 
 <Drawer
 	bind:open
-	title={mode === 'verify' ? 'Enter Passcode' : mode === 'create' ? 'Create Passcode' : 'Change Passcode'}
+	title={title || (mode === 'verify' ? 'Enter Passcode' : mode === 'create' ? 'Create Passcode' : 'Change Passcode')}
 	onClose={handleClose}
 	class="mx-auto max-w-lg"
 >
+	{#if description}
+		<p class="mb-4 text-sm text-zinc-400">{description}</p>
+	{/if}
 	<form onsubmit={handleSubmit} class="space-y-4">
 		<div>
 			<label for="passcode" class="mb-1 block text-sm text-gray-400">Passcode</label>
