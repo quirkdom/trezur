@@ -55,6 +55,7 @@ Individual files have small, inline TODO reminders.
 - [ ] Better UX for touch devices
   - [ ] Implement swipe gestures for token actions
   - [ ] Implement long press for token actions
+  - [ ] Handle abbreviations on mobile touch devices [[SO answer](https://stackoverflow.com/a/69353021/2844164)]
   - Some resources for that:
     - [MDN contextmenu](https://developer.mozilla.org/en-US/docs/Web/API/Element/contextmenu_event)
     - [Detect touch screens](https://stackoverflow.com/a/63666289/2844164)
