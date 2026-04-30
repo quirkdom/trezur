@@ -48,8 +48,6 @@ export interface EncryptedStorage {
 	set(key: string, value: any): Promise<void>;
 	delete(key: string): Promise<void>;
 	purge(): Promise<void>;
-	setSentinel(): Promise<void>;
-	verifySentinel(): Promise<boolean>;
-	removeSentinel(): Promise<void>;
 	needsMigration: boolean; // TODO: remove this once we have migrated all users
+	msk?: Uint8Array;
 }

@@ -37,7 +37,6 @@
 		const newStorage = await encryptedLocalStorage.init(passcode);
 
 		await tokensContext.iMake(newStorage);
-		await newStorage.setSentinel();
 
 		conditionsContext.updateCondition('isUserPasscodeSet', true);
 
@@ -57,7 +56,6 @@
 		const newStorage = await encryptedLocalStorage.init(passcode);
 
 		await tokensContext.iMake(newStorage);
-		await newStorage.setSentinel(); // this will overwrite the old sentinel
 
 		const tokenCount = tokensContext.current?.getTokens().length || 0;
 		alert(`Passcode changed! ${tokenCount} token${tokenCount > 1 ? 's' : ''} re-encrypted.`);
@@ -73,7 +71,6 @@
 			return;
 
 		if (conditions.clientId) {
-			await encryptedLocalStorage.current?.removeSentinel();
 			const newStorage = await encryptedLocalStorage.init(conditions.clientId);
 
 			await tokensContext.iMake(newStorage);

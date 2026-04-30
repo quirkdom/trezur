@@ -8,8 +8,9 @@ import { cip, ds, generateKDFParams, pic } from './salada';
 const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
 const T_ES_ = 'T_ES_';
 const T_ES_KDF_META = 'T_ES__kdf_meta__';
-const T_ES_SENTINEL = '_sentinel__';
+const T_ES_WRAPPED_MSK = 'T_ES__wrapped_msk__';
 const AES_GCM = 'AES-GCM';
+
 
 /**
  * @implements {EncryptedStorage}
@@ -17,8 +18,14 @@ const AES_GCM = 'AES-GCM';
 export class AESGCMEncryptedStorage {
 	/** @type {AsyncStorageEngine} */
 	storageEngine;
+	/** @type {Uint8Array | undefined} */
+	#msk;
 	/** @type {CryptoKey | undefined}*/
 	#cryptoKey;
+
+	get msk() {
+		return this.#msk;
+	}
 	/**
 	 * @type {boolean}
 	 * @todo Remove this once we have migrated all users
@@ -42,11 +49,89 @@ export class AESGCMEncryptedStorage {
 	/**
 	 * @param {AsyncStorageEngine} engine
 	 * @param {string} passkey
+	 * @param {object} [options]
+	 * @param {Uint8Array} [options.existingMsk]
+	 * @param {Uint8Array} [options.importedMsk]
 	 */
-	static async make(engine, passkey) {
+	static async make(engine, passkey, options = {}) {
 		const instance = new AESGCMEncryptedStorage(engine, ANTI_CTOR_TOKEN);
-		instance.#cryptoKey = await instance.#makeCryptoKey(passkey);
+
+		const lwk = await instance.#makeLwk(passkey);
+
+		if (instance.needsMigration) {
+			instance.#cryptoKey = lwk;
+			return instance;
+		}
+
+		let currentMsk;
+
+		if (options.importedMsk) {
+			currentMsk = options.importedMsk;
+			await instance.#wrapAndSaveMsk(lwk, currentMsk);
+		} else if (options.existingMsk) {
+			currentMsk = options.existingMsk;
+			await instance.#wrapAndSaveMsk(lwk, currentMsk);
+		} else {
+			const storedWrapped = await engine.getItem(T_ES_WRAPPED_MSK);
+			if (storedWrapped) {
+				const { iv, data } = JSON.parse(storedWrapped);
+				const decrypted = await crypto.subtle.decrypt(
+					{ name: AES_GCM, iv: new Uint8Array(iv) },
+					lwk,
+					new Uint8Array(data)
+				);
+				currentMsk = new Uint8Array(decrypted);
+			} else {
+				currentMsk = crypto.getRandomValues(new Uint8Array(32));
+				await instance.#wrapAndSaveMsk(lwk, currentMsk);
+			}
+		}
+
+		instance.#msk = currentMsk;
+		instance.#cryptoKey = await crypto.subtle.importKey('raw', /** @type {any} */ (currentMsk), { name: AES_GCM }, false, ['encrypt', 'decrypt']);
+
 		return instance;
+	}
+
+	/**
+	 * @param {CryptoKey} lwk
+	 * @param {Uint8Array} msk
+	 */
+	async #wrapAndSaveMsk(lwk, msk) {
+		const iv = crypto.getRandomValues(new Uint8Array(12));
+		const encryptedMsk = await crypto.subtle.encrypt({ name: AES_GCM, iv }, lwk, /** @type {any} */ (msk));
+		await this.storageEngine.setItem(
+			T_ES_WRAPPED_MSK,
+			JSON.stringify({
+				iv: Array.from(iv),
+				data: Array.from(new Uint8Array(encryptedMsk))
+			})
+		);
+	}
+
+	/**
+	 * @param {string} passkey
+	 */
+	async #makeLwk(passkey) {
+		const metadata = await this.#getOrCreateKDFMetadata(passkey);
+		const saltBytes = Uint8Array.from(atob(metadata.salt), (c) => c.charCodeAt(0));
+
+		const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passkey), metadata.name, false, [
+			'deriveKey'
+		]);
+
+		return crypto.subtle.deriveKey(
+			{
+				name: metadata.name,
+				salt: saltBytes,
+				iterations: metadata.iterations,
+				hash: metadata.hash
+			},
+			keyMaterial,
+			{ name: AES_GCM, length: 256 },
+			false,
+			['encrypt', 'decrypt']
+		);
 	}
 
 	/**
@@ -104,30 +189,7 @@ export class AESGCMEncryptedStorage {
 		}
 	}
 
-	/**
-	 * @param {string} passkey
-	 */
-	async #makeCryptoKey(passkey) {
-		const metadata = await this.#getOrCreateKDFMetadata(passkey);
-		const saltBytes = Uint8Array.from(atob(metadata.salt), (c) => c.charCodeAt(0));
 
-		const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passkey), metadata.name, false, [
-			'deriveKey'
-		]);
-
-		return crypto.subtle.deriveKey(
-			{
-				name: metadata.name,
-				salt: saltBytes,
-				iterations: metadata.iterations,
-				hash: metadata.hash
-			},
-			keyMaterial,
-			{ name: AES_GCM, length: 256 },
-			false,
-			['encrypt', 'decrypt']
-		);
-	}
 
 	/**
 	 * @param {string} key
@@ -186,32 +248,9 @@ export class AESGCMEncryptedStorage {
 			.map((key) => key.slice(T_ES_.length));
 	}
 
-	/**
-	 * Set the sentinel value to verify passcode on unlock
-	 */
-	async setSentinel() {
-		await this.set(T_ES_SENTINEL, { v: 1, ok: 'ok' });
-	}
-
-	/**
-	 * Verify if the current key can decrypt the sentinel
-	 * @returns {Promise<boolean>}
-	 */
-	async verifySentinel() {
-		const sentinel = await this.get(T_ES_SENTINEL);
-		return sentinel?.v === 1 && sentinel?.ok === 'ok';
-	}
-
-	/**
-	 * Remove the sentinel value
-	 */
-	async removeSentinel() {
-		await this.delete(T_ES_SENTINEL);
-	}
-
 	async purge() {
 		await Promise.allSettled((await this.#keys()).map((key) => this.delete(key)));
-		await this.removeSentinel();
+		await this.storageEngine.removeItem(T_ES_WRAPPED_MSK);
 		await this.storageEngine.removeItem(T_ES_KDF_META);
 	}
 }

@@ -19,9 +19,11 @@ class EncryptedLocalStorage {
 
 	/**
 	 * @param {string} passkey
+	 * @param {object} [options]
+	 * @param {Uint8Array} [options.msk]
 	 * @returns {Promise<EncryptedStorage>}
 	 */
-	async init(passkey) {
+	async init(passkey, options = {}) {
 		if (!browser) throw new Error('SSR safety: Encrypted Local Storage can only be used in the browser.');
 
 		// artificial delay to simulate loading (for testing)
@@ -29,7 +31,14 @@ class EncryptedLocalStorage {
 
 		devconsole.log('[Storage] Initializing encrypted local storage with passkey:', passkey);
 
-		return (this.#current = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey));
+		const makeOptions = {};
+		if (options.msk) {
+			makeOptions.importedMsk = options.msk;
+		} else if (this.#current?.msk) {
+			makeOptions.existingMsk = this.#current.msk;
+		}
+
+		return (this.#current = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey, makeOptions));
 	}
 
 	/**
@@ -43,8 +52,8 @@ class EncryptedLocalStorage {
 		}
 
 		try {
-			const tempStorage = await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey);
-			return await tempStorage.verifySentinel();
+			await AESGCMEncryptedStorage.make(new LocalStorageEngine(), passkey);
+			return true;
 		} catch (err) {
 			devconsole.error(`Error testing encrypted local storage with passkey candidate '${passkey}':`, err);
 			return false;
