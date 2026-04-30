@@ -26,7 +26,7 @@
 	let isLoading = $derived(browser && tokensContext.current?.storage !== encryptedLocalStorage.current);
 
 	$effect(() => {
-		if (encryptedLocalStorage.current?.needsMigration && tokensContext.current) {
+		if (encryptedLocalStorage.needsMigration && tokensContext.current) {
 			alert(
 				'This app has been updated to a newer version. Your tokens need to be migrated to more secure encryption. Click OK to automatically download a backup and proceed with the migration.'
 			);

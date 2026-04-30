@@ -1,6 +1,6 @@
 # Trezur Passcode & App Lock State Management
 
-This document outlines how the Trezur app handles passcodes, app locking, and encryption session initialization.
+This document outlines how the Trezur app handles passcodes, app locking, and encryption session initialization based on the Master Sync Key (MSK) and Local Wrap Key (LWK) architecture.
 
 ## 1. App Locked State and Session Passcode Requirement on Load
 
@@ -19,26 +19,23 @@ The app's lock state and session requirement are determined centrally in `src/ro
 
 ## 2. Setting, Changing, or Removing a Passcode
 
-Passcode management occurs in `src/routes/settings/+page.svelte` through user interactions.
+Passcode management occurs in `src/routes/settings/+page.svelte` through user interactions. Because tokens are encrypted with a random Master Sync Key (MSK), changing a passcode only requires re-wrapping the MSK, not re-encrypting the entire token vault.
 
 - **Setting a New Passcode (`handleSetPasscode`)**:
   1. The new passcode is saved to session memory: `sessionPasscode.passcode = passcode`.
-  2. `encryptedLocalStorage` is initialized with the new passcode.
-  3. The `tokensContext` is reinitialized (`iMake`) with the new storage. This process automatically re-encrypts any existing tokens with the new passcode.
-  4. A verification sentinel is set in storage (`newStorage.setSentinel()`) to validate future unlock attempts.
-  5. The global state `isUserPasscodeSet` is updated to `true`.
-  6. The user receives a success alert summarizing the changes and how many tokens were re-encrypted.
+  2. `encryptedLocalStorage` is initialized with the new passcode, and `options.oldPasskey: conditions.clientId` is provided. This unwraps the MSK using the device key and re-wraps it securely under the new user passcode.
+  3. The `tokensContext` is reinitialized (`iMake`) with the new storage.
+  4. The global state `isUserPasscodeSet` is updated to `true`.
 
 - **Changing an Existing Passcode (`handleChangePasscode`)**:
-  The flow is nearly identical to setting a new passcode. The new passcode is put into session memory, storage is re-initialized which triggers token re-encryption, and the verification sentinel is overwritten to match the new passcode.
+  The flow is nearly identical to setting a new passcode. The new passcode is put into session memory, and storage is initialized using the *old* `sessionPasscode.passcode` as `options.oldPasskey`. The MSK is unwrapped using the old passcode and immediately re-wrapped using the new passcode. The tokens vault remains perfectly intact.
 
 - **Removing a Passcode (`handleRemovePasscode`)**:
   1. The user must manually confirm the removal by typing "YES".
-  2. The existing passcode sentinel is removed from storage.
-  3. `encryptedLocalStorage` is re-initialized using the fallback device-specific `clientId`.
-  4. The `tokensContext` is reinitialized, re-encrypting tokens with the device key.
-  5. `isUserPasscodeSet` is toggled to `false`.
-  6. The `sessionPasscode` in memory is cleared (`sessionPasscode.clear()`).
+  2. `encryptedLocalStorage` is re-initialized using the fallback device-specific `clientId` and the *old* `sessionPasscode.passcode` is provided as `options.oldPasskey`. The MSK is unwrapped from the user's passcode and re-wrapped under the device key.
+  3. The `tokensContext` is reinitialized.
+  4. `isUserPasscodeSet` is toggled to `false`.
+  5. The `sessionPasscode` in memory is cleared (`sessionPasscode.clear()`).
 
 ## 3. Locking and Unlocking the App
 
@@ -49,19 +46,19 @@ Passcode management occurs in `src/routes/settings/+page.svelte` through user in
 
 ### Unlocking Flow
 - When `isAppLocked` is true, the `UnlockScreen` (`src/lib/components/passcode/UnlockScreen.svelte`) displays a `PasscodeDialog` in `"verify"` mode.
-- When the user enters a passcode, it is verified (via the storage sentinel). On success, `handleUnlock(passcode)` executes:
+- When the user enters a passcode, it is verified by calling `encryptedLocalStorage.test(passcode)`. This tests whether the provided passcode can successfully derive an LWK and unwrap the stored MSK. On success, `handleUnlock(passcode)` executes:
   1. **Populating Session Memory**: The validated passcode is assigned to `sessionPasscode.passcode`.
-  2. **Storage Initialization**: `encryptedLocalStorage.init(passcode)` is called. This provisions the AES-GCM encryption layer with the user's passcode as the key.
+  2. **Storage Initialization**: `encryptedLocalStorage.init(passcode)` is called. This unpacks the MSK using the passcode, derives the AES-GCM payload CryptoKey, and provisions the `AESGCMEncryptedStorage` adapter.
   3. **Data Context Setup**: `tokensContext.iMake(encryptedLocalStorage.current)` is called, linking the token state manager to the freshly initialized storage. 
   4. **Decryption**: Because the storage is now initialized with the correct key, subsequent reads via `tokensContext` will transparently decrypt the underlying data from local storage.
   5. **State Update**: Finally, `conditionsContext.updateCondition('isAppLocked', false)` is called. This hides the `<UnlockScreen />` and resumes normal app execution with decrypted data ready for rendering.
 
-## 4. Tokens Migration Flow (Temporary)
+## 4. Tokens Migration Flow (Legacy V1 -> V2)
 
 > [!NOTE]
-> This flow is a temporary backward-compatibility mechanism for migrating tokens from an older encryption implementation to the new AES-GCM storage and will be removed in the future.
+> This flow is a backward-compatibility mechanism for migrating tokens from the older weak-KDF implementation (V1) to the new MSK/LWK AES-GCM architecture (V2) and will be removed in the future.
 
-When a user visits the main page (`src/routes/+page.svelte`), the app checks if `encryptedLocalStorage.current?.needsMigration` is true:
+When a user visits the main page (`src/routes/+page.svelte`), the app checks if `encryptedLocalStorage.needsMigration` is true (detected because the stored KDF metadata indicates an old version, or no KDF metadata exists but old `T_ES_` records exist):
 1. **User Notification & Backup**: It alerts the user that their tokens must be migrated to more secure encryption. It then automatically downloads a JSON backup of the current tokens (via `exportTokensDownload`) before proceeding, ensuring no data loss if migration fails.
 2. **Storage Re-initialization**: It re-initializes `encryptedLocalStorage` using the fallback `clientId` (the device-specific key).
-3. **Data Re-encryption**: It calls `tokensContext.iMake(encryptedLocalStorage.current)`, which merges any currently loaded tokens in memory into the newly initialized storage. This transparently re-encrypts the old tokens under the new encryption mechanism.
+3. **Data Re-encryption**: It calls `tokensContext.iMake(encryptedLocalStorage.current)`. Because the new storage instance utilizes the freshly generated MSK encryption, `iMake` reads the tokens loaded in memory (decrypted from the legacy adapter) and writes them back into the new storage adapter. This transparently re-encrypts the old tokens under the new MSK architecture.

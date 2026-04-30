@@ -3,14 +3,13 @@
  * @typedef {import('$lib/types').EncryptedStorage} EncryptedStorage
  */
 import { browser } from '$app/environment';
-import { cip, ds, generateKDFParams, pic } from './salada';
 
-const ANTI_CTOR_TOKEN = Symbol('AntiConstructorToken');
+import { cip, pic } from './salada';
+
 const T_ES_ = 'T_ES_';
 const T_ES_KDF_META = 'T_ES__kdf_meta__';
 const T_ES_WRAPPED_MSK = 'T_ES__wrapped_msk__';
 const AES_GCM = 'AES-GCM';
-
 
 /**
  * @implements {EncryptedStorage}
@@ -18,186 +17,23 @@ const AES_GCM = 'AES-GCM';
 export class AESGCMEncryptedStorage {
 	/** @type {AsyncStorageEngine} */
 	storageEngine;
-	/** @type {Uint8Array | undefined} */
-	#msk;
-	/** @type {CryptoKey | undefined}*/
+	/** @type {CryptoKey} */
 	#cryptoKey;
 
-	get msk() {
-		return this.#msk;
-	}
-	/**
-	 * @type {boolean}
-	 * @todo Remove this once we have migrated all users
-	 */
-	needsMigration = false;
-
-	someId = -1; // for debugging. TODO: remove this before production
-
 	/**
 	 * @param {AsyncStorageEngine} engine
-	 * @param {symbol} [initToken]
+	 * @param {CryptoKey} cryptoKey
 	 */
-	constructor(engine, initToken) {
-		if (initToken !== ANTI_CTOR_TOKEN)
-			throw new Error('Cannot construct EncryptedStorage directly; await EncryptedStorage.make() instead.');
-
+	constructor(engine, cryptoKey) {
 		this.storageEngine = engine;
-		this.someId = Math.random();
+		this.#cryptoKey = cryptoKey;
 	}
-
-	/**
-	 * @param {AsyncStorageEngine} engine
-	 * @param {string} passkey
-	 * @param {object} [options]
-	 * @param {Uint8Array} [options.existingMsk]
-	 * @param {Uint8Array} [options.importedMsk]
-	 */
-	static async make(engine, passkey, options = {}) {
-		const instance = new AESGCMEncryptedStorage(engine, ANTI_CTOR_TOKEN);
-
-		const lwk = await instance.#makeLwk(passkey);
-
-		if (instance.needsMigration) {
-			instance.#cryptoKey = lwk;
-			return instance;
-		}
-
-		let currentMsk;
-
-		if (options.importedMsk) {
-			currentMsk = options.importedMsk;
-			await instance.#wrapAndSaveMsk(lwk, currentMsk);
-		} else if (options.existingMsk) {
-			currentMsk = options.existingMsk;
-			await instance.#wrapAndSaveMsk(lwk, currentMsk);
-		} else {
-			const storedWrapped = await engine.getItem(T_ES_WRAPPED_MSK);
-			if (storedWrapped) {
-				const { iv, data } = JSON.parse(storedWrapped);
-				const decrypted = await crypto.subtle.decrypt(
-					{ name: AES_GCM, iv: new Uint8Array(iv) },
-					lwk,
-					new Uint8Array(data)
-				);
-				currentMsk = new Uint8Array(decrypted);
-			} else {
-				currentMsk = crypto.getRandomValues(new Uint8Array(32));
-				await instance.#wrapAndSaveMsk(lwk, currentMsk);
-			}
-		}
-
-		instance.#msk = currentMsk;
-		instance.#cryptoKey = await crypto.subtle.importKey('raw', /** @type {any} */ (currentMsk), { name: AES_GCM }, false, ['encrypt', 'decrypt']);
-
-		return instance;
-	}
-
-	/**
-	 * @param {CryptoKey} lwk
-	 * @param {Uint8Array} msk
-	 */
-	async #wrapAndSaveMsk(lwk, msk) {
-		const iv = crypto.getRandomValues(new Uint8Array(12));
-		const encryptedMsk = await crypto.subtle.encrypt({ name: AES_GCM, iv }, lwk, /** @type {any} */ (msk));
-		await this.storageEngine.setItem(
-			T_ES_WRAPPED_MSK,
-			JSON.stringify({
-				iv: Array.from(iv),
-				data: Array.from(new Uint8Array(encryptedMsk))
-			})
-		);
-	}
-
-	/**
-	 * @param {string} passkey
-	 */
-	async #makeLwk(passkey) {
-		const metadata = await this.#getOrCreateKDFMetadata(passkey);
-		const saltBytes = Uint8Array.from(atob(metadata.salt), (c) => c.charCodeAt(0));
-
-		const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passkey), metadata.name, false, [
-			'deriveKey'
-		]);
-
-		return crypto.subtle.deriveKey(
-			{
-				name: metadata.name,
-				salt: saltBytes,
-				iterations: metadata.iterations,
-				hash: metadata.hash
-			},
-			keyMaterial,
-			{ name: AES_GCM, length: 256 },
-			false,
-			['encrypt', 'decrypt']
-		);
-	}
-
-	/**
-	 * @param {string} kdfAlgorithm
-	 * @param {Uint8Array<ArrayBuffer>} saltBytes
-	 * @param {boolean} [isLegacy=false]
-	 *
-	 * @todo Remove isLegacy opt and simpilfy, after all users have migrated
-	 */
-	#makeKDFMetadata(kdfAlgorithm, saltBytes, isLegacy = false) {
-		const kdfProps = generateKDFParams(kdfAlgorithm, saltBytes);
-
-		return {
-			v: isLegacy ? 0 : 1,
-			...kdfProps,
-			...(isLegacy ? { iterations: 100000 } : {})
-		};
-	}
-
-	/**
-	 * Get or create metadata with KDF parameters and random salt
-	 * @param {string} passkey
-	 *
-	 * @todo Once majority of users have migrated, remove the legacy salt derivation
-	 */
-	async #getOrCreateKDFMetadata(passkey) {
-		const stored = await this.storageEngine.getItem(T_ES_KDF_META);
-		if (stored) {
-			const metadata = JSON.parse(stored);
-			if (metadata.v < 1) {
-				// Force upgrade: create new metadata with random salt for migration
-				const saltBytes = crypto.getRandomValues(new Uint8Array(32));
-				const newMetadata = this.#makeKDFMetadata('PBKDF2-SHA256', saltBytes);
-				await this.storageEngine.setItem(T_ES_KDF_META, JSON.stringify(newMetadata));
-				return newMetadata;
-			} else {
-				return metadata;
-			}
-		}
-
-		const hasData = (await this.storageEngine.keys()).some((key) => pic(key).startsWith(T_ES_));
-		if (hasData) {
-			// Use old salt derived from passkey
-			const oldSalt = await ds(passkey);
-			const metadata = this.#makeKDFMetadata('PBKDF2-SHA256', oldSalt, true);
-			await this.storageEngine.setItem(T_ES_KDF_META, JSON.stringify(metadata));
-			this.needsMigration = true;
-			return metadata;
-		} else {
-			// Create new random salt
-			const saltBytes = crypto.getRandomValues(new Uint8Array(32));
-			const metadata = this.#makeKDFMetadata('PBKDF2-SHA256', saltBytes);
-			await this.storageEngine.setItem(T_ES_KDF_META, JSON.stringify(metadata));
-			return metadata;
-		}
-	}
-
-
 
 	/**
 	 * @param {string} key
 	 * @param {any} value
 	 */
 	async set(key, value) {
-		if (!this.#cryptoKey) throw new Error('Encryption not available. Did you await EncryptedStorage.make()?');
-
 		const iv = crypto.getRandomValues(new Uint8Array(12));
 		const encodedValue = new TextEncoder().encode(JSON.stringify(value));
 
@@ -217,8 +53,6 @@ export class AESGCMEncryptedStorage {
 	async get(key) {
 		const stored = await this.storageEngine.getItem(cip(T_ES_ + key));
 		if (!stored) return null;
-
-		if (!this.#cryptoKey) throw new Error('Encryption not available. Did you await EncryptedStorage.make()?');
 
 		const { iv, data } = JSON.parse(stored);
 		try {
