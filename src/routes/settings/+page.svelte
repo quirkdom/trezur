@@ -33,8 +33,9 @@
 	 * @param {string} passcode
 	 */
 	async function handleSetPasscode(passcode) {
+		const oldPasskey = conditions.clientId;
 		sessionPasscode.passcode = passcode;
-		const newStorage = await encryptedLocalStorage.init(passcode);
+		const newStorage = await encryptedLocalStorage.init(passcode, { oldPasskey });
 
 		await tokensContext.iMake(newStorage);
 
@@ -52,8 +53,9 @@
 	 * @param {string} passcode
 	 */
 	async function handleChangePasscode(passcode) {
+		const oldPasskey = sessionPasscode.previous || sessionPasscode.passcode;
 		sessionPasscode.passcode = passcode;
-		const newStorage = await encryptedLocalStorage.init(passcode);
+		const newStorage = await encryptedLocalStorage.init(passcode, { oldPasskey });
 
 		await tokensContext.iMake(newStorage);
 
@@ -71,7 +73,8 @@
 			return;
 
 		if (conditions.clientId) {
-			const newStorage = await encryptedLocalStorage.init(conditions.clientId);
+			const oldPasskey = sessionPasscode.passcode;
+			const newStorage = await encryptedLocalStorage.init(conditions.clientId, { oldPasskey });
 
 			await tokensContext.iMake(newStorage);
 		}
