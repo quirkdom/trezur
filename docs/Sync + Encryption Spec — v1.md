@@ -170,7 +170,6 @@ async function decryptPayload(mskKey: CryptoKey, iv: Uint8Array, data: Uint8Arra
 4. Parse metadata JSON and locate `wrapped_msk` (base64).
 5. Derive MK from given Master Password and header salt/iterations.
 6. Attempt `unwrapMSK(MK, wrapped.iv, wrapped.data)`.
-
    - If success → MSK recovered.
    - If failure → report "Wrong master password" to user.
 
@@ -184,11 +183,9 @@ async function decryptPayload(mskKey: CryptoKey, iv: Uint8Array, data: Uint8Arra
 ## Merge logic (when payload is downloaded)
 
 - For each token id in union(localIDs, remoteIDs):
-
   - If token exists only in local → keep local.
   - If only remote → keep remote.
   - If both → for `account` and `issuer` use `meta.updatedAt.field` per-field LWW:
-
     - mergedValue.field = value from side with higher `meta.updatedAt.field`.
 
   - For all other token fields, use `data.lastUpdatedTs` (token-level LWW). If token non-editable fields differ, treat as duplicate import (raise flagged error or present merge UI).
@@ -224,13 +221,11 @@ async function cloudPutFileIfMatch(
 ## Error handling / UX behaviors
 
 - If `unwrapMSK` fails:
-
   - Show `Wrong Master Password` dialog. Allow retries.
   - If user cancels, do not attempt payload download.
 
 - If download header shows different `kdf_iterations` or `salt` unsupported: show migration error.
 - If `cloudPutFileIfMatch` returns `etag mismatch`:
-
   - Re-fetch header+metadata, re-evaluate merge; re-merge and retry up to 3 attempts; if still failing, present UI describing conflict with options: retry, overwrite (force), or create branch (rename remote).
 
 - If decryption of payload fails after successful unwrap: treat as corruption — show "backup corrupted" UI.
@@ -242,28 +237,22 @@ async function cloudPutFileIfMatch(
 Create automated tests (node + jsdom or headless browser):
 
 1. **Crypto round-trip**
-
    - deriveMasterKey -> wrapMSK -> unwrapMSK -> assert equality.
    - encryptPayload -> decryptPayload with MSK -> assert plaintext matches.
 
 2. **File serialization round-trip**
-
    - Build header+metadata+payload, then parse header, read metadata, decrypt payload.
 
 3. **Metadata-only decision**
-
    - Given local metadata and cloud metadata, assert the logic decides **no payload download** when identical, and **payload required** when cloud has newer timestamps or missing tokens.
 
 4. **Concurrent writes**
-
    - Simulate two devices changing different tokens, test merge correctness and conditional write conflict resolution (etag mismatch -> re-merge).
 
 5. **Wrong Master Password**
-
    - Ensure unwrapMSK fails fast and does not download payload.
 
 6. **Migration test**
-
    - Simulate header version mismatch and ensure graceful error.
 
 ---
@@ -285,7 +274,6 @@ async function forceSyncNow(): Promise<void>;
 ```
 
 - `unlockAndSync` should:
-
   - read header + metadata
   - unwrap MSK with the provided password
   - decide whether to download payload

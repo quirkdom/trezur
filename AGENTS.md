@@ -54,6 +54,7 @@
 - **Purpose**: Runtime passcode management and app lock state
 - **Implementation**: Session-based reactive store
 - **Features**: Passcode validation, session clearing, lock state management
+- **Documentation**: See `docs/passcode-management.md` for detailed flow of locking, unlocking, and session initialization
 
 #### Conditions State (`conditions.svelte.js`)
 - **Purpose**: Device and app state conditions
