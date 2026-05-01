@@ -33,34 +33,51 @@
 	 * @param {string} passcode
 	 */
 	async function handleSetPasscode(passcode) {
-		const oldPasskey = conditions.clientId;
-		sessionPasscode.passcode = passcode;
-		const newStorage = await encryptedLocalStorage.init(passcode, { oldPasskey });
+		try {
+			if (!conditions.clientId) throw new Error('No device key present. Cannot set passcode. Please contact support.');
 
-		await tokensContext.iMake(newStorage);
+			if (sessionPasscode.passcode)
+				throw new Error('An existing passcode was found. Perhaps you want to change your passcode instead?');
 
-		conditionsContext.updateCondition('isUserPasscodeSet', true);
+			await encryptedLocalStorage.rewrapMSK(passcode, conditions.clientId);
 
-		const tokenCount = tokensContext.current?.getTokens().length || 0;
-		if (tokenCount > 0) {
-			alert(`Passcode set! ${tokenCount} token${tokenCount > 1 ? 's' : ''} re-encrypted.`);
-		} else {
-			alert('Passcode set successfully!');
+			// Commit session state only after successful re-wrap
+			sessionPasscode.passcode = passcode;
+			conditionsContext.updateCondition('isUserPasscodeSet', true);
+
+			const tokenCount = tokensContext.current?.getTokens().length || 0;
+			alert(
+				'Passcode set successfully!' +
+					(tokenCount > 0 ? ` ${tokenCount} token${tokenCount > 1 ? 's' : ''} secured.` : '')
+			);
+		} catch (err) {
+			devconsole.error('[Passcode] Set failed:', err);
+			alert('Failed to set passcode. Your data is unchanged — please try again.');
 		}
 	}
 
 	/**
-	 * @param {string} passcode
+	 * @param {string} newPasscode
 	 */
-	async function handleChangePasscode(passcode) {
-		const oldPasskey = sessionPasscode.previous || sessionPasscode.passcode;
-		sessionPasscode.passcode = passcode;
-		const newStorage = await encryptedLocalStorage.init(passcode, { oldPasskey });
+	async function handleChangePasscode(newPasscode) {
+		try {
+			if (!sessionPasscode.passcode)
+				throw new Error('No prior passcode available to change. Perhaps you want to set a new passcode instead?');
 
-		await tokensContext.iMake(newStorage);
+			await encryptedLocalStorage.rewrapMSK(newPasscode, sessionPasscode.passcode);
 
-		const tokenCount = tokensContext.current?.getTokens().length || 0;
-		alert(`Passcode changed! ${tokenCount} token${tokenCount > 1 ? 's' : ''} re-encrypted.`);
+			// Commit session state only after successful re-wrap
+			sessionPasscode.passcode = newPasscode;
+
+			const tokenCount = tokensContext.current?.getTokens().length || 0;
+			alert(
+				'Passcode changed successfully!' +
+					(tokenCount > 0 ? ` ${tokenCount} token${tokenCount > 1 ? 's' : ''} secured.` : '')
+			);
+		} catch (err) {
+			devconsole.error('[Passcode] Change failed:', err);
+			alert('Failed to change passcode. Your data is unchanged — please try again.');
+		}
 	}
 
 	async function handleRemovePasscode() {
@@ -72,17 +89,28 @@
 		)
 			return;
 
-		if (conditions.clientId) {
-			const oldPasskey = sessionPasscode.passcode;
-			const newStorage = await encryptedLocalStorage.init(conditions.clientId, { oldPasskey });
+		try {
+			if (!conditions.clientId)
+				throw new Error('No device key present. Cannot remove passcode. Please contact support.');
 
-			await tokensContext.iMake(newStorage);
+			if (!sessionPasscode.passcode)
+				throw new Error('Existing passcode not found. Perhaps you want to set a passcode instead?');
+
+			await encryptedLocalStorage.rewrapMSK(conditions.clientId, sessionPasscode.passcode);
+
+			// Commit session state only after successful re-wrap
+			conditionsContext.updateCondition('isUserPasscodeSet', false);
+			sessionPasscode.clear();
+
+			const tokenCount = tokensContext.current?.getTokens().length || 0;
+			alert(
+				'Passcode removed successfully!' +
+					(tokenCount > 0 ? ` ${tokenCount} token${tokenCount > 1 ? 's' : ''} secured with a device-specific key.` : '')
+			);
+		} catch (err) {
+			devconsole.error('[Passcode] Remove failed:', err);
+			alert('Failed to remove passcode. Your data is unchanged — please try again.');
 		}
-
-		conditionsContext.updateCondition('isUserPasscodeSet', false);
-		sessionPasscode.clear();
-
-		alert('Passcode removed. Your tokens are now encrypted with a device-specific key.');
 	}
 
 	async function purgeAll() {

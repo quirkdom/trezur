@@ -18,6 +18,7 @@ import { pic } from '$lib/utils/salada';
 const T_ES_ = 'T_ES_';
 const T_ES_KDF_META = 'T_ES__kdf_meta__';
 const T_ES_WRAPPED_MSK = 'T_ES__wrapped_msk__';
+const T_ES_WRAPPED_MSK_BAK = 'T_ES__wrapped_msk_bak__';
 
 /**
  * Reactive singleton class for managing encrypted local storage.
@@ -81,14 +82,30 @@ class EncryptedLocalStorage {
 	}
 
 	/**
+	 * Initialize encrypted storage with the given passkey.
+	 *
+	 * Handles two flows:
+	 * - Legacy migration (v0 KDF): uses LWK directly as the payload key (temporary, for re-encryption)
+	 * - Standard v1: unwraps (or generates) an MSK, derives the payload key from it
+	 *
+	 * Passkey re-wrapping (passcode set/change/remove) is handled separately by {@link rewrapMSK}.
+	 *
 	 * @param {string} passkey
-	 * @param {object} [options]
-	 * @param {Uint8Array} [options.importedMsk]
-	 * @param {string} [options.oldPasskey]
 	 * @returns {Promise<EncryptedStorage>}
 	 */
-	async init(passkey, options = {}) {
+	async init(passkey) {
 		if (!browser) throw new Error('SSR safety: Encrypted Local Storage can only be used in the browser.');
+
+		// Recover from an interrupted rewrapMSK: if the backup exists but the primary is missing,
+		// restore from backup. Either way, clean up the backup key.
+		const mskBackup = localStorage.getItem(T_ES_WRAPPED_MSK_BAK);
+		if (mskBackup) {
+			if (!localStorage.getItem(T_ES_WRAPPED_MSK)) {
+				localStorage.setItem(T_ES_WRAPPED_MSK, mskBackup);
+				devconsole.warn('[Storage] Recovered wrapped MSK from interrupted passkey migration backup.');
+			}
+			localStorage.removeItem(T_ES_WRAPPED_MSK_BAK);
+		}
 
 		// artificial delay to simulate loading (for testing)
 		// await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -103,30 +120,15 @@ class EncryptedLocalStorage {
 			return (this.#current = new AESGCMEncryptedStorage(engine, lwk));
 		}
 
-		let msk;
-		if (options.importedMsk) {
-			msk = options.importedMsk;
+		const storedWrapped = localStorage.getItem(T_ES_WRAPPED_MSK);
+		const msk = storedWrapped
+			? await unwrapMSK(JSON.parse(storedWrapped), lwk)
+			: generateMSK();
+
+		// Persist wrapped MSK if it was freshly generated
+		if (!storedWrapped) {
 			const wrapped = await wrapMSK(msk, lwk);
 			localStorage.setItem(T_ES_WRAPPED_MSK, JSON.stringify(wrapped));
-		} else if (options.oldPasskey) {
-			const oldMetadata = await this.#getOrCreateKDFMetadata(options.oldPasskey);
-			const oldLwk = await deriveLWK(options.oldPasskey, oldMetadata);
-
-			const storedWrapped = localStorage.getItem(T_ES_WRAPPED_MSK);
-			if (!storedWrapped) throw new Error('Cannot re-wrap missing MSK');
-
-			msk = await unwrapMSK(JSON.parse(storedWrapped), oldLwk);
-			const wrapped = await wrapMSK(msk, lwk);
-			localStorage.setItem(T_ES_WRAPPED_MSK, JSON.stringify(wrapped));
-		} else {
-			const storedWrapped = localStorage.getItem(T_ES_WRAPPED_MSK);
-			if (storedWrapped) {
-				msk = await unwrapMSK(JSON.parse(storedWrapped), lwk);
-			} else {
-				msk = generateMSK();
-				const wrapped = await wrapMSK(msk, lwk);
-				localStorage.setItem(T_ES_WRAPPED_MSK, JSON.stringify(wrapped));
-			}
 		}
 
 		const payloadKey = await importPayloadKey(msk);
@@ -160,6 +162,50 @@ class EncryptedLocalStorage {
 			devconsole.error(`Error testing encrypted local storage with passkey candidate '${passkey}':`, err);
 			return false;
 		}
+	}
+
+	/**
+	 * Atomically re-wrap the MSK under a new passkey's LWK.
+	 *
+	 * This is a pure key-management operation. The MSK itself, the derived CryptoKey,
+	 * the storage instance, and the tokens context are all unaffected — only the LWK
+	 * wrapping persisted in localStorage changes.
+	 *
+	 * Uses a two-phase commit with a backup key for crash safety:
+	 *   Phase 1 (prepare): derive keys, unwrap + re-wrap MSK — all in memory
+	 *   Phase 2 (commit): backup old wrapping → persist new wrapping → remove backup
+	 *
+	 * On any failure before commit, localStorage is untouched and the existing
+	 * storage instance remains valid.
+	 *
+	 * @param {string} newPasskey
+	 * @param {string} oldPasskey
+	 * @returns {Promise<void>}
+	 */
+	async rewrapMSK(newPasskey, oldPasskey) {
+		if (!browser) throw new Error('SSR safety: Encrypted Local Storage can only be used in the browser.');
+		if (!this.#current) throw new Error('[Storage] rewrapMSK: no active storage instance.');
+
+		// ── Phase 1: Prepare (all in memory, nothing persisted) ──
+
+		const metadata = await this.#getOrCreateKDFMetadata(oldPasskey);
+		const oldLwk = await deriveLWK(oldPasskey, metadata);
+		const newLwk = await deriveLWK(newPasskey, metadata);
+
+		const storedWrapped = localStorage.getItem(T_ES_WRAPPED_MSK);
+		if (!storedWrapped) throw new Error('[Storage] rewrapMSK: no wrapped MSK found in storage.');
+
+		const msk = await unwrapMSK(JSON.parse(storedWrapped), oldLwk);
+		const newWrappedMSK = await wrapMSK(msk, newLwk);
+
+		// ── Phase 2: Commit ──
+
+		localStorage.setItem(T_ES_WRAPPED_MSK_BAK, storedWrapped);
+		localStorage.setItem(T_ES_WRAPPED_MSK, JSON.stringify(newWrappedMSK));
+		localStorage.removeItem(T_ES_WRAPPED_MSK_BAK);
+
+		devconsole.log('[Storage] MSK re-wrapped successfully. CryptoKey and storage instance unchanged.');
+		// #current is intentionally NOT changed — the CryptoKey derived from MSK is identical.
 	}
 
 	async reset(purge = false) {
