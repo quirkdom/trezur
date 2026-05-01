@@ -4,7 +4,7 @@
 	import { createSettingsContext } from '$lib/state/settings.svelte';
 	import { createConditionsContext } from '$lib/state/conditions.svelte';
 	import { browser } from '$app/environment';
-	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
+	import { encryptedLocalStorage, isResetGuardActive as isStorageResetGuardActive } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { untrack } from 'svelte';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
@@ -36,12 +36,17 @@
 		$effect(() => {
 			$inspect.trace('[Layout] ELS init effect'); // for debugging
 
-			if (!conditions.isUserPasscodeSet && conditions.clientId && !encryptedLocalStorage.current) {
+			if (
+				!conditions.isUserPasscodeSet &&
+				conditions.clientId &&
+				!encryptedLocalStorage.current &&
+				!isStorageResetGuardActive()
+			) {
 				const clientId = conditions.clientId; // temporarily doing this because TS complains about sending possibly-undefined into encryptedLocalStorage.init (lost type safety inference inside async IIFE)
 
 				(async () => {
 					const storage = await encryptedLocalStorage.init(clientId);
-					await tokensContext.iMake(storage);
+					if (storage) await tokensContext.iMake(storage);
 				})();
 			}
 		});

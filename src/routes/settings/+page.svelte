@@ -12,7 +12,7 @@
 	import { goto } from '$app/navigation';
 	import { updated } from '$app/state';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
-	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
+	import { encryptedLocalStorage, runWithResetGuard } from '$lib/state/storage.svelte';
 	import { resolve } from '$app/paths';
 
 	const settingsContext = useSettingsContext();
@@ -122,15 +122,17 @@
 		)
 			return;
 
-		settingsContext.resetSettings();
+		await runWithResetGuard(async () => {
+			conditionsContext.resetConditions();
+			settingsContext.resetSettings();
 
-		await tokensContext.resetTokens();
-		await encryptedLocalStorage.reset(true);
+			await tokensContext.resetTokens();
+			await encryptedLocalStorage.reset(true);
 
-		sessionPasscode.clear();
-		conditionsContext.resetConditions();
+			sessionPasscode.clear();
+		});
 
-		await goto(resolve('/'), { invalidate: ['app://layout-load'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
+		await goto(resolve('/'), { invalidate: ['app://layout-load'] });
 	}
 
 	/**

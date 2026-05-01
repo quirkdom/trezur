@@ -4,7 +4,7 @@
 	import { asset, resolve } from '$app/paths';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
-	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
+	import { encryptedLocalStorage, runWithResetGuard } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { Lock } from '@lucide/svelte';
 	import PasscodeDialog from './PasscodeDialog.svelte';
@@ -31,21 +31,26 @@
 			prompt(
 				`If you forgot your passcode, the only option is to delete all data and start afresh.
 
-All tokens will be lost. This action cannot be undone!
+ All tokens will be lost. This action cannot be undone!
 
-Are you sure you want to proceed? Please type "YES" to confirm this action.`,
+ Are you sure you want to proceed? Please type "YES" to confirm this action.`,
 				'NO'
 			) !== 'YES'
 		)
 			return;
 
-		await tokensContext.resetTokens();
-		await encryptedLocalStorage.reset(true);
+		await runWithResetGuard(async () => {
+			conditionsContext.updateCondition('isAppLocked', false);
 
-		sessionPasscode.clear();
-		conditionsContext.updateCondition('isUserPasscodeSet', false);
+			await tokensContext.resetTokens();
+			await encryptedLocalStorage.reset(true);
 
-		await goto(resolve('/'), { invalidate: ['app://layout-load'] }); // Invalidation and page reload of '/' should setup new storage and tokens context
+			sessionPasscode.clear();
+		});
+
+		conditionsContext.updateCondition('isUserPasscodeSet', false); // This is kept separate so that ELS init effect is re-triggered.
+
+		await goto(resolve('/'), { invalidate: ['app://layout-load'] });
 	}
 </script>
 
