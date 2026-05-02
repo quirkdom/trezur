@@ -4,9 +4,8 @@
 	import { createSettingsContext } from '$lib/state/settings.svelte';
 	import { createConditionsContext } from '$lib/state/conditions.svelte';
 	import { browser } from '$app/environment';
-	import { encryptedLocalStorage, isResetGuardActive as isStorageResetGuardActive } from '$lib/state/storage.svelte';
-	import { tokensContext } from '$lib/state/tokens.svelte';
-	import { untrack } from 'svelte';
+	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
+	import { initStorageAndTokens } from '$lib/state/init';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
 	import { devconsole } from '$lib/utils';
@@ -27,29 +26,12 @@
 	$inspect('encryptedLocalStorage.current', encryptedLocalStorage.current); // for debugging
 
 	if (browser) {
-		$effect(() => {
-			$inspect.trace('[Layout] update conditions effect'); // for debugging
-
-			if (data.conditions) untrack(() => conditionsContext.updateConditions(data.conditions));
-		});
-
-		$effect(() => {
-			$inspect.trace('[Layout] ELS init effect'); // for debugging
-
-			if (
-				!conditions.isUserPasscodeSet &&
-				conditions.clientId &&
-				!encryptedLocalStorage.current &&
-				!isStorageResetGuardActive()
-			) {
-				const clientId = conditions.clientId; // temporarily doing this because TS complains about sending possibly-undefined into encryptedLocalStorage.init (lost type safety inference inside async IIFE)
-
-				(async () => {
-					const storage = await encryptedLocalStorage.init(clientId);
-					if (storage) await tokensContext.iMake(storage);
-				})();
-			}
-		});
+		// One-shot ELS init on cold start (no passcode case).
+		// Passcode case is handled by UnlockScreen.handleUnlock().
+		// Post-reset re-init is handled explicitly by each reset call site.
+		if (!conditions.isUserPasscodeSet && conditions.clientId && !encryptedLocalStorage.current) {
+			initStorageAndTokens(conditions.clientId);
+		}
 
 		/**
 		 * Lock the app if passcode is set and no session passcode is available

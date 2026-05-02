@@ -4,9 +4,7 @@ import { nanoid } from 'nanoid';
 import { browser } from '$app/environment';
 
 /** @type {import('./$types').LayoutLoad} */
-export async function load({ depends, data }) {
-	depends('app://layout-load');
-
+export async function load({ data }) {
 	// return new app data
 	return {
 		settings: loadSettings() ?? DEFAULT_SETTINGS,

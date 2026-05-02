@@ -9,10 +9,9 @@
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { devconsole } from '$lib/utils';
-	import { goto } from '$app/navigation';
 	import { updated } from '$app/state';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
-	import { encryptedLocalStorage, runWithResetGuard } from '$lib/state/storage.svelte';
+	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { resolve } from '$app/paths';
 
 	const settingsContext = useSettingsContext();
@@ -122,17 +121,16 @@
 		)
 			return;
 
-		await runWithResetGuard(async () => {
-			conditionsContext.resetConditions();
-			settingsContext.resetSettings();
+		// Reset all user state
+		settingsContext.resetSettings();
+		await tokensContext.resetTokens();
+		await encryptedLocalStorage.reset(true);
+		sessionPasscode.clear();
+		conditionsContext.resetConditions();
 
-			await tokensContext.resetTokens();
-			await encryptedLocalStorage.reset(true);
-
-			sessionPasscode.clear();
-		});
-
-		await goto(resolve('/'), { invalidate: ['app://layout-load'] });
+		// Full page reload — the layout's cold-start init path handles
+		// generating a new clientId and re-initializing ELS from scratch.
+		window.location.href = resolve('/');
 	}
 
 	/**

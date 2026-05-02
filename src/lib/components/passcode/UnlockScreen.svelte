@@ -3,8 +3,9 @@
 	import { goto } from '$app/navigation';
 	import { asset, resolve } from '$app/paths';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
+	import { initStorageAndTokens } from '$lib/state/init';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
-	import { encryptedLocalStorage, runWithResetGuard } from '$lib/state/storage.svelte';
+	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { Lock } from '@lucide/svelte';
 	import PasscodeDialog from './PasscodeDialog.svelte';
@@ -20,8 +21,7 @@
 	async function handleUnlock(passcode) {
 		sessionPasscode.passcode = passcode;
 
-		await encryptedLocalStorage.init(passcode);
-		if (encryptedLocalStorage.current) await tokensContext.iMake(encryptedLocalStorage.current);
+		await initStorageAndTokens(passcode);
 
 		conditionsContext.updateCondition('isAppLocked', false);
 	}
@@ -39,18 +39,19 @@
 		)
 			return;
 
-		await runWithResetGuard(async () => {
-			conditionsContext.updateCondition('isAppLocked', false);
+		await tokensContext.resetTokens();
+		await encryptedLocalStorage.reset(true);
 
-			await tokensContext.resetTokens();
-			await encryptedLocalStorage.reset(true);
-
-			sessionPasscode.clear();
+		conditionsContext.updateConditions({
+			isAppLocked: false,
+			isUserPasscodeSet: false
 		});
+		sessionPasscode.clear();
 
-		conditionsContext.updateCondition('isUserPasscodeSet', false); // This is kept separate so that ELS init effect is re-triggered.
+		// Explicit re-init with existing clientId (conditions were not fully reset)
+		if (conditions.clientId) await initStorageAndTokens(conditions.clientId);
 
-		await goto(resolve('/'), { invalidate: ['app://layout-load'] });
+		await goto(resolve('/'));
 	}
 </script>
 

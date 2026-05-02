@@ -31,7 +31,7 @@
   - Device-specific `clientId` for basic encryption (no passcode)
   - User `passcode` for enhanced encryption when set
   - Automatic migration between encryption keys
-- **Initialization**: Happens in `+layout.svelte` `$effect` on every page load
+- **Initialization**: Explicit via `initStorageAndTokens()` in `init.js` (called from layout cold start, unlock, reset flows)
 - **See**: [TEST_FLOWS.md](TEST_FLOWS.md) flows 1-11 for storage initialization testing
 
 #### Token State (`tokens.svelte.js`)
@@ -64,13 +64,13 @@
 ### App Operation Flow
 
 #### 1. Initial Load (`+layout.svelte`)
-- **Storage Init**: `$effect` initializes encrypted storage on `clientId` or passcode
+- **Storage Init**: Explicit one-shot call to `initStorageAndTokens(clientId)` on cold start (no passcode case)
 - **Context Setup**: All state contexts are initialized
 - **Lock Check**: App locks if passcode is set and not unlocked
+- **Passcode Init**: Handled by `UnlockScreen.handleUnlock()` which calls `initStorageAndTokens(passcode)`
 
 #### 2. Token Loading (`+page.svelte`)
-- **Dependency**: Waits for storage initialization
-- **Loading**: `$effect` loads tokens from encrypted storage
+- **Dependency**: Tokens loaded as part of `initStorageAndTokens()` orchestration
 - **Display**: Tokens rendered in `TokenList` component
 
 #### 3. User Interactions

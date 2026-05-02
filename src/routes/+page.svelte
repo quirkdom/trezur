@@ -11,6 +11,7 @@
 	import { useConditionsContext } from '$lib/state/conditions.svelte.js';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
+	import { initStorageAndTokens } from '$lib/state/init';
 	import { tokenize, tokensContext } from '$lib/state/tokens.svelte';
 	import { devconsole } from '$lib/utils';
 	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from '@lucide/svelte';
@@ -32,12 +33,7 @@
 			);
 			handleMigration();
 
-			(async () => {
-				// Re-init storage with new key
-				if (conditions.clientId) await encryptedLocalStorage.init(conditions.clientId);
-				// Re-make tokens context with new storage (auto-migrates)
-				if (encryptedLocalStorage.current) await tokensContext.iMake(encryptedLocalStorage.current);
-			})();
+			if (conditions.clientId) initStorageAndTokens(conditions.clientId);
 		}
 	});
 

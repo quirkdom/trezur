@@ -21,49 +21,12 @@ const T_ES_WRAPPED_MSK = 'T_ES__wrapped_msk__';
 const T_ES_WRAPPED_MSK_BAK = 'T_ES__wrapped_msk_bak__';
 
 /**
- * Module-level guard state - used to prevent reset/init races
- * @type {boolean}
- */
-let _isWithinResetGuard = false;
-
-/**
- * @returns {boolean}
- */
-function isResetGuardActive() {
-	return _isWithinResetGuard;
-}
-
-/**
- * Execute fn atomically - ensures reset() can safely run without racing layout ELS init.
- * Throws if already inside another guarded reset to prevent concurrent/nested calls.
- * @param {() => any} fn
- * @returns {Promise<any>}
- */
-async function runWithResetGuard(fn) {
-	if (_isWithinResetGuard) {
-		throw new Error(
-			'[Storage] runWithResetGuard called while already inside a guarded reset. Concurrent guarded resets are not supported.'
-		);
-	}
-	_isWithinResetGuard = true;
-	try {
-		return await fn();
-	} finally {
-		_isWithinResetGuard = false;
-	}
-}
-
-/**
  * Reactive singleton class for managing encrypted local storage.
  * Provides methods to initialize, test, and reset the storage instance.
  */
 class EncryptedLocalStorage {
 	/** @type {EncryptedStorage | null} */
 	#current = $state(null);
-
-	get isGuardedReset() {
-		return _isWithinResetGuard;
-	}
 
 	/**
 	 * @todo Remove this once we have migrated all users to KDF metadata v1
@@ -132,11 +95,6 @@ class EncryptedLocalStorage {
 	 */
 	async init(passkey) {
 		if (!browser) throw new Error('SSR safety: Encrypted Local Storage can only be used in the browser.');
-
-		if (isResetGuardActive()) {
-			devconsole.warn('[Storage] init called while guarded reset active. Bailing out.');
-			return undefined;
-		}
 
 		// Recover from an interrupted rewrapMSK: if the backup exists but the primary is missing,
 		// restore from backup. Either way, clean up the backup key.
@@ -249,14 +207,6 @@ class EncryptedLocalStorage {
 
 	async reset(purge = false) {
 		if (!browser) throw new Error('SSR safety: Encrypted Local Storage can only be used in the browser.');
-
-		if (!this.isGuardedReset) {
-			devconsole.error(
-				'[Storage] reset() must be called within runWithResetGuard(). Aborting reset to prevent race condition.'
-			);
-			return;
-		}
-
 		if (!this.#current) return;
 
 		devconsole.log('[Storage] Resetting encrypted local storage');
@@ -270,5 +220,3 @@ class EncryptedLocalStorage {
  * Reactive singleton instance of EncryptedLocalStorage.
  */
 export const encryptedLocalStorage = new EncryptedLocalStorage();
-
-export { runWithResetGuard, isResetGuardActive };
