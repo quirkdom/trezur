@@ -46,7 +46,9 @@ To protect the MSK in `localStorage` against physical theft of the device, it mu
 - **KDF:** PBKDF2-HMAC-SHA256.
 - **Iterations:** $600,000$.
 - **Salt:** 16 bytes of random data.
-- **Storage Key:** `trzr_wrapped_msk` (JSON object containing `ciphertext`, `iv`, `salt`, and `iterations`).
+- **Storage Key:**
+  - `T_ES__wrapped_msk__` (JSON object containing ciphertext `data` and `iv`).
+  - `T_ES_kdf_meta__` (JSON object containing algorithm `name`, `hash` function, `salt`, and `iterations`).
 
 ---
 
