@@ -3,17 +3,9 @@
  */
 import { browser } from '$app/environment';
 import { devconsole } from '$lib/utils';
+import { deriveLWK, generateMSK, importPayloadKey, unwrapMSK, wrapMSK } from '$lib/utils/crypto-keys';
 import { AESGCMEncryptedStorage, LocalStorageEngine } from '$lib/utils/encrypted-storage';
-import {
-	deriveLWK,
-	generateKDFMetadata,
-	getLegacySalt,
-	importPayloadKey,
-	unwrapMSK,
-	wrapMSK,
-	generateMSK
-} from '$lib/utils/crypto-keys';
-import { pic } from '$lib/utils/salada';
+import { generateKDFMetadata, getLegacySalt, pic } from '$lib/utils/salada';
 
 const T_ES_ = 'T_ES_';
 const T_ES_KDF_META = 'T_ES__kdf_meta__';

@@ -36,6 +36,13 @@ async function deriveSalt(passcode) {
 }
 
 /**
+ * @param {string} passkey
+ */
+async function getLegacySalt(passkey) {
+	return deriveSalt(passkey);
+}
+
+/**
  * Derive key derivation props from algorithm and salt bytes
  * @param {string} algorithm
  * @param {Uint8Array<ArrayBuffer>} saltBytes
@@ -54,4 +61,20 @@ function generateKDFParams(algorithm, saltBytes) {
 	}
 }
 
-export { deriveSalt as ds, cip, pic, generateKDFParams };
+/**
+ * @param {Uint8Array} saltBytes
+ * @param {boolean} [isLegacy=false]
+ *
+ * @todo Remove isLegacy opt and simpilfy, after all users have migrated
+ */
+
+function generateKDFMetadata(saltBytes, isLegacy = false) {
+	const kdfProps = generateKDFParams('PBKDF2-SHA256', /** @type {any} */ (saltBytes));
+	return {
+		v: isLegacy ? 0 : 1,
+		...kdfProps,
+		...(isLegacy ? { iterations: 100000 } : {})
+	};
+}
+
+export { deriveSalt as ds, cip, pic, getLegacySalt, generateKDFParams, generateKDFMetadata };
