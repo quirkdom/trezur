@@ -47,7 +47,7 @@ function generateKDFParams(algorithm, saltBytes) {
 				name: 'PBKDF2',
 				hash: 'SHA-256',
 				salt: btoa(String.fromCharCode(...saltBytes)),
-				iterations: 400000
+				iterations: 600_000
 			};
 		default:
 			throw new Error(`Unsupported algorithm: ${algorithm}`);
