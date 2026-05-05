@@ -9,7 +9,7 @@
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
 	import { devconsole } from '$lib/utils';
-	import { backupService } from '$lib/state/backup.svelte';
+	import { backupService } from '$lib/sync/backup.svelte';
 
 	const { children, data } = $props();
 

@@ -4,18 +4,20 @@
 	import { updated } from '$app/state';
 	import NavActions from '$lib/components/nav/NavActions.svelte';
 	import PasscodeDialog from '$lib/components/passcode/PasscodeDialog.svelte';
+	import RecoveryKit from '$lib/components/sync/RecoveryKit.svelte';
+	import RecoveryScannerDialog from '$lib/components/sync/RecoveryScannerDialog.svelte';
 	import ExportTokensDialog from '$lib/components/tokens/ExportTokens.svelte';
 	import ImportTokensDialog from '$lib/components/tokens/ImportTokens.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
-	import { backupService } from '$lib/state/backup.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
+	import { migratePasscode } from '$lib/state/migration.svelte';
 	import { sessionPasscode } from '$lib/state/passcode.svelte';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
+	import { backupService } from '$lib/sync/backup.svelte';
 	import { devconsole } from '$lib/utils';
 
-	import { driveClient } from '$lib/utils/drive.svelte';
+	import { driveClient } from '$lib/sync/drive.svelte';
 	import { ChevronDown } from '@lucide/svelte';
 	import { cubicInOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
@@ -34,11 +36,13 @@
 	let showPasscodeDialog = $state(false);
 	/** @type {'verify' | 'create' | 'change'} */ let passcodeDialogMode = $state('create');
 
-	let showBackupPasscodeDialog = $state(false);
-	let backupPasscodeDialogTitle = $state('');
-	let backupPasscodeDialogDescription = $state('');
 	let isRestoring = $state(false);
 	let whileAttemptingToConnectGDrive = $state(false);
+	let showRecoveryKit = $state(false);
+	let isInitialBackup = $state(true);
+	let recoveryWords = $state([]);
+	let showRecoveryScanner = $state(false);
+
 	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
 
 	let backupStatus = $derived.by(() => {
@@ -84,13 +88,10 @@
 
 	async function attemptToConnectGDrive() {
 		whileAttemptingToConnectGDrive = true;
-		// Turning ON
 		if (!conditions.isUserPasscodeSet) {
 			alert('Please set an App Passcode first in the Security section.');
-
 			passcodeDialogMode = 'create';
 			showPasscodeDialog = true;
-
 			isBackupEnabled = false;
 			whileAttemptingToConnectGDrive = false;
 			return;
@@ -99,59 +100,63 @@
 		try {
 			await driveClient.signIn();
 
-			// Check if backup exists and if we can decrypt it with current passcode
-			const backupFile = await driveClient.findFile('trezur_backup.enc');
-			if (backupFile) {
-				const isValid = await backupService.verifyBackupPasscode(sessionPasscode.passcode);
-				if (!isValid) {
-					// Passcode mismatch!
-					backupPasscodeDialogTitle = 'Backup Passcode Required';
-					backupPasscodeDialogDescription =
-						'A backup was found but it is encrypted with a different passcode. Please enter the passcode used for the backup to continue.';
-					passcodeDialogMode = 'verify';
-					showBackupPasscodeDialog = true;
-					whileAttemptingToConnectGDrive = false;
-					return;
-				}
+			const backupExists = await backupService.checkCloudBackupExists();
+			if (backupExists) {
+				showRecoveryScanner = true;
+			} else {
+				recoveryWords = await backupService.getMnemonic();
+				isInitialBackup = true;
+				showRecoveryKit = true;
 			}
+		} catch (e) {
+			alert('Failed to enable backup: ' + e);
+			driveClient.signOut();
+			backupService.disable();
+			whileAttemptingToConnectGDrive = false;
+		}
+	}
 
-			await backupService.enable();
-			alert('Backup enabled and initial sync completed!');
+	async function handleRecoveryScannerComplete(words) {
+		try {
+			const isValid = await backupService.verifyCloudBackupMnemonic(words);
+			if (isValid) {
+				await backupService.adoptCloudBackup(words);
+				alert('Cloud backup linked successfully!');
+			} else {
+				alert('Incorrect recovery phrase. Backup could not be linked.');
+				driveClient.signOut();
+				backupService.disable();
+			}
+		} catch (e) {
+			alert('Error verifying phrase: ' + e);
+			driveClient.signOut();
+			backupService.disable();
+		}
+		whileAttemptingToConnectGDrive = false;
+	}
+
+	async function handleRecoveryKitConfirm() {
+		try {
+			if (isInitialBackup) {
+				await backupService.enable();
+				alert('Backup enabled and initial sync completed!');
+			}
 		} catch (e) {
 			alert('Failed to enable backup: ' + e);
 			driveClient.signOut();
 			backupService.disable();
 		}
-
 		whileAttemptingToConnectGDrive = false;
 	}
 
-	/**
-	 * @param {string} passcode
-	 */
-	async function handleBackupPasscode(passcode) {
-		// This handler is now ONLY for the mismatch case during connection
-		// Restore is handled directly via button click now (using session passcode)
-
+	async function showDeviceRecoveryKit() {
 		try {
-			const isValid = await backupService.verifyBackupPasscode(passcode);
-			if (isValid) {
-				// Update local passcode to match backup
-				await handleSetPasscode(passcode);
-				// Enable backup
-				await backupService.enable();
-				alert('Passcode updated to match backup, and backup enabled successfully!');
-			} else {
-				alert('Incorrect backup passcode. Backup could not be enabled.');
-				driveClient.signOut();
-				backupService.disable();
-			}
+			recoveryWords = await backupService.getMnemonic();
+			isInitialBackup = false;
+			showRecoveryKit = true;
 		} catch (e) {
-			alert('Error verifying passcode: ' + e);
-			driveClient.signOut();
-			backupService.disable();
+			alert('Failed to show recovery kit: ' + e);
 		}
-		showBackupPasscodeDialog = false;
 	}
 
 	async function handleRestore() {
@@ -177,7 +182,7 @@
 			if (sessionPasscode.passcode)
 				throw new Error('An existing passcode was found. Perhaps you want to change your passcode instead?');
 
-			await encryptedLocalStorage.rewrapMSK(passcode, conditions.clientId);
+			await migratePasscode(passcode, conditions.clientId);
 
 			// Commit session state only after successful re-wrap
 			sessionPasscode.passcode = passcode;
@@ -202,7 +207,7 @@
 			if (!sessionPasscode.passcode)
 				throw new Error('No prior passcode available to change. Perhaps you want to set a new passcode instead?');
 
-			await encryptedLocalStorage.rewrapMSK(newPasscode, sessionPasscode.passcode);
+			await migratePasscode(newPasscode, sessionPasscode.passcode);
 
 			// Commit session state only after successful re-wrap
 			sessionPasscode.passcode = newPasscode;
@@ -234,7 +239,7 @@
 			if (!sessionPasscode.passcode)
 				throw new Error('Existing passcode not found. Perhaps you want to set a passcode instead?');
 
-			await encryptedLocalStorage.rewrapMSK(conditions.clientId, sessionPasscode.passcode);
+			await migratePasscode(conditions.clientId, sessionPasscode.passcode);
 
 			// Commit session state only after successful re-wrap
 			conditionsContext.updateCondition('isUserPasscodeSet', false);
@@ -263,7 +268,12 @@
 		// Reset all user state
 		settingsContext.resetSettings();
 		await tokensContext.resetTokens();
-		await encryptedLocalStorage.reset(true);
+		// Purge the actual store so MSK goes away
+		// Wait, encryptedLocalStorage.reset(true) will be needed, but since it's going through page reload:
+		localStorage.removeItem('T_ES__wrapped_msk__');
+		localStorage.removeItem('T_ES__wrapped_msk_bak__');
+		localStorage.removeItem('T_ES__kdf_meta__');
+
 		sessionPasscode.clear();
 		conditionsContext.resetConditions();
 
@@ -388,11 +398,10 @@
 											{backupService.isSyncing ? 'Syncing...' : 'Sync Now'}
 										</button>
 										<button
-											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-											disabled={isRestoring || backupService.isSyncing}
-											onclick={handleRestore}
+											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700"
+											onclick={showDeviceRecoveryKit}
 										>
-											{isRestoring ? 'Restoring...' : 'Restore'}
+											Link Devices
 										</button>
 									{/if}
 								</div>
@@ -535,10 +544,6 @@
 	onSuccess={passcodeDialogMode === 'create' ? handleSetPasscode : handleChangePasscode}
 />
 
-<PasscodeDialog
-	bind:open={showBackupPasscodeDialog}
-	mode={passcodeDialogMode}
-	title={backupPasscodeDialogTitle}
-	description={backupPasscodeDialogDescription}
-	onSuccess={handleBackupPasscode}
-/>
+<RecoveryKit bind:open={showRecoveryKit} words={recoveryWords} {isInitialBackup} onConfirm={handleRecoveryKitConfirm} />
+
+<RecoveryScannerDialog bind:open={showRecoveryScanner} onWordsComplete={handleRecoveryScannerComplete} />

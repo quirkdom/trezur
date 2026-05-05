@@ -356,8 +356,9 @@ class DriveClient {
 
 	/**
 	 * @param {string} filename
+	 * @param {'text' | 'arraybuffer'} responseType
 	 */
-	async download(filename) {
+	async download(filename, responseType = 'text') {
 		const token = await this.ensureToken();
 		const file = await this.findFile(filename);
 		if (!file) throw new Error('File not found');
@@ -368,6 +369,9 @@ class DriveClient {
 		});
 
 		if (!res.ok) throw new Error('Download failed');
+		if (responseType === 'arraybuffer') {
+			return await res.arrayBuffer();
+		}
 		return await res.text();
 	}
 }

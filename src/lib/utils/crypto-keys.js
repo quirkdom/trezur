@@ -59,4 +59,14 @@ async function importPayloadKey(msk) {
 	return crypto.subtle.importKey('raw', /** @type {any} */ (msk), { name: AES_GCM }, false, ['encrypt', 'decrypt']);
 }
 
-export { deriveLWK, generateMSK, unwrapMSK, wrapMSK, importPayloadKey };
+/**
+ * @param {string} passkey
+ * @param {any} metadata
+ * @param {{ iv: number[], data: number[] }} wrappedData
+ */
+async function exportUnwrappedMSK(passkey, metadata, wrappedData) {
+	const lwk = await deriveLWK(passkey, metadata);
+	return unwrapMSK(wrappedData, lwk);
+}
+
+export { deriveLWK, generateMSK, unwrapMSK, wrapMSK, importPayloadKey, exportUnwrappedMSK };

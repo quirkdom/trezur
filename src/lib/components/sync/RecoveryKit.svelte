@@ -1,24 +1,37 @@
 <script>
 	import MnemonicGrid from './MnemonicGrid.svelte';
+	import Drawer from '../ui/Drawer.svelte';
 	import Check from '@lucide/svelte/icons/check';
 
 	/**
-	 * @type {{ words: string[], onConfirm: () => void }}
+	 * @type {{ words: string[], onConfirm?: () => void, open: boolean, isInitialBackup?: boolean }}
 	 */
-	let { words, onConfirm } = $props();
+	let { words, onConfirm, open = $bindable(false), isInitialBackup = true } = $props();
 
 	let showQr = $state(false);
 
 	const qrSvg = $derived(showQr && import('qr').then(({ encodeQR }) => encodeQR(words.join(' '), 'svg')));
+
+	function handleConfirm() {
+		if (onConfirm) onConfirm();
+		open = false;
+	}
 </script>
 
-<div class="mx-auto flex w-full max-w-2xl flex-col items-center space-y-6">
+<Drawer bind:open title="Recovery Kit" class="mx-auto max-w-2xl">
+<div class="mx-auto flex w-full flex-col items-center space-y-6">
 	<div class="space-y-2 text-center">
-		<h2 class="text-xl font-semibold text-white">Your Recovery Kit</h2>
-		<p class="mx-auto max-w-md text-sm text-zinc-400">
-			Write down these 24 words and keep them in a safe place. You will need them to recover your tokens if you lose
-			access to this device.
-		</p>
+		{#if isInitialBackup}
+			<h2 class="text-xl font-semibold text-white">Your Recovery Kit</h2>
+			<p class="mx-auto max-w-md text-sm text-zinc-400">
+				Write down these 24 words and keep them in a safe place. You will need them to recover your tokens if you lose
+				access to this device.
+			</p>
+		{:else}
+			<p class="mx-auto max-w-md text-sm text-zinc-400">
+				These 24 words can be used to link another device. Do not share them with anyone else.
+			</p>
+		{/if}
 	</div>
 
 	<MnemonicGrid {words} />
@@ -52,11 +65,16 @@
 
 	<div class="w-full border-t border-white/10 pt-4">
 		<button
-			onclick={onConfirm}
+			onclick={handleConfirm}
 			class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-6 py-3 font-medium text-white shadow-[0_0_20px_-5px_rgba(99,102,241,0.4)] transition-all duration-200 hover:bg-indigo-400 hover:shadow-[0_0_25px_-5px_rgba(99,102,241,0.6)]"
 		>
-			<Check size={18} />
-			I have saved these words
+			{#if isInitialBackup}
+				<Check size={18} />
+				I have saved these words
+			{:else}
+				Close
+			{/if}
 		</button>
 	</div>
 </div>
+</Drawer>

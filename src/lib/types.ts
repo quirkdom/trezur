@@ -18,6 +18,12 @@ export interface Tokenable {
  */
 export interface Token extends Required<Tokenable> {
 	id: string;
+	updatedAt?: {
+		account?: number;
+		issuer?: number;
+		secret?: number;
+		params?: number;
+	};
 }
 
 export interface Settings {
