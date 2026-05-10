@@ -6,21 +6,22 @@ Tokens may exist without an `updatedAt` object (Legacy). The sync engine must no
 
 ```ts
 export interface Token {
-    id: string;
-    account: string;
-    issuer: string;
-    secret: string;
-    type: 'HOTP' | 'TOTP';
-    digits: number;
-    period: number;
-    algorithm: string;
-    counter: number;
-    updatedAt?: { // Optional for legacy support
-        account?: number;
-        issuer?: number;
-        secret?: number;
-        params?: number;
-    };
+	id: string;
+	account: string;
+	issuer: string;
+	secret: string;
+	type: 'HOTP' | 'TOTP';
+	digits: number;
+	period: number;
+	algorithm: string;
+	counter: number;
+	updatedAt?: {
+		// Optional for legacy support
+		account?: number;
+		issuer?: number;
+		secret?: number;
+		params?: number;
+	};
 }
 ```
 

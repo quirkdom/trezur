@@ -1,10 +1,9 @@
 <script>
 	import { dev, version } from '$app/environment';
-	import { asset } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { clearStorage, initStorage, purgeStorage } from '$lib/state/storage.svelte';
+	import { asset, resolve } from '$app/paths';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
+	import { initStorage, purgeStorage } from '$lib/state/storage.svelte';
 	import { Lock } from '@lucide/svelte';
 	import PasscodeDialog from './PasscodeDialog.svelte';
 

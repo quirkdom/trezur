@@ -1,5 +1,5 @@
 <script>
-	import { ScanQrCodeIcon, ArrowRight, Eye, EyeOff } from '@lucide/svelte';
+	import { ScanQrCodeIcon, ArrowRight } from '@lucide/svelte';
 	import Drawer from '../ui/Drawer.svelte';
 	import { onDestroy, tick } from 'svelte';
 
@@ -117,14 +117,16 @@
 <Drawer bind:open title="Recover Backup" onClose={close} class="mx-auto max-w-lg">
 	<div class="space-y-6">
 		<p class="text-sm text-zinc-400">
-			A cloud backup was found. Please scan the QR code from your original device's Recovery Kit, or enter your 24 words manually.
+			A cloud backup was found. Please scan the QR code from your original device's Recovery Kit, or enter your 24 words
+			manually.
 		</p>
 
 		{#if !manualMode}
 			{#if showCameraFeed}
 				<div class="relative mb-6 overflow-hidden rounded-lg bg-black">
 					<video bind:this={videoElement} autoplay muted playsinline class="h-64 w-full object-cover"></video>
-					<canvas bind:this={overlayCanvas} class="pointer-events-none absolute top-0 left-0 h-full w-full opacity-70"></canvas>
+					<canvas bind:this={overlayCanvas} class="pointer-events-none absolute top-0 left-0 h-full w-full opacity-70"
+					></canvas>
 				</div>
 			{:else}
 				<button
@@ -135,9 +137,9 @@
 					<span>Scan QR Code</span>
 				</button>
 			{/if}
-			
+
 			<div class="text-center">
-				<button 
+				<button
 					class="text-sm text-indigo-400 underline-offset-4 hover:text-indigo-300 hover:underline"
 					onclick={() => {
 						showCameraFeed = false;
@@ -161,9 +163,9 @@
 					class="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-3 text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
 					placeholder="Enter 24 words separated by spaces..."
 				></textarea>
-				
-				<div class="flex items-center justify-between mt-4">
-					<button 
+
+				<div class="mt-4 flex items-center justify-between">
+					<button
 						class="text-sm text-zinc-400 underline-offset-4 hover:text-white hover:underline"
 						onclick={() => {
 							manualMode = false;
