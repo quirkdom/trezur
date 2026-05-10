@@ -1,12 +1,11 @@
 <script>
 	import '../app.css';
+	import { browser } from '$app/environment';
 	import FooterNav from '$lib/components/nav/FooterNav.svelte';
 	import { createSettingsContext } from '$lib/state/settings.svelte';
 	import { createConditionsContext } from '$lib/state/conditions.svelte';
-	import { browser } from '$app/environment';
-	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { initStorageAndTokens } from '$lib/state/init';
-	import { sessionPasscode } from '$lib/state/passcode.svelte';
+	import { getLocalVault, initStorage, clearStorage } from '$lib/state/storage.svelte';
+	import { keyManager } from '$lib/state/key-manager.svelte';
 	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
 	import { devconsole } from '$lib/utils';
 	import { backupService } from '$lib/sync/backup.svelte';
@@ -16,6 +15,10 @@
 	devconsole.log('+layout.js load data', data);
 
 	const settingsContext = createSettingsContext(data.settings);
+
+	/**
+	 * @todo Why is backup service inited proactively? No need to init if no cloud service actually connected
+	 */
 	backupService.init(settingsContext);
 
 	const conditionsContext = createConditionsContext(data.conditions);
@@ -24,46 +27,63 @@
 	$inspect('conditions.isAppLocked', conditions.isAppLocked); // for debugging
 	$inspect('conditions.isUserPasscodeSet', conditions.isUserPasscodeSet); // for debugging
 	$inspect('conditions.clientId', conditions.clientId); // for debugging
-	$inspect('sessionPasscode.passcode', sessionPasscode.passcode); // for debugging
-	$inspect('encryptedLocalStorage.current', encryptedLocalStorage.current); // for debugging
 
+	/** @type {{ openPasscodeDialog: () => void } | null} */
+	let unlockScreenRef = $state(null);
+
+	// Cold start: no passcode, have clientId, no vault yet
 	if (browser) {
-		// One-shot ELS init on cold start (no passcode case).
-		// Passcode case is handled by UnlockScreen.handleUnlock().
-		// Post-reset re-init is handled explicitly by each reset call site.
-		if (!conditions.isUserPasscodeSet && conditions.clientId && !encryptedLocalStorage.current) {
-			initStorageAndTokens(conditions.clientId);
+		const { isUserPasscodeSet, clientId } = conditions;
+		if (!isUserPasscodeSet && clientId && !getLocalVault()) {
+			initStorage(clientId);
 		}
+	}
 
-		$effect(() => {
-			if (encryptedLocalStorage.current) {
-				backupService.loadFromStorage();
+	// Auto-lock: passcode set but no crypto key present
+	$effect(() => {
+		const { isUserPasscodeSet, isAppLocked } = conditions;
+		if (isUserPasscodeSet && !keyManager.cryptoKey && !isAppLocked) {
+			clearStorage();
+			conditionsContext.updateCondition('isAppLocked', true);
+		}
+	});
+
+	/**
+	 * @todo Look into this after you figure out why backup service is being inited proactively?
+	 */
+	$effect(() => {
+		if (getLocalVault()) {
+			backupService.loadFromStorage();
+		}
+	});
+
+	async function handleToggleLock() {
+		const { isAppLocked, isUserPasscodeSet, clientId } = conditions;
+
+		if (isAppLocked) {
+			if (!isUserPasscodeSet && clientId) {
+				const ok = await initStorage(clientId);
+				if (ok) conditionsContext.updateCondition('isAppLocked', false);
+			} else {
+				unlockScreenRef?.openPasscodeDialog();
 			}
-		});
-
-		/**
-		 * Lock the app if passcode is set and no session passcode is available
-		 * @todo TODO: See if this can be simplified.
-		 */
-		$effect(() => {
-			$inspect.trace('[Layout] lock app effect'); // for debugging
-
-			if (conditions.isUserPasscodeSet && !sessionPasscode.passcode && !conditions.isAppLocked)
-				conditionsContext.updateCondition('isAppLocked', true);
-		});
+		} else {
+			clearStorage();
+			conditionsContext.updateCondition('isAppLocked', true);
+		}
 	}
 </script>
 
 <div class="min-h-screen bg-black p-4 text-white">
 	<div class="mx-auto max-w-md">
 		{#if conditions.isAppLocked}
-			<UnlockScreen />
+			<UnlockScreen bind:this={unlockScreenRef} />
 		{:else}
 			{@render children()}
 		{/if}
 
 		<footer class="mt-24">
-			<FooterNav toggleAppLockAction={(willLockApp) => willLockApp && sessionPasscode.clear()} />
+			<FooterNav onToggleLock={handleToggleLock} />
 		</footer>
 	</div>
 </div>

@@ -5,20 +5,14 @@
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { resolve } from '$app/paths';
 
-	/** @type {{toggleAppLockAction?: (willLockApp: boolean) => void}} */
-	let { toggleAppLockAction = undefined } = $props();
+	/** @type {{onToggleLock?: () => void | Promise<void>}} */
+	let { onToggleLock = () => {} } = $props();
 
 	const conditionsContext = useConditionsContext();
 	const conditions = $derived(conditionsContext.getConditions());
 
 	let currentTab = $derived(page.url.pathname === '/settings' ? 'settings' : 'tokens');
 	let isBeingLongPressed = $state(false);
-
-	function toggleAppLock() {
-		const willLockApp = !conditions.isAppLocked;
-		toggleAppLockAction?.(willLockApp);
-		conditionsContext.updateCondition('isAppLocked', willLockApp);
-	}
 </script>
 
 <nav
@@ -35,7 +29,7 @@
 				{@attach longpress()}
 				onlongpressstart={() => (isBeingLongPressed = true)}
 				onlongpressend={() => (isBeingLongPressed = false)}
-				onlongpress={toggleAppLock}
+				onlongpress={onToggleLock}
 				class:animate-wiggle={isBeingLongPressed}
 			>
 				{#if conditions.isAppLocked}

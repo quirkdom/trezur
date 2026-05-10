@@ -42,17 +42,9 @@ export interface Conditions {
 	clientId?: string;
 }
 
-export interface AsyncStorageEngine {
-	getItem(key: string): Promise<string | null>;
-	setItem(key: string, value: string): Promise<void>;
-	removeItem(key: string): Promise<void>;
-	clear(): Promise<void>;
-	keys(): Promise<string[]>;
-}
-
-export interface EncryptedStorage {
+export interface KVStorage {
 	get(key: string): Promise<any>;
 	set(key: string, value: any): Promise<void>;
 	delete(key: string): Promise<void>;
-	purge(): Promise<void>;
+	clear(): Promise<void>;
 }

@@ -1,29 +1,34 @@
 <script>
 	import { dev, version } from '$app/environment';
+	import { asset } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { asset, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
+	import { clearStorage, initStorage, purgeStorage } from '$lib/state/storage.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
-	import { initStorageAndTokens } from '$lib/state/init';
-	import { sessionPasscode } from '$lib/state/passcode.svelte';
-	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { Lock } from '@lucide/svelte';
 	import PasscodeDialog from './PasscodeDialog.svelte';
 
 	const conditionsContext = useConditionsContext();
 	const conditions = $derived(conditionsContext.getConditions());
 
-	let showPasscodeDialog = $derived(conditions.isUserPasscodeSet || false);
+	let showPasscodeDialog = $state(conditions.isUserPasscodeSet);
+
+	/**
+	 * Called by the layout (via bind:this) when FooterNav long-press
+	 * requests a passcode prompt.
+	 */
+	export function openPasscodeDialog() {
+		showPasscodeDialog = true;
+	}
 
 	/**
 	 * @param {string} passcode
 	 */
 	async function handleUnlock(passcode) {
-		sessionPasscode.passcode = passcode;
-
-		await initStorageAndTokens(passcode);
-
-		conditionsContext.updateCondition('isAppLocked', false);
+		const ok = await initStorage(passcode);
+		if (ok) {
+			conditionsContext.updateCondition('isAppLocked', false);
+		}
 	}
 
 	async function handleForgotPasscode() {
@@ -39,17 +44,17 @@
 		)
 			return;
 
-		await tokensContext.resetTokens();
-		await encryptedLocalStorage.reset(true);
+		const { clientId } = conditions;
+
+		purgeStorage();
 
 		conditionsContext.updateConditions({
 			isAppLocked: false,
 			isUserPasscodeSet: false
 		});
-		sessionPasscode.clear();
 
-		// Explicit re-init with existing clientId (conditions were not fully reset)
-		if (conditions.clientId) await initStorageAndTokens(conditions.clientId);
+		// Re-init with existing clientId
+		if (clientId) await initStorage(clientId);
 
 		await goto(resolve('/'));
 	}

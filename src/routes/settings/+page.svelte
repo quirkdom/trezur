@@ -10,9 +10,9 @@
 	import ImportTokensDialog from '$lib/components/tokens/ImportTokens.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
-	import { migratePasscode } from '$lib/state/migration.svelte';
-	import { sessionPasscode } from '$lib/state/passcode.svelte';
+	import { keyManager } from '$lib/state/key-manager.svelte';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
+	import { purgeStorage } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { backupService } from '$lib/sync/backup.svelte';
 	import { devconsole } from '$lib/utils';
@@ -36,10 +36,10 @@
 	let showPasscodeDialog = $state(false);
 	/** @type {'verify' | 'create' | 'change'} */ let passcodeDialogMode = $state('create');
 
-	let isRestoring = $state(false);
 	let whileAttemptingToConnectGDrive = $state(false);
 	let showRecoveryKit = $state(false);
 	let isInitialBackup = $state(true);
+	/** @type {string[]} */
 	let recoveryWords = $state([]);
 	let showRecoveryScanner = $state(false);
 
@@ -116,6 +116,7 @@
 		}
 	}
 
+	/** @param {string[]} words */
 	async function handleRecoveryScannerComplete(words) {
 		try {
 			const isValid = await backupService.verifyCloudBackupMnemonic(words);
@@ -159,19 +160,6 @@
 		}
 	}
 
-	async function handleRestore() {
-		if (!sessionPasscode.passcode) return;
-		isRestoring = true;
-		try {
-			await backupService.restore(sessionPasscode.passcode);
-			alert('Restore completed successfully!');
-		} catch (e) {
-			alert('Restore failed: ' + e);
-		} finally {
-			isRestoring = false;
-		}
-	}
-
 	/**
 	 * @param {string} passcode
 	 */
@@ -179,13 +167,11 @@
 		try {
 			if (!conditions.clientId) throw new Error('No device key present. Cannot set passcode. Please contact support.');
 
-			if (sessionPasscode.passcode)
+			if (keyManager.hasWrappedKey && conditions.isUserPasscodeSet)
 				throw new Error('An existing passcode was found. Perhaps you want to change your passcode instead?');
 
-			await migratePasscode(passcode, conditions.clientId);
+			await keyManager.changePasscode(passcode);
 
-			// Commit session state only after successful re-wrap
-			sessionPasscode.passcode = passcode;
 			conditionsContext.updateCondition('isUserPasscodeSet', true);
 
 			const tokenCount = tokensContext.current?.getTokens().length || 0;
@@ -204,13 +190,9 @@
 	 */
 	async function handleChangePasscode(newPasscode) {
 		try {
-			if (!sessionPasscode.passcode)
-				throw new Error('No prior passcode available to change. Perhaps you want to set a new passcode instead?');
+			if (!keyManager.cryptoKey) throw new Error('App must be unlocked to change passcode.');
 
-			await migratePasscode(newPasscode, sessionPasscode.passcode);
-
-			// Commit session state only after successful re-wrap
-			sessionPasscode.passcode = newPasscode;
+			await keyManager.changePasscode(newPasscode);
 
 			const tokenCount = tokensContext.current?.getTokens().length || 0;
 			alert(
@@ -226,7 +208,7 @@
 	async function handleRemovePasscode() {
 		if (
 			prompt(
-				'Remove passcode? Your tokens will be encrypted with a device-specific key instead. Type "YES" to confirm.',
+				'Remove passcode? Your tokens will be secured with a device-specific key instead. Type "YES" to confirm.',
 				'NO'
 			) !== 'YES'
 		)
@@ -236,14 +218,11 @@
 			if (!conditions.clientId)
 				throw new Error('No device key present. Cannot remove passcode. Please contact support.');
 
-			if (!sessionPasscode.passcode)
-				throw new Error('Existing passcode not found. Perhaps you want to set a passcode instead?');
+			if (!keyManager.cryptoKey) throw new Error('App must be unlocked to remove passcode.');
 
-			await migratePasscode(conditions.clientId, sessionPasscode.passcode);
+			await keyManager.changePasscode(conditions.clientId);
 
-			// Commit session state only after successful re-wrap
 			conditionsContext.updateCondition('isUserPasscodeSet', false);
-			sessionPasscode.clear();
 
 			const tokenCount = tokensContext.current?.getTokens().length || 0;
 			alert(
@@ -265,16 +244,9 @@
 		)
 			return;
 
-		// Reset all user state
-		settingsContext.resetSettings();
-		await tokensContext.resetTokens();
-		// Purge the actual store so MSK goes away
-		// Wait, encryptedLocalStorage.reset(true) will be needed, but since it's going through page reload:
-		localStorage.removeItem('T_ES__wrapped_msk__');
-		localStorage.removeItem('T_ES__wrapped_msk_bak__');
-		localStorage.removeItem('T_ES__kdf_meta__');
+		purgeStorage();
 
-		sessionPasscode.clear();
+		settingsContext.resetSettings();
 		conditionsContext.resetConditions();
 
 		// Full page reload — the layout's cold-start init path handles
@@ -392,7 +364,7 @@
 									{:else}
 										<button
 											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-											disabled={backupService.isSyncing || isRestoring}
+											disabled={backupService.isSyncing}
 											onclick={() => backupService.sync()}
 										>
 											{backupService.isSyncing ? 'Syncing...' : 'Sync Now'}

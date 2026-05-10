@@ -1,6 +1,6 @@
 /**
  * @typedef {import('$lib/types').Token} Token
- * @typedef {import('$lib/types').EncryptedStorage} EncryptedStorage
+ * @typedef {import('$lib/utils/local-kv-vault').KVStorage} KVStorage
  */
 import { browser, dev } from '$app/environment';
 import { devconsole } from '$lib/utils';
@@ -12,6 +12,7 @@ const T_TOKENS = 'T_tokens';
 const T_TOMBSTONES = 'T_tombstones';
 
 class TokensCtx {
+	/** @type {KVStorage} */
 	storage;
 	/** @type {Token[]} */
 	#tokens = $state([]);
@@ -19,7 +20,7 @@ class TokensCtx {
 	#tombstones = $state({});
 
 	/**
-	 * @param {EncryptedStorage} storage
+	 * @param {KVStorage} storage
 	 * @param {symbol} [initToken]
 	 */
 	constructor(storage, initToken) {
@@ -31,7 +32,7 @@ class TokensCtx {
 	}
 
 	/**
-	 * @param {EncryptedStorage} storage
+	 * @param {KVStorage} storage
 	 * @param {Object} [options]
 	 * @param {Token[] | null | undefined} [options.extraTokens]
 	 */
@@ -95,7 +96,7 @@ class TokensCtx {
 	}
 
 	async #persist() {
-		if (!this.#tokens.length && Object.keys(this.#tombstones).length === 0) return this.#clear();
+		if (this.#tokens.length === 0 && Object.keys(this.#tombstones).length === 0) return this.#purge();
 
 		await this.storage.set(T_TOKENS, $state.snapshot(this.#tokens));
 		await this.storage.set(T_TOMBSTONES, $state.snapshot(this.#tombstones));
@@ -107,7 +108,7 @@ class TokensCtx {
 		}
 	}
 
-	async #clear() {
+	async #purge() {
 		await this.storage.delete(T_TOKENS);
 		await this.storage.delete(T_TOMBSTONES);
 
@@ -213,6 +214,7 @@ class TokensCtx {
 
 	/**
 	 * @param {string} id
+	 * @returns {Promise<void>}
 	 */
 	removeToken(id) {
 		const now = Date.now();
@@ -221,16 +223,23 @@ class TokensCtx {
 		return this.#persist();
 	}
 
-	clearTokens() {
+	/**
+	 * Clears token state (in-memory, and optionally purges from persistent storage).
+	 *
+	 * @param {boolean} shouldPurge If true, purge from persistent storage as well
+	 * @returns {void | Promise<void>}
+	 */
+	clearTokens(shouldPurge = false) {
 		this.#tokens = [];
 		this.#tombstones = {};
-		return this.#clear();
+
+		if (shouldPurge) return this.#purge();
 	}
 
 	/**
 	 * Atomically replaces the current tokens and tombstones
-	 * @param {Token[]} tokens 
-	 * @param {Record<string, number>} tombstones 
+	 * @param {Token[]} tokens
+	 * @param {Record<string, number>} tombstones
 	 */
 	async setTokensAndTombstones(tokens, tombstones) {
 		this.#tokens = tokens;
@@ -255,7 +264,7 @@ class TokensContext {
 	 * (Intelligently) Make a new Tokens context.
 	 * - Scenario 1: Create a new Tokens context instance, loading existing tokens from provided storage.
 	 * - Scenario 2: Storage is changing. Merge any existing in-memory tokens into new storage.
-	 * @param {EncryptedStorage} storage
+	 * @param {KVStorage} storage
 	 */
 	async iMake(storage) {
 		// artificial delay to simulate loading (for testing)
@@ -268,13 +277,28 @@ class TokensContext {
 	}
 
 	/**
-	 * Reset Tokens context by wiping out all tokens (both in memory and storage) and clearing the current context instance.
+	 * Evict in-memory token state only, leaving persistent storage intact.
+	 *
+	 * **CAUTION:** This leaves the app without a valid tokens context; subsequent token operations will fail
+	 * until re-initialized via `iMake`.
+	 */
+	resetTokens() {
+		this.#current?.clearTokens(false);
+		this.#current = null;
+
+		devconsole.warn(
+			'App without valid Tokens context; subsequent token operations will fail. Call iMake() to re-initialize.'
+		);
+	}
+
+	/**
+	 * Wipe tokens from both memory and persisted storage.
 	 *
 	 * **CAUTION:** You must always invalidate app state and reload the app after calling this.
 	 * This leaves the app without a valid tokens context; subsequent token operations will fail.
 	 */
-	async resetTokens() {
-		await this.#current?.clearTokens();
+	async purgeTokens() {
+		await this.#current?.clearTokens(true);
 		this.#current = null;
 
 		devconsole.warn(
@@ -328,6 +352,7 @@ export function getMaxTimestamp(token) {
  * @returns {Token}
  */
 export function mergeTokens(tokenA, tokenB) {
+	/** @type {(t: Token, key: 'account' | 'issuer' | 'secret' | 'params') => number} */
 	const getTs = (t, key) => t.updatedAt?.[key] ?? 0;
 
 	const merged = { ...tokenA };

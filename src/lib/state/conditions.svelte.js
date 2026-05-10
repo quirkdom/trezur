@@ -4,6 +4,7 @@
  * @typedef {import("$lib/types").Conditions} Conditions
  */
 import { browser } from '$app/environment';
+import { devconsole } from '$lib/utils';
 import { getContext, hasContext, setContext } from 'svelte';
 
 const T_CONDITIONS = 'T_conditions';
@@ -83,9 +84,14 @@ class ConditionsCtx {
 		persist($state.snapshot(this.state));
 	}
 
+	/**
+	 * **CAUTION:** Resetting conditions always purges from persistent storage. This won't survive an app reload.
+	 */
 	resetConditions() {
 		this.state = DEFAULT_CONDITIONS;
 		purge();
+
+		devconsole.warn("Resetting conditions always purges it from persistent storage. This won't survive an app reload.");
 	}
 }
 

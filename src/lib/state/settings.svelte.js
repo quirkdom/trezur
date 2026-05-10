@@ -4,6 +4,7 @@
  * @typedef {import("$lib/types").Settings} Settings
  */
 import { browser } from '$app/environment';
+import { devconsole } from '$lib/utils';
 import { getContext, hasContext, setContext } from 'svelte';
 
 const T_SETTINGS = 'T_settings';
@@ -70,9 +71,18 @@ class SettingsCtx {
 		if (shouldPersist) persist($state.snapshot(this.state));
 	}
 
+	/**
+	 * **CAUTION:** Resetting settings also purges from persistent storage by default. This won't survive an app reload.
+	 */
 	resetSettings(shouldPurge = true) {
 		this.state = DEFAULT_SETTINGS;
-		if (shouldPurge) purge();
+		if (shouldPurge) {
+			purge();
+
+			devconsole.warn(
+				"Resetting settings also purges it from persistent storage by default. This won't survive an app reload."
+			);
+		}
 	}
 }
 

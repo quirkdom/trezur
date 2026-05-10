@@ -1,5 +1,5 @@
 <script>
-	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
+	import { keyManager } from '$lib/state/key-manager.svelte';
 	import Drawer from '$lib/components/ui/Drawer.svelte';
 
 	/** @type {{open: boolean, mode: 'verify' | 'create' | 'change', title?: string, description?: string, onSuccess: (passcode: string) => void, onForgot?: () => void}} */
@@ -30,7 +30,7 @@
 
 		try {
 			if (mode === 'verify') {
-				const isValid = await encryptedLocalStorage.test(passcode);
+				const isValid = await keyManager.testPasskey(passcode);
 
 				if (isValid) {
 					onSuccess(passcode);

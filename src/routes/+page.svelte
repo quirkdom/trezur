@@ -10,8 +10,8 @@
 	import { exportTokensDownload } from '$lib/components/tokens/ExportTokens.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte.js';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { encryptedLocalStorage } from '$lib/state/storage.svelte';
-	import { initStorageAndTokens } from '$lib/state/init';
+	import { getLocalVault, initStorage } from '$lib/state/storage.svelte';
+	import { keyManager } from '$lib/state/key-manager.svelte';
 	import { tokenize, tokensContext } from '$lib/state/tokens.svelte';
 	import { devconsole } from '$lib/utils';
 	import { ArrowRightLeft, Cog, PlusIcon, Settings, Shield, WifiOff } from '@lucide/svelte';
@@ -24,22 +24,20 @@
 
 	$inspect('tokensContext.current', tokensContext.current);
 
-	let isLoading = $derived(browser && tokensContext.current?.storage !== encryptedLocalStorage.current);
+	let isLoading = $derived(browser && tokensContext.current?.storage !== getLocalVault());
 
 	$effect(() => {
-		if (encryptedLocalStorage.needsMigration && tokensContext.current) {
+		if (keyManager.needsMigration && tokensContext.current) {
 			alert(
 				'This app has been updated to a newer version. Your tokens need to be migrated to more secure encryption. Click OK to automatically download a backup and proceed with the migration.'
 			);
 			handleMigration();
 
-			if (conditions.clientId) initStorageAndTokens(conditions.clientId);
+			if (conditions.clientId) initStorage(conditions.clientId);
 		}
 	});
 
 	let tokens = $derived(tokensContext.current?.getTokens() || []);
-
-	// $inspect(tokensContext, tokens);
 
 	let showAddTokenForm = $state(false);
 	let searchQuery = $state('');
