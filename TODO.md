@@ -18,9 +18,33 @@ Individual files have small, inline TODO reminders.
 - [x] (P0) [Bug: Settings -> Import/Export/Migrate]: If the settings page is directly loaded, there is no tokensContext.current inited. Any imports or exports will _silently_ fail. This is because the $effect that inits tokensContext.current is in the Codes page.
   - [x] We need to either move the $effect to the +layout.svelte or Settings +page.svelte, or we need to manually init tokensContext.current in the settings page.
 
+- [ ] (P1) `passcode` should not be publicly gettable in [KeyMan](src/lib/state/key-manager.svelte.js).
+  - ref: [docs/storage-key-manager-refactor.md](docs/storage-key-manager-refactor.md)
+  - Currently only needed in `backup.adoptCloudBackup()` to init storage again after new MSK has been wrapped and persisted.
+  - This can instead by replaced by the following flow:
+    ```
+    backup.adoptCloudBackup(words)
+    → newMSK = mnemonicToMSK(words)
+    → storage.adoptMSK(newMSK)
+        → keyManager.adoptMSK(newMSK)  // uses #passcode internally to re-wrap + persist
+        → new cryptoKey returned by keyManager.adoptMSK (updated by adoptMSK)
+        → new localVault = new LocalKVVault(cryptoKey)
+        → tokensContext.iMake(localVault)
+        → return
+    → backup.enable()
+    ```
+
+- [ ] (P1) `cryptoKey` should not be publicly gettable in [KeyMan](src/lib/state/key-manager.svelte.js).
+  - ref: [docs/storage-key-manager-refactor.md](docs/storage-key-manager-refactor.md)
+  - Most usage are presence checks, which can easily be replaced with a `keyManager.isUnlocked()` or similar.
+  - In `storage.init()`, `cryptoKey` is gathered from `keyManager.unlock()`.
+  - In `backup.sync()`, we JIT initialize an instance of `CloudFileVault` which needs `cryptoKey`. Since sync can only happen in unlocked state, maybe we can do some sort of unlock mechanism here as well.
+
 - [ ] Fix the container layout of the pages to better position and align text content on Codes screen
   - Currently, the header takes up some vertical space and the text container is a flexbox below it, which makes it hard to align the text contents to vertical center of app viewport. This is further complicated by the footer, which is sticky and inset to the bottom.
   - [ ] The right way to go about this is probably to have header, main content and footer all inside a single flexbox container, with the main content growing to eat up all vertical space possible and the header and footer of fixed sizes being fixed at the top and bottom respectively.
+
+- [ ] [AddTokenForm.svelte](src/lib/components/tokens/AddTokenForm.svelte) QR scanner should show similar loading failure / error messages to how [TokenQRCode.svelte](src/lib/components/tokens/TokenQRCode.svelte) does it. TokenQRCode (dynamic lib load -> show QR svg) is awaited; we should adapt the AddTokenForm QR scanner (dynamic lib load -> start camera -> render frames to canvas) to await similarly.
 
 - [x] Fix the longpress interaction on the app lock button. The longpress animation keeps on playing even after the longpress event has been triggered, in all browsers except FF.
 - [x] Reset Option on Wrong Passcode missing from view
