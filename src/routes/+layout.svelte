@@ -4,8 +4,7 @@
 	import FooterNav from '$lib/components/nav/FooterNav.svelte';
 	import { createSettingsContext } from '$lib/state/settings.svelte';
 	import { createConditionsContext } from '$lib/state/conditions.svelte';
-	import { getLocalVault, initStorage, clearStorage } from '$lib/state/storage.svelte';
-	import { keyManager } from '$lib/state/key-manager.svelte';
+	import { getLocalVault, isStorageAvailable, initStorage, clearStorage } from '$lib/state/storage.svelte';
 	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
 	import { devconsole } from '$lib/utils';
 	import { backupService } from '$lib/sync/backup.svelte';
@@ -34,7 +33,7 @@
 	// Cold start: no passcode, have clientId, no vault yet
 	if (browser) {
 		const { isUserPasscodeSet, clientId } = conditions;
-		if (!isUserPasscodeSet && clientId && !getLocalVault()) {
+		if (!isUserPasscodeSet && clientId && !isStorageAvailable()) {
 			initStorage(clientId);
 		}
 	}
@@ -42,7 +41,7 @@
 	// Auto-lock: passcode set but no crypto key present
 	$effect(() => {
 		const { isUserPasscodeSet, isAppLocked } = conditions;
-		if (isUserPasscodeSet && !keyManager.cryptoKey && !isAppLocked) {
+		if (isUserPasscodeSet && !isStorageAvailable() && !isAppLocked) {
 			clearStorage();
 			conditionsContext.updateCondition('isAppLocked', true);
 		}
@@ -52,7 +51,7 @@
 	 * @todo Look into this after you figure out why backup service is being inited proactively?
 	 */
 	$effect(() => {
-		if (getLocalVault()) {
+		if (isStorageAvailable()) {
 			backupService.loadFromStorage();
 		}
 	});

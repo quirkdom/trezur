@@ -18,20 +18,6 @@ class KeyManager {
 		return this.#needsMigration;
 	}
 
-	/**
-	 * @todo Remove this! cryptoKey should not be publicly gettable.
-	 */
-	get cryptoKey() {
-		return this.#cryptoKey;
-	}
-
-	/**
-	 * @todo Remove this! Passcode should not be publicly gettable.
-	 */
-	get passcode() {
-		return this.#passcode;
-	}
-
 	async getMnemonicWords() {
 		if (!this.#passcode || !this.#cryptoKey) throw new Error('App must be unlocked');
 		const storedWrapped = localStorage.getItem(T_ES_WRAPPED_MSK);
@@ -249,6 +235,7 @@ class KeyManager {
 	async adoptMSK(newMSK) {
 		if (!this.#passcode) throw new Error('App must be unlocked to adopt MSK');
 		await this.replaceMSK(newMSK, this.#passcode);
+		return this.#cryptoKey;
 	}
 }
 

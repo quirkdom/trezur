@@ -12,7 +12,7 @@
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { keyManager } from '$lib/state/key-manager.svelte';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { purgeStorage } from '$lib/state/storage.svelte';
+	import { getLocalVault, isStorageAvailable, purgeStorage } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { backupService } from '$lib/sync/backup.svelte';
 	import { devconsole } from '$lib/utils';
@@ -190,7 +190,7 @@
 	 */
 	async function handleChangePasscode(newPasscode) {
 		try {
-			if (!keyManager.cryptoKey) throw new Error('App must be unlocked to change passcode.');
+			if (!isStorageAvailable()) throw new Error('App must be unlocked to change passcode.');
 
 			await keyManager.changePasscode(newPasscode);
 
@@ -218,7 +218,7 @@
 			if (!conditions.clientId)
 				throw new Error('No device key present. Cannot remove passcode. Please contact support.');
 
-			if (!keyManager.cryptoKey) throw new Error('App must be unlocked to remove passcode.');
+			if (!isStorageAvailable()) throw new Error('App must be unlocked to remove passcode.');
 
 			await keyManager.changePasscode(conditions.clientId);
 

@@ -1,5 +1,5 @@
 import { keyManager } from '$lib/state/key-manager.svelte.js';
-import { getLocalVault, initStorage, purgeStorage } from '$lib/state/storage.svelte.js';
+import { getLocalVault, isStorageAvailable, createCloudVault, adoptMSK } from '$lib/state/storage.svelte.js';
 import { getMaxTimestamp, mergeTokens, tokensContext } from '$lib/state/tokens.svelte.js';
 import { driveClient } from '$lib/sync/drive.svelte.js';
 import { devconsole } from '$lib/utils';
@@ -57,7 +57,7 @@ class BackupService {
 	async enable() {
 		const localVault = getLocalVault();
 		if (!localVault) throw new Error('Storage not ready');
-		if (!keyManager.cryptoKey) throw new Error('App passcode not set or locked');
+		if (!isStorageAvailable()) throw new Error('App passcode not set or locked');
 
 		await localVault.set(T_BACKUP_ENABLED, true);
 		this.autoSyncEnabled = true;
@@ -78,7 +78,7 @@ class BackupService {
 	async sync() {
 		if (this.isSyncing) return;
 		if (!tokensContext.current) return;
-		if (!keyManager.cryptoKey) {
+		if (!isStorageAvailable()) {
 			devconsole.warn('[Backup] Cannot sync: App is locked');
 			return;
 		}
@@ -87,7 +87,7 @@ class BackupService {
 		devconsole.log('[Backup] Starting sync...');
 
 		try {
-			const vault = new CloudFileVault(keyManager.cryptoKey);
+			const vault = createCloudVault();
 			/** @type {Record<string, import('$lib/types').Token>} */
 			let cloudTokens = {};
 			let cloudTombstones = {};
@@ -239,11 +239,7 @@ class BackupService {
 		const newMsk = mnemonicToMSK(words.join(' '));
 		await tokensContext.purgeTokens();
 
-		purgeStorage();
-
-		await keyManager.adoptMSK(newMsk);
-
-		await initStorage(/** @type {string} */ (keyManager.passcode));
+		await adoptMSK(newMsk);
 
 		await this.enable();
 	}
