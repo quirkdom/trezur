@@ -10,7 +10,7 @@
 ## Architecture
 
 ### Framework & Build
-- **Framework**: SvelteKit with Vite, TypeScript via JSDoc
+- **Framework**: SvelteKit with Vite, TypeScript-like type hints via JSDoc
 - **Deployment**: Cloudflare Pages (adapter-cloudflare)
 - **Build Tool**: Vite with SvelteKit adapter for Cloudflare Pages
 - **Service Worker**: PWA capabilities for offline functionality
