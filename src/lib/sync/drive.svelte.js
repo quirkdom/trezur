@@ -73,14 +73,12 @@ class DriveClient {
 
 		try {
 			if (this.flow === 'implicit') {
-				// @ts-ignore
 				this.tokenClient = google.accounts.oauth2.initTokenClient({
 					client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
 					scope: SCOPES,
 					callback: (resp) => this.#handleTokenResponse(resp)
 				});
 			} else if (this.flow === 'pkce') {
-				// @ts-ignore
 				this.tokenClient = google.accounts.oauth2.initCodeClient({
 					client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
 					scope: SCOPES,
@@ -232,9 +230,7 @@ class DriveClient {
 	}
 
 	signOut() {
-		// @ts-ignore
 		if (this.accessToken && window.google) {
-			// @ts-ignore
 			google.accounts.oauth2.revoke(this.accessToken, () => {
 				devconsole.log('[Drive] Token revoked');
 			});
@@ -315,7 +311,7 @@ class DriveClient {
 
 	/**
 	 * @param {string} filename
-	 * @param {string} content
+	 * @param {string | Blob | Uint8Array} content
 	 * @param {string} [mimeType='application/json']
 	 */
 	async upload(filename, content, mimeType = 'application/json') {
@@ -330,7 +326,9 @@ class DriveClient {
 
 		const form = new FormData();
 		form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-		form.append('file', new Blob([content], { type: mimeType }));
+		/** @type {any} */
+		const fileContent = content;
+		form.append('file', new Blob([fileContent], { type: mimeType }));
 
 		let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
 		let method = 'POST';

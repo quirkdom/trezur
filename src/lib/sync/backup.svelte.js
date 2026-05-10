@@ -1,12 +1,11 @@
-import { migrateMSK } from '$lib/state/migration.svelte.js';
-import { sessionPasscode } from '$lib/state/passcode.svelte.js';
-import { encryptedLocalStorage } from '$lib/state/storage.svelte.js';
+import { keyManager } from '$lib/state/key-manager.svelte.js';
+import { getLocalVault, initStorage, purgeStorage } from '$lib/state/storage.svelte.js';
 import { getMaxTimestamp, mergeTokens, tokensContext } from '$lib/state/tokens.svelte.js';
 import { driveClient } from '$lib/sync/drive.svelte.js';
-import { assembleCloudFile, parseCloudFile } from '$lib/sync/fileformat.js';
 import { devconsole } from '$lib/utils';
-import { mnemonicToMSK, mskToMnemonic } from '$lib/utils/bip39.js';
-import { exportUnwrappedMSK } from '$lib/utils/crypto-keys.js';
+import { mnemonicToMSK } from '$lib/utils/bip39.js';
+import { CloudFileVault } from '$lib/utils/cloud-file-vault.js';
+import { importPayloadKey } from '$lib/utils/crypto-keys.js';
 
 const T_BACKUP_ENABLED = 'T_backup_enabled';
 const T_LAST_ERROR = 'T_last_error';
@@ -33,15 +32,16 @@ class BackupService {
 	}
 
 	async loadFromStorage() {
-		if (!encryptedLocalStorage.current) return;
+		const localVault = getLocalVault();
+		if (!localVault) return;
 
-		const enabled = await encryptedLocalStorage.current.get(T_BACKUP_ENABLED);
+		const enabled = await localVault.get(T_BACKUP_ENABLED);
 		if (enabled) {
 			this.autoSyncEnabled = true;
 			this.startAutoSync();
 		}
 
-		const lastError = await encryptedLocalStorage.current.get(T_LAST_ERROR);
+		const lastError = await localVault.get(T_LAST_ERROR);
 		if (lastError) {
 			this.lastError = lastError;
 		}
@@ -55,10 +55,11 @@ class BackupService {
 	}
 
 	async enable() {
-		if (!encryptedLocalStorage.current) throw new Error('Storage not ready');
-		if (!sessionPasscode.passcode) throw new Error('App passcode not set');
+		const localVault = getLocalVault();
+		if (!localVault) throw new Error('Storage not ready');
+		if (!keyManager.cryptoKey) throw new Error('App passcode not set or locked');
 
-		await encryptedLocalStorage.current.set(T_BACKUP_ENABLED, true);
+		await localVault.set(T_BACKUP_ENABLED, true);
 		this.autoSyncEnabled = true;
 		this.startAutoSync();
 
@@ -66,49 +67,19 @@ class BackupService {
 	}
 
 	async disable() {
-		if (!encryptedLocalStorage.current) return;
+		const localVault = getLocalVault();
+		if (!localVault) return;
 
-		await encryptedLocalStorage.current.delete(T_BACKUP_ENABLED);
+		await localVault.delete(T_BACKUP_ENABLED);
 		this.autoSyncEnabled = false;
 		this.stopAutoSync();
-	}
-
-	async _getMSK() {
-		if (!sessionPasscode.passcode) throw new Error('Passcode required to unlock MSK');
-		const metadata = await encryptedLocalStorage.getOrCreateKDFMetadata(sessionPasscode.passcode);
-		const storedWrapped = localStorage.getItem('T_ES__wrapped_msk__');
-		if (!storedWrapped) throw new Error('No wrapped MSK found');
-		return exportUnwrappedMSK(sessionPasscode.passcode, metadata, JSON.parse(storedWrapped));
-	}
-
-	/**
-	 * @param {string} jsonStr
-	 * @param {Uint8Array} msk
-	 */
-	async _encryptPayload(jsonStr, msk) {
-		const iv = crypto.getRandomValues(new Uint8Array(12));
-		const key = await crypto.subtle.importKey('raw', msk, { name: 'AES-GCM' }, false, ['encrypt']);
-		const encoded = new TextEncoder().encode(jsonStr);
-		const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
-		return { ciphertext: new Uint8Array(ciphertext), iv };
-	}
-
-	/**
-	 * @param {Uint8Array} ciphertext
-	 * @param {Uint8Array} iv
-	 * @param {Uint8Array} msk
-	 */
-	async _decryptPayload(ciphertext, iv, msk) {
-		const key = await crypto.subtle.importKey('raw', msk, { name: 'AES-GCM' }, false, ['decrypt']);
-		const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
-		return new TextDecoder().decode(decrypted);
 	}
 
 	async sync() {
 		if (this.isSyncing) return;
 		if (!tokensContext.current) return;
-		if (!sessionPasscode.passcode) {
-			devconsole.warn('[Backup] Cannot sync: App is locked (no session passcode)');
+		if (!keyManager.cryptoKey) {
+			devconsole.warn('[Backup] Cannot sync: App is locked');
 			return;
 		}
 
@@ -116,7 +87,7 @@ class BackupService {
 		devconsole.log('[Backup] Starting sync...');
 
 		try {
-			const msk = await this._getMSK();
+			const vault = new CloudFileVault(keyManager.cryptoKey);
 			/** @type {Record<string, import('$lib/types').Token>} */
 			let cloudTokens = {};
 			let cloudTombstones = {};
@@ -124,12 +95,11 @@ class BackupService {
 			// Attempt to fetch cloud payload
 			try {
 				const buffer = await driveClient.download(BACKUP_FILENAME, 'arraybuffer');
-				const parsed = parseCloudFile(new Uint8Array(buffer));
-				const decryptedJson = await this._decryptPayload(parsed.payloadCiphertext, parsed.payloadIV, msk);
-				const cloudPayload = JSON.parse(decryptedJson);
+				const arrayBuffer = typeof buffer === 'string' ? new TextEncoder().encode(buffer).buffer : buffer;
+				const cloudPayload = await vault.unpack(new Uint8Array(arrayBuffer));
 
 				// Normalize cloud tokens to Token objects (handle legacy wrapper if present)
-				const rawCloudTokens = cloudPayload.tokens || {};
+				const rawCloudTokens = /** @type {any} */ (cloudPayload).tokens || {};
 				for (const [id, val] of Object.entries(rawCloudTokens)) {
 					if (val.data) {
 						cloudTokens[id] = { ...val.data, updatedAt: val.updatedAt };
@@ -137,8 +107,8 @@ class BackupService {
 						cloudTokens[id] = val;
 					}
 				}
-				cloudTombstones = cloudPayload.tombstones || {};
-			} catch (err) {
+				cloudTombstones = /** @type {any} */ (cloudPayload).tombstones || {};
+			} catch (/** @type {any} */ err) {
 				if (err.message !== 'File not found') throw err;
 				// New backup, continue with empty cloud state
 			}
@@ -199,18 +169,27 @@ class BackupService {
 			};
 
 			// Encrypt and upload
-			const { ciphertext, iv } = await this._encryptPayload(JSON.stringify(finalPayload), msk);
-			const cloudFileBytes = await assembleCloudFile('TOKN', ciphertext, iv, msk);
-			await driveClient.upload(BACKUP_FILENAME, new Blob([cloudFileBytes], { type: 'application/octet-stream' }));
+			const cloudFileBytes = await vault.pack(finalPayload);
+			await driveClient.upload(
+				BACKUP_FILENAME,
+				new Blob([/** @type {ArrayBuffer} */ (cloudFileBytes.buffer)], { type: 'application/octet-stream' })
+			);
 
 			this.lastSync = Date.now();
 			if (this.settingsContext) this.settingsContext.updateSetting('lastSyncTime', this.lastSync);
 			this.lastError = null;
-			await encryptedLocalStorage.current?.delete(T_LAST_ERROR);
+
+			const localVault = getLocalVault();
+			if (localVault) {
+				await localVault.delete(T_LAST_ERROR);
+			}
 			devconsole.log('[Backup] Sync completed');
 		} catch (e) {
 			this.lastError = e instanceof Error ? e.message : String(e);
-			await encryptedLocalStorage.current?.set(T_LAST_ERROR, this.lastError);
+			const localVault = getLocalVault();
+			if (localVault) {
+				await localVault.set(T_LAST_ERROR, this.lastError);
+			}
 			devconsole.error('[Backup] Sync failed', e);
 		} finally {
 			this.isSyncing = false;
@@ -221,14 +200,13 @@ class BackupService {
 		try {
 			const file = await driveClient.findFile(BACKUP_FILENAME);
 			return !!file;
-		} catch (e) {
+		} catch {
 			return false;
 		}
 	}
 
 	async getMnemonic() {
-		const msk = await this._getMSK();
-		return mskToMnemonic(msk).split(' ');
+		return await keyManager.getMnemonicWords();
 	}
 
 	/**
@@ -238,11 +216,14 @@ class BackupService {
 	async verifyCloudBackupMnemonic(words) {
 		try {
 			const candidateMsk = mnemonicToMSK(words.join(' '));
+			const tempKey = await importPayloadKey(candidateMsk);
+			const vault = new CloudFileVault(tempKey);
+
 			const buffer = await driveClient.download(BACKUP_FILENAME, 'arraybuffer');
-			const parsed = parseCloudFile(new Uint8Array(buffer));
+			const arrayBuffer = typeof buffer === 'string' ? new TextEncoder().encode(buffer).buffer : buffer;
 
 			// We can attempt to decrypt payload. If it succeeds, the phrase is valid.
-			await this._decryptPayload(parsed.payloadCiphertext, parsed.payloadIV, candidateMsk);
+			await vault.unpack(new Uint8Array(arrayBuffer));
 			return true;
 		} catch (e) {
 			devconsole.warn('[Backup] Mnemonic verification failed', e);
@@ -256,8 +237,15 @@ class BackupService {
 	 */
 	async adoptCloudBackup(words) {
 		const newMsk = mnemonicToMSK(words.join(' '));
-		await migrateMSK(newMsk, sessionPasscode.passcode);
-		await this.enable(); // starts auto sync + initial sync
+		await tokensContext.purgeTokens();
+
+		purgeStorage();
+
+		await keyManager.adoptMSK(newMsk);
+
+		await initStorage(/** @type {string} */ (keyManager.passcode));
+
+		await this.enable();
 	}
 
 	/** @type {any} */
