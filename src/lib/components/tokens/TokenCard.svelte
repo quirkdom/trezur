@@ -111,9 +111,8 @@
 <div
 	class={[
 		'border-zinc-800 p-0.5',
-		showCopyAnimation
-			? 'animate-ring rounded-xl bg-conic/[from_var(--ring-angle)] from-black from-80% via-[#EB3912] via-90% to-black to-100%'
-			: ''
+		showCopyAnimation &&
+			'animate-ring rounded-xl bg-conic/[from_var(--ring-angle)] from-black from-80% via-[#EB3912] via-90% to-black to-100%'
 	]}
 >
 	<div
@@ -130,13 +129,13 @@
 				<Editable
 					value={issuer}
 					onEdit={(/** @type {string} */ val) => handleUpdate({ issuer: val })}
-					class="max-w-[300px] truncate text-lg font-medium text-white"
+					class="max-w-75 truncate text-lg font-medium text-white"
 				/>
 				{#if account.length > 40}
 					<Editable
 						value={account}
 						onEdit={(/** @type {string} */ val, /** @type {string} */ prev) => handleUpdate({ account: val || prev })}
-						class="max-w-[300px] overflow-hidden"
+						class="max-w-75 overflow-hidden"
 					>
 						<div class="animate-marquee text-sm whitespace-nowrap text-zinc-500">
 							{account}
