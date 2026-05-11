@@ -44,6 +44,12 @@ Individual files have small, inline TODO reminders.
   - Currently, the header takes up some vertical space and the text container is a flexbox below it, which makes it hard to align the text contents to vertical center of app viewport. This is further complicated by the footer, which is sticky and inset to the bottom.
   - [ ] The right way to go about this is probably to have header, main content and footer all inside a single flexbox container, with the main content growing to eat up all vertical space possible and the header and footer of fixed sizes being fixed at the top and bottom respectively.
 
+- [ ] Homogenize [Drawer](src/lib/components/ui/Drawer.svelte) and [Modal](src/lib/components/ui/Modal.svelte) component styles.
+  - `x` icon in both are of different sizes
+  - Headers have different bottom margin across the two components
+  - Modal enforces a max-width, while Drawer doesn't (it should).
+  - [Related] Homogenize styles in [TokenQRCode](src/lib/components/tokens/TokenQRCode.svelte), [AddTokenForm](src/lib/components/tokens/AddTokenForm.svelte) and [RecoveryKit](src/lib/components/sync/RecoveryKit.svelte).
+
 - [ ] [AddTokenForm.svelte](src/lib/components/tokens/AddTokenForm.svelte) QR scanner should show similar loading failure / error messages to how [TokenQRCode.svelte](src/lib/components/tokens/TokenQRCode.svelte) does it. TokenQRCode (dynamic lib load -> show QR svg) is awaited; we should adapt the AddTokenForm QR scanner (dynamic lib load -> start camera -> render frames to canvas) to await similarly.
 
 - [x] Fix the longpress interaction on the app lock button. The longpress animation keeps on playing even after the longpress event has been triggered, in all browsers except FF.
