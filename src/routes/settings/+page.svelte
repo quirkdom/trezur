@@ -472,8 +472,12 @@
 								Change
 							</button>
 							<button
-								class="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-red-500 transition-colors hover:bg-zinc-700"
+								class="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-red-500 transition-colors enabled:hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
 								onclick={handleRemovePasscode}
+								// TODO: Find a better way to detect that a backup service is enabled.
+								disabled={!!settings.lastSyncTime}
+								// TODO: Find a better way to show this explanation. This is not visible on mobile.
+								title="Passcode cannot be removed while backup is enabled. Please disable backup first."
 							>
 								Remove
 							</button>
