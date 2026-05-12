@@ -18,7 +18,7 @@
 	import { devconsole } from '$lib/utils';
 
 	import { driveClient } from '$lib/sync/drive.svelte';
-	import { ChevronDown } from '@lucide/svelte';
+	import { ChevronDown, LoaderCircle } from '@lucide/svelte';
 	import { cubicInOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 
@@ -37,7 +37,7 @@
 	/** @type {'verify' | 'create' | 'change'} */
 	let passcodeDialogMode = $state('create');
 	/** @type {'gdrive' | 'icloud' | null} */
-	let activeCloudSyncProvider = $state(null);
+	let connectingProvider = $state(null);
 	/** @type {((value?: any) => void) | null} */
 	let cloudSyncFlowResolve = null;
 	/** @type {((reason?: any) => void) | null} */
@@ -51,7 +51,7 @@
 
 	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
 
-	$inspect('activeCloudSyncProvider', activeCloudSyncProvider);
+	$inspect('connectingProvider', connectingProvider);
 	$inspect('isBackupEnabled', isBackupEnabled);
 
 	function handleCloudSyncCancel() {
@@ -61,7 +61,7 @@
 	}
 
 	let backupStatus = $derived.by(() => {
-		if (activeCloudSyncProvider) return null;
+		if (connectingProvider) return null;
 
 		if (backupService.lastError) {
 			// Check for critical auth errors
@@ -105,8 +105,8 @@
 	 * @param {'gdrive' | 'icloud'} provider
 	 */
 	async function attemptToConnectCloud(provider) {
-		if (activeCloudSyncProvider) return;
-		activeCloudSyncProvider = provider;
+		if (connectingProvider) return;
+		connectingProvider = provider;
 
 		try {
 			if (!conditions.isUserPasscodeSet) {
@@ -164,7 +164,7 @@
 			}
 			backupService.disable();
 		} finally {
-			activeCloudSyncProvider = null;
+			connectingProvider = null;
 			cloudSyncFlowResolve = null;
 			cloudSyncFlowReject = null;
 		}
@@ -351,8 +351,11 @@
 			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<span>Google Drive Backup</span>
-					{#key activeCloudSyncProvider === 'gdrive'}
-						<!-- We have to do this to ensure the switch is re-rendered to the correct state even when the async connection process doesn't necessarily complete -->
+					{#if connectingProvider === 'gdrive'}
+						<div class="flex h-6 w-10 items-center justify-center">
+							<LoaderCircle size={20} class="animate-spin text-zinc-400" />
+						</div>
+					{:else}
 						<Switch
 							checked={isBackupEnabled}
 							onCheckedChange={async (toBeChecked) => {
@@ -366,7 +369,7 @@
 								}
 							}}
 						/>
-					{/key}
+					{/if}
 				</div>
 				{#if isBackupEnabled}
 					<div class="flex flex-col gap-4 p-4">
@@ -375,18 +378,24 @@
 							onclick={() => (isBackupDetailsOpen = !isBackupDetailsOpen)}
 						>
 							<div class="flex items-center gap-3">
-								{#if backupStatus}
+								{#if backupService.isSyncing}
+									<LoaderCircle size={14} class="animate-spin text-zinc-400" />
+								{:else if backupStatus}
 									<div
 										class="h-2.5 w-2.5 rounded-full {backupStatus.color} shadow-[0_0_8px] shadow-{backupStatus.color}/50"
 									></div>
 								{/if}
 								<div class="flex flex-col">
-									<span class="text-sm text-zinc-300">
-										Last synced
-										<abbr title={settings.lastSyncTime ? new Date(settings.lastSyncTime).toLocaleString() : ''}>
-											{getRelativeSyncTime(settings.lastSyncTime || 0)}
-										</abbr>
-									</span>
+									{#if backupService.isSyncing}
+										<span class="text-sm text-zinc-300">Syncing...</span>
+									{:else}
+										<span class="text-sm text-zinc-300">
+											Last synced
+											<abbr title={settings.lastSyncTime ? new Date(settings.lastSyncTime).toLocaleString() : ''}>
+												{getRelativeSyncTime(settings.lastSyncTime || 0)}
+											</abbr>
+										</span>
+									{/if}
 								</div>
 							</div>
 							<div class="transition-transform duration-200" class:rotate-180={isBackupDetailsOpen}>
@@ -474,8 +483,7 @@
 							<button
 								class="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-red-500 transition-colors enabled:hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
 								onclick={handleRemovePasscode}
-								// TODO: Find a better way to detect that a backup service is enabled.
-								disabled={!!settings.lastSyncTime}
+								disabled={isBackupEnabled}
 								// TODO: Find a better way to show this explanation. This is not visible on mobile.
 								title="Passcode cannot be removed while backup is enabled. Please disable backup first."
 							>
