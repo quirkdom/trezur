@@ -47,7 +47,7 @@
 	<span
 		class={[
 			'pointer-events-none inline-block h-5 w-5 translate-y-0.5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
-			checked ? 'translate-x-[18px]' : 'translate-x-0.5'
+			checked ? 'translate-x-4.5' : 'translate-x-0.5'
 		]}
 	></span>
 </button>

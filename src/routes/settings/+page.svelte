@@ -34,8 +34,8 @@
 	let showImportDialog = $state(false);
 	let showExportDialog = $state(false);
 	let showPasscodeDialog = $state(false);
-	/** @type {'verify' | 'create' | 'change'} */ let passcodeDialogMode = $state('create');
-
+	/** @type {'verify' | 'create' | 'change'} */
+	let passcodeDialogMode = $state('create');
 	/** @type {'gdrive' | 'icloud' | null} */
 	let activeCloudSyncProvider = $state(null);
 	/** @type {((value?: any) => void) | null} */
