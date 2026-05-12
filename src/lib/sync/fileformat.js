@@ -3,24 +3,17 @@ const MAGIC = 'TRZR';
 const HEADER_SIZE = 64;
 
 /**
- * Generates the SHA-256 hash of the MSK.
- * @param {Uint8Array} msk
- * @returns {Promise<Uint8Array>} 32-byte hash
- */
-export async function generateKeyCheckValue(msk) {
-	return new Uint8Array(await crypto.subtle.digest('SHA-256', /** @type {BufferSource} */ (msk)));
-}
-
-/**
  * Creates the binary ArrayBuffer with the 64-byte TRZR header and payload.
  *
+ * @param {number} version
  * @param {string} type (e.g., 'TOKN')
  * @param {Uint8Array} payloadCiphertext (raw ciphertext)
  * @param {Uint8Array} payloadIV (12 bytes)
- * @param {Uint8Array} msk
- * @returns {Promise<Uint8Array>}
+ * @param {Uint8Array} authTag (16 bytes, AES-GCM auth tag over header AAD)
+ * @returns {Uint8Array}
  */
-export async function assembleCloudFile(type, payloadCiphertext, payloadIV, msk) {
+export function assembleCloudFile(version, type, payloadCiphertext, payloadIV, authTag) {
+	if (version !== 1) throw new Error(`Unsupported version: ${version}`);
 	if (type.length !== 4) throw new Error('Type must be exactly 4 characters');
 
 	const buffer = new ArrayBuffer(HEADER_SIZE + payloadCiphertext.length);
@@ -31,7 +24,7 @@ export async function assembleCloudFile(type, payloadCiphertext, payloadIV, msk)
 	bytes.set(new TextEncoder().encode(MAGIC), 0);
 
 	// version
-	view.setUint8(4, VERSION);
+	view.setUint8(4, version);
 
 	// type
 	bytes.set(new TextEncoder().encode(type), 5);
@@ -39,11 +32,10 @@ export async function assembleCloudFile(type, payloadCiphertext, payloadIV, msk)
 	// iv
 	bytes.set(payloadIV, 9);
 
-	// key_check
-	const kcv = await generateKeyCheckValue(msk);
-	bytes.set(kcv, 21);
+	// auth tag (AES-GCM over header AAD block, bytes 0..20)
+	bytes.set(authTag, 21);
 
-	// bytes 53..63 are reserved/padding (0 by default)
+	// bytes 37..63 are reserved/padding (0 by default)
 
 	// append ciphertext payload
 	bytes.set(payloadCiphertext, HEADER_SIZE);
@@ -55,7 +47,7 @@ export async function assembleCloudFile(type, payloadCiphertext, payloadIV, msk)
  * Parses an ArrayBuffer of a .trzr file.
  *
  * @param {Uint8Array} fileData
- * @returns {{ version: number, type: string, payloadIV: Uint8Array, keyCheckValue: Uint8Array, payloadCiphertext: Uint8Array }}
+ * @returns {{ version: number, type: string, payloadIV: Uint8Array, authTag: Uint8Array, payloadCiphertext: Uint8Array }}
  */
 export function parseCloudFile(fileData) {
 	if (fileData.byteLength < HEADER_SIZE) {
@@ -76,10 +68,10 @@ export function parseCloudFile(fileData) {
 
 	const type = new TextDecoder().decode(fileData.subarray(5, 9));
 	const payloadIV = fileData.subarray(9, 21);
-	const keyCheckValue = fileData.subarray(21, 53);
-	// bytes 53..63 are reserved
+	const authTag = fileData.subarray(21, 37);
+	// bytes 37..63 are reserved
 
 	const payloadCiphertext = fileData.subarray(HEADER_SIZE);
 
-	return { version, type, payloadIV, keyCheckValue, payloadCiphertext };
+	return { version, type, payloadIV, authTag, payloadCiphertext };
 }

@@ -10,6 +10,7 @@ import { importPayloadKey } from '$lib/utils/crypto-keys.js';
 const T_BACKUP_ENABLED = 'T_backup_enabled';
 const T_LAST_ERROR = 'T_last_error';
 const BACKUP_FILENAME = 'tokens.trzr';
+const BACKUP_FILE_TYPE = 'TOKN';
 const SYNC_INTERVAL = 60 * 60 * 1000; // 1 hour
 
 class BackupService {
@@ -169,7 +170,7 @@ class BackupService {
 			};
 
 			// Encrypt and upload
-			const cloudFileBytes = await vault.pack(finalPayload);
+			const cloudFileBytes = await vault.pack(finalPayload, BACKUP_FILE_TYPE);
 			await driveClient.upload(
 				BACKUP_FILENAME,
 				new Blob([/** @type {ArrayBuffer} */ (cloudFileBytes.buffer)], { type: 'application/octet-stream' })

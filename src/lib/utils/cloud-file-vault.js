@@ -1,4 +1,7 @@
-import { parseCloudFile } from '$lib/sync/fileformat.js';
+import { parseCloudFile, assembleCloudFile } from '$lib/sync/fileformat.js';
+
+const VERSION = 1;
+const MAGIC = 'TRZR';
 
 export class CloudFileVault {
 	/** @type {CryptoKey} */
@@ -12,29 +15,51 @@ export class CloudFileVault {
 	}
 
 	/**
+	 * @param {number} version
+	 * @param {string} type
+	 * @param {Uint8Array} iv
+	 * @returns {{ aadBlock: Uint8Array, tagIV: Uint8Array }}
+	 */
+	#buildHeaderVerification(version, type, iv) {
+		const aadBlock = new Uint8Array(21);
+		aadBlock.set(new TextEncoder().encode(MAGIC), 0);
+		aadBlock[4] = version;
+		aadBlock.set(new TextEncoder().encode(type), 5);
+		aadBlock.set(iv, 9);
+
+		// Derive tag IV (flip last byte to avoid nonce reuse with payload encryption)
+		const tagIV = iv.slice();
+		tagIV[11] ^= 0x01;
+
+		return { aadBlock, tagIV };
+	}
+
+	/**
 	 * @param {object} payload
+	 * @param {string} [type='DATA']
 	 * @returns {Promise<Uint8Array>}
 	 */
-	async pack(payload) {
+	async pack(payload, type = 'DATA') {
 		const jsonStr = JSON.stringify(payload);
 		const encoded = new TextEncoder().encode(jsonStr);
 		const iv = crypto.getRandomValues(new Uint8Array(12));
 
 		const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, this.#cryptoKey, encoded);
 
-		// The original assembleCloudFile requires the MSK, but we only have a CryptoKey now.
-		// Wait, I should not use assembleCloudFile from fileformat.js if it expects raw MSK?
-		// Let's implement it here directly. Fileformat was TRZR (magic) + version + IV + ciphertext.
-		// version = 5
-		const version = 5;
-		const magic = new TextEncoder().encode('TRZR');
-		const buffer = new Uint8Array(magic.length + 1 + iv.length + ciphertext.byteLength);
-		buffer.set(magic, 0);
-		buffer.set([version], magic.length);
-		buffer.set(iv, magic.length + 1);
-		buffer.set(new Uint8Array(ciphertext), magic.length + 1 + iv.length);
+		const { aadBlock, tagIV } = this.#buildHeaderVerification(VERSION, type, iv);
 
-		return buffer;
+		// Compute auth tag by encrypting empty plaintext with header as AAD
+		const tagResult = await crypto.subtle.encrypt(
+			{
+				name: 'AES-GCM',
+				iv: /** @type {any} */ (tagIV),
+				additionalData: /** @type {any} */ (aadBlock)
+			},
+			this.#cryptoKey,
+			new Uint8Array(0)
+		);
+
+		return assembleCloudFile(VERSION, type, new Uint8Array(ciphertext), iv, new Uint8Array(tagResult));
 	}
 
 	/**
@@ -42,15 +67,25 @@ export class CloudFileVault {
 	 * @returns {Promise<object>}
 	 */
 	async unpack(buffer) {
-		// Use parseCloudFile to extract parts (since it's stateless)
 		const parsed = parseCloudFile(buffer);
 
-		/** @type {any} */
-		const ciphertext = parsed.payloadCiphertext;
+		const { aadBlock, tagIV } = this.#buildHeaderVerification(parsed.version, parsed.type, parsed.payloadIV);
+
+		// Verify auth tag — throws OperationError if key/header mismatch
+		await crypto.subtle.decrypt(
+			{
+				name: 'AES-GCM',
+				iv: /** @type {any} */ (tagIV),
+				additionalData: /** @type {any} */ (aadBlock)
+			},
+			this.#cryptoKey,
+			/** @type {any} */ (parsed.authTag)
+		);
+
 		const decrypted = await crypto.subtle.decrypt(
 			{ name: 'AES-GCM', iv: /** @type {any} */ (parsed.payloadIV) },
 			this.#cryptoKey,
-			ciphertext
+			/** @type {any} */ (parsed.payloadCiphertext)
 		);
 
 		const jsonStr = new TextDecoder().decode(decrypted);
