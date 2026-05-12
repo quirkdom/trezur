@@ -4,13 +4,13 @@
 	import { onDestroy, tick } from 'svelte';
 
 	/**
-	 * @type {{ open: boolean, onWordsComplete: (words: string[]) => void, onCancel?: () => void }}
+	 * @type {{ open: boolean, onCompletePhrase: (words: string[]) => void, onCancel?: () => void }}
 	 */
-	let { open = $bindable(false), onWordsComplete, onCancel = undefined } = $props();
+	let { open = $bindable(false), onCompletePhrase, onCancel = undefined } = $props();
 
 	let showCameraFeed = $state(false);
-	let manualMode = $state(false);
-	let manualWords = $state('');
+	let showManualEntry = $state(false);
+	let recoveryPhraseText = $state('');
 	let errorText = $state('');
 
 	/** @type {import('qr/dom.js')} */
@@ -28,7 +28,7 @@
 
 	async function startCamera() {
 		showCameraFeed = true;
-		manualMode = false;
+		showManualEntry = false;
 		errorText = '';
 		await tick(); // wait for video element to be ready
 
@@ -41,7 +41,7 @@
 		} catch (err) {
 			console.error('Error accessing camera:', err);
 			showCameraFeed = false;
-			errorText = 'Failed to access camera';
+			errorText = 'Error: Failed to access camera. Did you give permission?';
 		}
 	}
 
@@ -53,7 +53,7 @@
 				{ overlay: overlayCanvas },
 				{
 					cropToSquare: true,
-					overlaySideColor: '#4f46e5' // indigo
+					overlaySideColor: '#9D260C' // darker version of #EB3912
 				}
 			);
 
@@ -67,7 +67,7 @@
 				isProcessing = true;
 				const words = qrData.trim().split(/\s+/);
 				if (words.length === 24) {
-					onWordsComplete(words);
+					onCompletePhrase(words);
 					close();
 				} else {
 					errorText = 'QR code does not contain a valid 24-word recovery phrase';
@@ -77,19 +77,26 @@
 		});
 	}
 
-	function stopScanning() {
-		if (!cancelScan) return;
-		cancelScan();
+	function resetCamera() {
+		showCameraFeed = false;
+
+		cancelScan?.();
 		cancelScan = undefined;
+
+		qrCanvas?.clear();
+		qrCanvas = undefined;
+
+		frontCamera?.stop();
+		frontCamera = undefined;
 	}
 
-	function handleManualSubmit() {
-		const words = manualWords.trim().split(/\s+/);
+	function handleManualPhraseSubmit() {
+		const words = recoveryPhraseText.trim().split(/\s+/);
 		if (words.length !== 24) {
-			errorText = `Please enter exactly 24 words. You entered ${words.length}.`;
+			errorText = `Please enter exactly 24 words. You have entered ${words.length}.`;
 			return;
 		}
-		onWordsComplete(words);
+		onCompletePhrase(words);
 		close();
 	}
 
@@ -99,43 +106,40 @@
 	}
 
 	function close() {
-		showCameraFeed = false;
-		stopScanning();
-		qrCanvas?.clear();
-		qrCanvas = undefined;
-		frontCamera?.stop();
-		frontCamera = undefined;
-		manualWords = '';
+		resetCamera();
+		recoveryPhraseText = '';
 		errorText = '';
 		open = false;
 	}
 
-	onDestroy(() => close());
-
-	$effect(() => {
-		if (!open) {
-			close();
-		}
-	});
+	onDestroy(() => resetCamera());
 </script>
 
 <Drawer bind:open title="Recover Backup" onClose={handleClose} class="mx-auto max-w-lg">
 	<div class="space-y-6">
-		<p class="text-sm text-zinc-400">
-			A cloud backup was found. Please scan the QR code from your original device's Recovery Kit, or enter your 24 words
-			manually.
-		</p>
+		{#if !showManualEntry}
+			<!-- QR Scanner Mode -->
+			<p class="text-center text-sm text-zinc-400">
+				A cloud backup was found. Please scan the QR code from a connected device's Recovery Kit.
+			</p>
 
-		{#if !manualMode}
 			{#if showCameraFeed}
 				<div class="relative mb-6 overflow-hidden rounded-lg bg-black">
 					<video bind:this={videoElement} autoplay muted playsinline class="h-64 w-full object-cover"></video>
 					<canvas bind:this={overlayCanvas} class="pointer-events-none absolute top-0 left-0 h-full w-full opacity-70"
 					></canvas>
 				</div>
+				<p class="text-center text-sm text-zinc-400">
+					You can find the recovery QR code from a connected device, in Settings → Backup → expand sync status → "Link
+					Devices".
+				</p>
+			{:else if errorText}
+				<div class="rounded-lg bg-red-900/30 p-4 text-center text-sm text-red-400">
+					{errorText}
+				</div>
 			{:else}
 				<button
-					class="mb-6 flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-800 py-4 text-white transition-colors hover:bg-zinc-700"
+					class="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-800 py-4 text-white transition-colors hover:bg-zinc-700"
 					onclick={startCamera}
 				>
 					<ScanQrCodeIcon size={20} />
@@ -143,56 +147,60 @@
 				</button>
 			{/if}
 
-			<div class="text-center">
+			<button
+				class="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-800 py-4 text-white transition-colors hover:bg-zinc-700"
+				onclick={() => {
+					resetCamera();
+					showManualEntry = true;
+					errorText = '';
+				}}
+			>
+				<span>Enter recovery words instead</span>
+			</button>
+		{:else}
+			<!-- Manual Entry Mode -->
+			<p class="text-center text-sm text-zinc-400">
+				A cloud backup was found. Please enter your previously saved recovery phrase.
+			</p>
+
+			<label for="manualWords" class="mb-1 block text-sm text-zinc-400">Recovery Phrase</label>
+			<textarea
+				id="manualWords"
+				bind:value={recoveryPhraseText}
+				rows="4"
+				class="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-3 text-white placeholder-zinc-500 focus:border-[#EB3912] focus:outline-none"
+				placeholder="Enter your 24 word recovery phrase, separated by spaces..."
+			></textarea>
+
+			{#if errorText}
+				<div class="rounded-lg bg-red-900/30 p-4 text-center text-sm text-red-400">
+					{errorText}
+				</div>
+			{:else}
+				<p class="text-center text-sm text-zinc-400">
+					You can also find the recovery phrase from a connected device, in Settings → Backup → expand sync status →
+					"Link Devices".
+				</p>
+			{/if}
+
+			<div class="mt-4 flex gap-4">
 				<button
-					class="text-sm text-indigo-400 underline-offset-4 hover:text-indigo-300 hover:underline"
+					class="flex-1 rounded-lg bg-zinc-800 py-3 text-white transition-colors hover:bg-zinc-700"
 					onclick={() => {
-						showCameraFeed = false;
-						stopScanning();
-						frontCamera?.stop();
-						frontCamera = undefined;
-						manualMode = true;
+						showManualEntry = false;
 						errorText = '';
 					}}
 				>
-					Enter words manually instead
+					Back
+				</button>
+				<button
+					class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#EB3912] py-3 font-medium text-white transition-colors hover:bg-[#D83511]"
+					onclick={handleManualPhraseSubmit}
+				>
+					Verify
+					<ArrowRight size={16} />
 				</button>
 			</div>
-		{:else}
-			<div class="space-y-4">
-				<label for="manualWords" class="mb-1 block text-sm text-gray-400">Recovery Phrase</label>
-				<textarea
-					id="manualWords"
-					bind:value={manualWords}
-					rows="4"
-					class="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-3 text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
-					placeholder="Enter 24 words separated by spaces..."
-				></textarea>
-
-				<div class="mt-4 flex items-center justify-between">
-					<button
-						class="text-sm text-zinc-400 underline-offset-4 hover:text-white hover:underline"
-						onclick={() => {
-							manualMode = false;
-							errorText = '';
-							startCamera();
-						}}
-					>
-						Back to QR Scan
-					</button>
-					<button
-						class="flex items-center gap-2 rounded-lg bg-indigo-500 px-6 py-2 font-medium text-white transition-colors hover:bg-indigo-400"
-						onclick={handleManualSubmit}
-					>
-						Verify
-						<ArrowRight size={16} />
-					</button>
-				</div>
-			</div>
-		{/if}
-
-		{#if errorText}
-			<p class="text-sm text-red-400">{errorText}</p>
 		{/if}
 	</div>
 </Drawer>

@@ -4,16 +4,16 @@
 	import { Check, ClipboardList, ScanQrCodeIcon } from '@lucide/svelte';
 
 	/**
-	 * @type {{ words: string[], onConfirm?: () => void, open: boolean, mode?: 'save' | 'share', onCancel?: () => void }}
+	 * @type {{ words: string[], onSaveConfirm?: () => void, open: boolean, mode?: 'save' | 'share', onCancel?: () => void }}
 	 */
-	let { words, onConfirm, open = $bindable(false), mode = 'save', onCancel = undefined } = $props();
+	let { words, onSaveConfirm, open = $bindable(false), mode = 'save', onCancel = undefined } = $props();
 
 	let showQr = $derived(mode === 'share');
 
 	const qrSvg = $derived(showQr && import('qr').then(({ encodeQR }) => encodeQR(words.join(' '), 'svg')));
 
-	function handleConfirm() {
-		if (onConfirm) onConfirm();
+	function handleSaveConfirm() {
+		if (onSaveConfirm) onSaveConfirm();
 		open = false;
 	}
 
@@ -32,7 +32,7 @@
 			</p>
 			<MnemonicGrid {words} />
 			<button
-				onclick={handleConfirm}
+				onclick={handleSaveConfirm}
 				class="flex w-full items-center justify-center gap-2 rounded-lg bg-[#EB3912] px-6 py-3 font-medium text-white transition-colors duration-200 hover:bg-[#D83511]"
 			>
 				<Check size={20} />

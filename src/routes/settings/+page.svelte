@@ -47,7 +47,6 @@
 	let isInitialBackup = $state(true);
 	/** @type {string[]} */
 	let recoveryWords = $state([]);
-	// let recoveryWords = $state(structuredClone(SAMPLE_WORDS));	// for debugging
 	let showRecoveryScanner = $state(false);
 
 	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
@@ -520,12 +519,12 @@
 		</section>
 
 		<section class="space-y-2">
-			<button
+			<!-- <button
 				class="hidden w-full rounded-lg bg-zinc-900 p-4 text-blue-500"
 				onclick={() => (conditions.isAppLocked = !conditions.isAppLocked)}
 			>
 				{conditions.isAppLocked ? 'Unlock' : 'Lock'}
-			</button>
+			</button> -->
 			<button
 				class="w-full rounded-lg bg-zinc-900 p-4 text-red-500 transition-colors hover:bg-zinc-700"
 				onclick={purgeAll}
@@ -573,12 +572,23 @@
 	bind:open={showRecoveryKit}
 	words={recoveryWords}
 	mode={isInitialBackup ? 'save' : 'share'}
-	onConfirm={handleRecoveryKitConfirm}
+	onSaveConfirm={handleRecoveryKitConfirm}
 	onCancel={handleCloudSyncCancel}
 />
 
 <RecoveryScannerDialog
 	bind:open={showRecoveryScanner}
-	onWordsComplete={handleRecoveryScannerComplete}
+	onCompletePhrase={handleRecoveryScannerComplete}
 	onCancel={handleCloudSyncCancel}
 />
+
+<!-- For testing/debugging -->
+<!-- <button class="mt-3 hidden w-full rounded-lg bg-zinc-900 p-4 text-blue-500" onclick={showDeviceRecoveryKit}>
+	[DEBUG] Show Recovery Kit
+</button> <br />
+<button
+	class="mt-1 hidden w-full rounded-lg bg-zinc-900 p-4 text-blue-500"
+	onclick={() => (showRecoveryScanner = true)}
+>
+	[DEBUG] Show Recovery Scanner
+</button> -->
