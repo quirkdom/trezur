@@ -18,6 +18,8 @@ Individual files have small, inline TODO reminders.
 - [x] (P0) [Bug: Settings -> Import/Export/Migrate]: If the settings page is directly loaded, there is no tokensContext.current inited. Any imports or exports will _silently_ fail. This is because the $effect that inits tokensContext.current is in the Codes page.
   - [x] We need to either move the $effect to the +layout.svelte or Settings +page.svelte, or we need to manually init tokensContext.current in the settings page.
 
+- [ ] (P1) Users shouldn't be able to remove their passcode if cloud sync is enabled.
+
 - [x] (P1) `passcode` should not be publicly gettable in [KeyMan](src/lib/state/key-manager.svelte.js).
   - ref: [docs/storage-key-manager-refactor.md](docs/storage-key-manager-refactor.md)
   - Currently only needed in `backup.adoptCloudBackup()` to init storage again after new MSK has been wrapped and persisted.
