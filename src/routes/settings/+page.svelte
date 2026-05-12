@@ -12,7 +12,7 @@
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { keyManager } from '$lib/state/key-manager.svelte';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { getLocalVault, isStorageAvailable, purgeStorage } from '$lib/state/storage.svelte';
+	import { isStorageAvailable, purgeStorage } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { backupService } from '$lib/sync/backup.svelte';
 	import { devconsole } from '$lib/utils';
@@ -36,17 +36,33 @@
 	let showPasscodeDialog = $state(false);
 	/** @type {'verify' | 'create' | 'change'} */ let passcodeDialogMode = $state('create');
 
-	let whileAttemptingToConnectGDrive = $state(false);
+	/** @type {'gdrive' | 'icloud' | null} */
+	let activeCloudSyncProvider = $state(null);
+	/** @type {((value?: any) => void) | null} */
+	let cloudSyncFlowResolve = null;
+	/** @type {((reason?: any) => void) | null} */
+	let cloudSyncFlowReject = null;
+
 	let showRecoveryKit = $state(false);
 	let isInitialBackup = $state(true);
 	/** @type {string[]} */
 	let recoveryWords = $state([]);
+	// let recoveryWords = $state(structuredClone(SAMPLE_WORDS));	// for debugging
 	let showRecoveryScanner = $state(false);
 
 	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
 
+	$inspect('activeCloudSyncProvider', activeCloudSyncProvider);
+	$inspect('isBackupEnabled', isBackupEnabled);
+
+	function handleCloudSyncCancel() {
+		if (cloudSyncFlowReject) {
+			cloudSyncFlowReject(new Error('cancelled'));
+		}
+	}
+
 	let backupStatus = $derived.by(() => {
-		if (whileAttemptingToConnectGDrive) return null;
+		if (activeCloudSyncProvider) return null;
 
 		if (backupService.lastError) {
 			// Check for critical auth errors
@@ -86,68 +102,93 @@
 		return 'a few seconds ago.';
 	}
 
-	async function attemptToConnectGDrive() {
-		whileAttemptingToConnectGDrive = true;
-		if (!conditions.isUserPasscodeSet) {
-			alert('Please set an App Passcode first in the Security section.');
-			passcodeDialogMode = 'create';
-			showPasscodeDialog = true;
-			isBackupEnabled = false;
-			whileAttemptingToConnectGDrive = false;
-			return;
-		}
+	/**
+	 * @param {'gdrive' | 'icloud'} provider
+	 */
+	async function attemptToConnectCloud(provider) {
+		if (activeCloudSyncProvider) return;
+		activeCloudSyncProvider = provider;
 
 		try {
-			await driveClient.signIn();
+			if (!conditions.isUserPasscodeSet) {
+				alert('Please set an App Passcode first in the Security section.');
+				passcodeDialogMode = 'create';
+				showPasscodeDialog = true;
+
+				await new Promise((resolve, reject) => {
+					cloudSyncFlowResolve = resolve;
+					cloudSyncFlowReject = reject;
+				});
+			}
+
+			if (provider === 'gdrive') {
+				await driveClient.signIn();
+			}
 
 			const backupExists = await backupService.checkCloudBackupExists();
 			if (backupExists) {
 				showRecoveryScanner = true;
+				const words = await /** @type {Promise<string[]>} */ (
+					new Promise((resolve, reject) => {
+						cloudSyncFlowResolve = resolve;
+						cloudSyncFlowReject = reject;
+					})
+				);
+
+				const isValid = await backupService.verifyCloudBackupMnemonic(words);
+				if (isValid) {
+					await backupService.adoptCloudBackup(words);
+					alert('Cloud backup linked successfully!');
+				} else {
+					throw new Error('Incorrect recovery phrase. Backup could not be linked.');
+				}
 			} else {
 				recoveryWords = await backupService.getMnemonic();
 				isInitialBackup = true;
 				showRecoveryKit = true;
+
+				await new Promise((resolve, reject) => {
+					cloudSyncFlowResolve = resolve;
+					cloudSyncFlowReject = reject;
+				});
+
+				await backupService.enable();
+				alert('Backup enabled and initial sync completed!');
 			}
-		} catch (e) {
-			alert('Failed to enable backup: ' + e);
-			driveClient.signOut();
+		} catch (/** @type {any} */ e) {
+			if (e.message !== 'cancelled') {
+				alert('Failed to enable backup: ' + e);
+			}
+
+			if (provider === 'gdrive') {
+				driveClient.signOut();
+			}
 			backupService.disable();
-			whileAttemptingToConnectGDrive = false;
+		} finally {
+			activeCloudSyncProvider = null;
+			cloudSyncFlowResolve = null;
+			cloudSyncFlowReject = null;
 		}
 	}
 
 	/** @param {string[]} words */
-	async function handleRecoveryScannerComplete(words) {
-		try {
-			const isValid = await backupService.verifyCloudBackupMnemonic(words);
-			if (isValid) {
-				await backupService.adoptCloudBackup(words);
-				alert('Cloud backup linked successfully!');
-			} else {
-				alert('Incorrect recovery phrase. Backup could not be linked.');
-				driveClient.signOut();
-				backupService.disable();
-			}
-		} catch (e) {
-			alert('Error verifying phrase: ' + e);
-			driveClient.signOut();
-			backupService.disable();
+	function handleRecoveryScannerComplete(words) {
+		if (cloudSyncFlowResolve) {
+			cloudSyncFlowResolve(words);
+			cloudSyncFlowResolve = null;
+			cloudSyncFlowReject = null;
 		}
-		whileAttemptingToConnectGDrive = false;
 	}
 
-	async function handleRecoveryKitConfirm() {
-		try {
-			if (isInitialBackup) {
-				await backupService.enable();
-				alert('Backup enabled and initial sync completed!');
-			}
-		} catch (e) {
-			alert('Failed to enable backup: ' + e);
-			driveClient.signOut();
-			backupService.disable();
+	function handleRecoveryKitConfirm() {
+		if (cloudSyncFlowResolve) {
+			cloudSyncFlowResolve();
+			cloudSyncFlowResolve = null;
+			cloudSyncFlowReject = null;
+			return;
 		}
-		whileAttemptingToConnectGDrive = false;
+
+		// Fallback for manual "Link Devices" flow where isInitialBackup is false
 	}
 
 	async function showDeviceRecoveryKit() {
@@ -174,14 +215,23 @@
 
 			conditionsContext.updateCondition('isUserPasscodeSet', true);
 
-			const tokenCount = tokensContext.current?.getTokens().length || 0;
-			alert(
-				'Passcode set successfully!' +
-					(tokenCount > 0 ? ` ${tokenCount} token${tokenCount > 1 ? 's' : ''} secured.` : '')
-			);
+			if (cloudSyncFlowResolve) {
+				cloudSyncFlowResolve();
+				cloudSyncFlowResolve = null;
+				cloudSyncFlowReject = null;
+			} else {
+				const tokenCount = tokensContext.current?.getTokens().length || 0;
+				alert(
+					'Passcode set successfully!' +
+						(tokenCount > 0 ? ` ${tokenCount} token${tokenCount > 1 ? 's' : ''} secured.` : '')
+				);
+			}
 		} catch (err) {
 			devconsole.error('[Passcode] Set failed:', err);
 			alert('Failed to set passcode. Your data is unchanged — please try again.');
+			if (cloudSyncFlowReject) {
+				cloudSyncFlowReject(err);
+			}
 		}
 	}
 
@@ -271,6 +321,8 @@
 	}
 </script>
 
+<!-- {@debug pendingGDriveConnect} -->
+
 <svelte:head>
 	<title>Trezur · Settings</title>
 	<meta name="description" content="Trezur app" />
@@ -300,14 +352,14 @@
 			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
 				<div class="flex items-center justify-between p-4">
 					<span>Google Drive Backup</span>
-					{#key whileAttemptingToConnectGDrive}
+					{#key activeCloudSyncProvider === 'gdrive'}
 						<!-- We have to do this to ensure the switch is re-rendered to the correct state even when the async connection process doesn't necessarily complete -->
 						<Switch
 							checked={isBackupEnabled}
 							onCheckedChange={async (toBeChecked) => {
 								if (toBeChecked) {
 									// Turning ON
-									await attemptToConnectGDrive();
+									await attemptToConnectCloud('gdrive');
 								} else {
 									// Turning OFF
 									await backupService.disable();
@@ -357,7 +409,7 @@
 									{#if backupStatus?.state === 'error'}
 										<button
 											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-red-500 transition-colors hover:bg-zinc-700"
-											onclick={attemptToConnectGDrive}
+											onclick={() => attemptToConnectCloud('gdrive')}
 										>
 											Reconnect
 										</button>
@@ -514,8 +566,19 @@
 	bind:open={showPasscodeDialog}
 	mode={passcodeDialogMode}
 	onSuccess={passcodeDialogMode === 'create' ? handleSetPasscode : handleChangePasscode}
+	onCancel={handleCloudSyncCancel}
 />
 
-<RecoveryKit bind:open={showRecoveryKit} words={recoveryWords} {isInitialBackup} onConfirm={handleRecoveryKitConfirm} />
+<RecoveryKit
+	bind:open={showRecoveryKit}
+	words={recoveryWords}
+	mode={isInitialBackup ? 'save' : 'share'}
+	onConfirm={handleRecoveryKitConfirm}
+	onCancel={handleCloudSyncCancel}
+/>
 
-<RecoveryScannerDialog bind:open={showRecoveryScanner} onWordsComplete={handleRecoveryScannerComplete} />
+<RecoveryScannerDialog
+	bind:open={showRecoveryScanner}
+	onWordsComplete={handleRecoveryScannerComplete}
+	onCancel={handleCloudSyncCancel}
+/>

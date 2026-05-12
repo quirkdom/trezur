@@ -2,14 +2,15 @@
 	import { keyManager } from '$lib/state/key-manager.svelte';
 	import Drawer from '$lib/components/ui/Drawer.svelte';
 
-	/** @type {{open: boolean, mode: 'verify' | 'create' | 'change', title?: string, description?: string, onSuccess: (passcode: string) => void, onForgot?: () => void}} */
+	/** @type {{open: boolean, mode: 'verify' | 'create' | 'change', title?: string, description?: string, onSuccess: (passcode: string) => void, onForgot?: () => void, onCancel?: () => void}} */
 	let {
 		open = $bindable(false),
 		mode = 'verify',
 		title = '',
 		description = '',
 		onSuccess,
-		onForgot = undefined
+		onForgot = undefined,
+		onCancel = undefined
 	} = $props();
 
 	let passcode = $state('');
@@ -34,7 +35,7 @@
 
 				if (isValid) {
 					onSuccess(passcode);
-					handleClose();
+					handleClose(false);
 				} else {
 					errorText = 'Incorrect passcode';
 					passcode = '';
@@ -45,7 +46,7 @@
 				else if (passcode !== confirmPasscode) errorText = 'Passcodes do not match';
 				else {
 					onSuccess(passcode);
-					handleClose();
+					handleClose(false);
 				}
 			}
 		} catch (/** @type {any} */ err) {
@@ -56,11 +57,15 @@
 	}
 
 	function handleForgotPasscode() {
-		handleClose();
+		handleClose(true);
 		onForgot?.();
 	}
 
-	function handleClose() {
+	/**
+	 * @param {boolean} [wasCancelled]
+	 */
+	function handleClose(wasCancelled = true) {
+		if (wasCancelled) onCancel?.();
 		open = false;
 		resetAllState();
 	}
@@ -69,7 +74,7 @@
 <Drawer
 	bind:open
 	title={title || (mode === 'verify' ? 'Enter Passcode' : mode === 'create' ? 'Create Passcode' : 'Change Passcode')}
-	onClose={handleClose}
+	onClose={() => handleClose(true)}
 	class="mx-auto max-w-lg"
 >
 	{#if description}
@@ -128,7 +133,7 @@
 				<button
 					type="button"
 					class="flex-1 rounded-lg bg-zinc-800 py-3 text-white transition-colors hover:bg-zinc-700"
-					onclick={handleClose}
+					onclick={() => handleClose(true)}
 					disabled={processing}
 				>
 					Cancel

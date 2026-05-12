@@ -4,7 +4,7 @@
 	import FooterNav from '$lib/components/nav/FooterNav.svelte';
 	import { createSettingsContext } from '$lib/state/settings.svelte';
 	import { createConditionsContext } from '$lib/state/conditions.svelte';
-	import { getLocalVault, isStorageAvailable, initStorage, clearStorage } from '$lib/state/storage.svelte';
+	import { isStorageAvailable, initStorage, clearStorage } from '$lib/state/storage.svelte';
 	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
 	import { devconsole } from '$lib/utils';
 	import { backupService } from '$lib/sync/backup.svelte';

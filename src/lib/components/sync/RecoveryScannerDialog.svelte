@@ -4,9 +4,9 @@
 	import { onDestroy, tick } from 'svelte';
 
 	/**
-	 * @type {{ open: boolean, onWordsComplete: (words: string[]) => void }}
+	 * @type {{ open: boolean, onWordsComplete: (words: string[]) => void, onCancel?: () => void }}
 	 */
-	let { open = $bindable(false), onWordsComplete } = $props();
+	let { open = $bindable(false), onWordsComplete, onCancel = undefined } = $props();
 
 	let showCameraFeed = $state(false);
 	let manualMode = $state(false);
@@ -93,6 +93,11 @@
 		close();
 	}
 
+	function handleClose() {
+		onCancel?.();
+		close();
+	}
+
 	function close() {
 		showCameraFeed = false;
 		stopScanning();
@@ -114,7 +119,7 @@
 	});
 </script>
 
-<Drawer bind:open title="Recover Backup" onClose={close} class="mx-auto max-w-lg">
+<Drawer bind:open title="Recover Backup" onClose={handleClose} class="mx-auto max-w-lg">
 	<div class="space-y-6">
 		<p class="text-sm text-zinc-400">
 			A cloud backup was found. Please scan the QR code from your original device's Recovery Kit, or enter your 24 words

@@ -4,9 +4,9 @@
 	import { Check, ClipboardList, ScanQrCodeIcon } from '@lucide/svelte';
 
 	/**
-	 * @type {{ words: string[], onConfirm?: () => void, open: boolean, mode?: 'save' | 'share' }}
+	 * @type {{ words: string[], onConfirm?: () => void, open: boolean, mode?: 'save' | 'share', onCancel?: () => void }}
 	 */
-	let { words, onConfirm, open = $bindable(false), mode = 'save' } = $props();
+	let { words, onConfirm, open = $bindable(false), mode = 'save', onCancel = undefined } = $props();
 
 	let showQr = $derived(mode === 'share');
 
@@ -16,9 +16,14 @@
 		if (onConfirm) onConfirm();
 		open = false;
 	}
+
+	function handleClose() {
+		onCancel?.();
+		open = false;
+	}
 </script>
 
-<Drawer bind:open title="Recovery Kit" class="mx-auto max-w-lg">
+<Drawer bind:open title="Recovery Kit" onClose={handleClose} class="mx-auto max-w-lg">
 	<div class="flex flex-col items-center gap-4">
 		{#if mode === 'save'}
 			<p class="text-center text-sm text-zinc-400">
