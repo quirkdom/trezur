@@ -10,6 +10,7 @@ import { keyManager } from '$lib/state/key-manager.svelte';
 import { LocalKVVault } from '$lib/utils/local-kv-vault';
 import { CloudFileVault } from '$lib/utils/cloud-file-vault.js';
 import { tokensContext } from '$lib/state/tokens.svelte';
+import { generateMSK } from '$lib/utils/crypto-keys.js';
 
 /** @type {import('$lib/utils/local-kv-vault').LocalKVVault | null} */
 let localVault = $state(null);
@@ -79,6 +80,14 @@ export async function adoptMSK(newMSK) {
 
 	localVault = new LocalKVVault(cryptoKey);
 	await tokensContext.iMake(localVault);
+}
+
+/**
+ * Rotate the MSK by generating a new one and adopting it.
+ * Used during cloud onboarding to ensure a fresh, strongly-wrapped key is used for the backup.
+ */
+export async function rotateMSK() {
+	await adoptMSK(generateMSK());
 }
 
 /**

@@ -12,7 +12,7 @@
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { keyManager } from '$lib/state/key-manager.svelte';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { isStorageAvailable, purgeStorage } from '$lib/state/storage.svelte';
+	import { isStorageAvailable, purgeStorage, rotateMSK } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { backupService } from '$lib/sync/backup.svelte';
 	import { devconsole } from '$lib/utils';
@@ -142,6 +142,9 @@
 					throw new Error('Incorrect recovery phrase. Backup could not be linked.');
 				}
 			} else {
+				// Rotate MSK before creating initial backup to ensure it was never weakly-wrapped
+				await rotateMSK();
+
 				recoveryWords = await backupService.getMnemonic();
 				isInitialBackup = true;
 				showRecoveryKit = true;
