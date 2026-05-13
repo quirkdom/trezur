@@ -1,8 +1,18 @@
 import { browser } from '$app/environment';
+import { env } from '$env/dynamic/public';
 import { devconsole } from '$lib/utils';
 
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 const GSI_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
+
+/**
+ * @todo Use static imports from `$env/dynamic/static` once we migrate to CF Workers and can define build variables in `wrangler.toml`.
+ *
+ * CF Pages only support dynamic env vars at build time. See: https://developers.cloudflare.com/pages/configuration/build-configuration/#environment-variables
+ *
+ * CF Workers possibly support static public env vars at build time, defined in `wrangler.toml`. See: https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables -> Wrangler
+ */
+const GOOGLE_CLIENT_ID = env.PUBLIC_GOOGLE_CLIENT_ID;
 
 /**
  * @typedef {Object} DriveFile
@@ -74,13 +84,13 @@ class DriveClient {
 		try {
 			if (this.flow === 'implicit') {
 				this.tokenClient = google.accounts.oauth2.initTokenClient({
-					client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+					client_id: GOOGLE_CLIENT_ID,
 					scope: SCOPES,
 					callback: (resp) => this.#handleTokenResponse(resp)
 				});
 			} else if (this.flow === 'pkce') {
 				this.tokenClient = google.accounts.oauth2.initCodeClient({
-					client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+					client_id: GOOGLE_CLIENT_ID,
 					scope: SCOPES,
 					ux_mode: 'popup',
 					callback: (resp) => this.#handleCodeResponse(resp)
@@ -148,15 +158,11 @@ class DriveClient {
 			// Exchange code for tokens
 			/** @type {Record<string, string>} */
 			const params = {
-				client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+				client_id: GOOGLE_CLIENT_ID,
 				code: resp.code,
 				grant_type: 'authorization_code',
 				redirect_uri: window.location.origin // Matches default in initCodeClient
 			};
-			// Include client_secret if configured (for confidential clients)
-			if (import.meta.env.VITE_GOOGLE_CLIENT_SECRET) {
-				params.client_secret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
-			}
 			const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -267,14 +273,10 @@ class DriveClient {
 
 		/** @type {Record<string, string>} */
 		const params = {
-			client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+			client_id: GOOGLE_CLIENT_ID,
 			refresh_token: this.refreshToken,
 			grant_type: 'refresh_token'
 		};
-		// Include client_secret if configured
-		if (import.meta.env.VITE_GOOGLE_CLIENT_SECRET) {
-			params.client_secret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
-		}
 		const resp = await fetch('https://oauth2.googleapis.com/token', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
