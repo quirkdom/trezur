@@ -18,6 +18,10 @@ Individual files have small, inline TODO reminders.
 - [x] (P0) [Bug: Settings -> Import/Export/Migrate]: If the settings page is directly loaded, there is no tokensContext.current inited. Any imports or exports will _silently_ fail. This is because the $effect that inits tokensContext.current is in the Codes page.
   - [x] We need to either move the $effect to the +layout.svelte or Settings +page.svelte, or we need to manually init tokensContext.current in the settings page.
 
+- [ ] (P0) [Bug: Cloud Backup Sync] Even when isBackupEnabled is false, an auto sync can still be triggered.
+
+- [x] (P0) All keys in localVault are currently unobfuscated.
+
 - [x] (P1) Users shouldn't be able to remove their passcode if cloud sync is enabled.
 
 - [x] (P1) `passcode` should not be publicly gettable in [KeyMan](src/lib/state/key-manager.svelte.js).
@@ -41,6 +45,16 @@ Individual files have small, inline TODO reminders.
   - Most usage are presence checks, which can easily be replaced with a `keyManager.isUnlocked()` or similar.
   - In `storage.init()`, `cryptoKey` is gathered from `keyManager.unlock()`.
   - In `backup.sync()`, we JIT initialize an instance of `CloudFileVault` which needs `cryptoKey`. Since sync can only happen in unlocked state, maybe we can do some sort of unlock mechanism here as well.
+
+- [ ] (P1) Cloud Sync Perf Improvements
+  - [ ] Do quick verification on the headers, instead of downloading the entire backup file. Need range reads from gDrive for that.
+  - [ ] Also, revisit all the stored metadata in local vault, related to backup engine.
+  - [ ] Revisit auto sync 60s interval loop. Do we really need to poll every 60 secs?
+
+- [ ] Cloud Backup Sync Onboarding UX papercuts
+  - [x] Too many alerts for both success and failures. We should integrate into the traffic light backup status that we already have.
+  - [x] On first sync, "sync overdue" warning is shown. We should detect this situation and not cause a warning.
+  - [ ] Share mode Recovery Kit ("Link Devices") should be a modal instead of a drawer. Easy distinction: Drawers are for forms/actions, Modals are for ephemeral output/displays
 
 - [ ] Fix the container layout of the pages to better position and align text content on Codes screen
   - Currently, the header takes up some vertical space and the text container is a flexbox below it, which makes it hard to align the text contents to vertical center of app viewport. This is further complicated by the footer, which is sticky and inset to the bottom.
