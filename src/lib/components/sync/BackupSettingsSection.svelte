@@ -43,25 +43,33 @@
 	let backupStatus = $derived.by(() => {
 		if (connectingProvider) return null;
 
-		const error = onboardingError || backupService.lastError;
+		if (onboardingError) {
+			return { state: 'error', color: 'bg-red-500', message: 'Setup Failed', details: onboardingError };
+		}
 
-		if (error) {
-			if (/(token|auth|refresh|sign in)/.test(error.toLowerCase()))
-				return { state: 'error', color: 'bg-red-500', message: 'Signed Out' };
-
-			return { state: 'warning', color: 'bg-yellow-500', message: 'Sync Error' };
+		if (backupService.lastError) {
+			const errLower = backupService.lastError.toLowerCase();
+			if (/(token|auth|refresh|sign in|unauthorized|forbidden|credentials)/.test(errLower)) {
+				return { state: 'error', color: 'bg-red-500', message: 'Signed Out', details: backupService.lastError };
+			}
+			return { state: 'warning', color: 'bg-yellow-500', message: 'Sync Error', details: backupService.lastError };
 		}
 
 		const lastSync = settings.lastSyncTime || 0;
 		if (!lastSync || Date.now() - lastSync > 60 * 60 * 1000) {
-			return { state: 'warning', color: 'bg-yellow-500', message: 'Sync Overdue' };
+			return {
+				state: 'warning',
+				color: 'bg-yellow-500',
+				message: 'Sync Overdue',
+				details: 'Sync is overdue. Please check your connection or sync manually.'
+			};
 		}
 
 		return { state: 'ok', color: 'bg-green-500', message: 'Active' };
 	});
 
-	let isBackupDetailsOpen = $derived(
-		!!(backupStatus && (backupStatus.state === 'error' || backupStatus.message.toLowerCase().includes('error')))
+	let showBackupDetails = $derived(
+		!!(backupStatus && (backupStatus.state === 'error' || backupStatus.state === 'warning'))
 	);
 
 	/**
@@ -198,47 +206,49 @@
 			/>
 		{/if}
 	</div>
-	{#if isBackupEnabled}
+	{#if isBackupEnabled || onboardingError}
 		<div class="flex flex-col gap-4 p-4">
-			<button
-				class="flex w-full items-center justify-between text-left"
-				onclick={() => (isBackupDetailsOpen = !isBackupDetailsOpen)}
-			>
-				<div class="flex items-center gap-3">
-					{#if backupService.isSyncing}
-						<LoaderCircle size={14} class="animate-spin text-zinc-400" />
-					{:else if backupStatus}
-						<div
-							class="h-2.5 w-2.5 rounded-full {backupStatus.color} shadow-[0_0_8px] shadow-{backupStatus.color}/50"
-						></div>
-					{/if}
-					<div class="flex flex-col">
+			{#if isBackupEnabled}
+				<button
+					class="flex w-full items-center justify-between text-left"
+					onclick={() => (showBackupDetails = !showBackupDetails)}
+				>
+					<div class="flex items-center gap-3">
 						{#if backupService.isSyncing}
-							<span class="text-sm text-zinc-300">Syncing...</span>
-						{:else}
-							<span class="text-sm text-zinc-300">
-								Last synced
-								<abbr title={settings.lastSyncTime ? new Date(settings.lastSyncTime).toLocaleString() : ''}>
-									{getRelativeSyncTime(settings.lastSyncTime || 0)}
-								</abbr>
-							</span>
+							<LoaderCircle size={14} class="animate-spin text-zinc-400" />
+						{:else if backupStatus}
+							<div
+								class="h-2.5 w-2.5 rounded-full {backupStatus.color} shadow-[0_0_8px] shadow-{backupStatus.color}/50"
+							></div>
 						{/if}
-					</div>
-				</div>
-				<div class="transition-transform duration-200" class:rotate-180={isBackupDetailsOpen}>
-					<ChevronDown size={16} />
-				</div>
-			</button>
-
-			{#if isBackupDetailsOpen}
-				<div transition:slide={{ duration: 200, easing: cubicInOut }} class="space-y-4">
-					{#if onboardingError || backupStatus?.state === 'error'}
-						<div class="px-2 text-xs text-red-400">
-							{onboardingError || 'Could not sign in to Google Drive. Please reconnect.'}
+						<div class="flex flex-col">
+							{#if backupService.isSyncing}
+								<span class="text-sm text-zinc-300">Syncing...</span>
+							{:else}
+								<span class="text-sm text-zinc-300">
+									Last synced
+									<abbr title={settings.lastSyncTime ? new Date(settings.lastSyncTime).toLocaleString() : ''}>
+										{getRelativeSyncTime(settings.lastSyncTime || 0)}
+									</abbr>
+								</span>
+							{/if}
 						</div>
-					{:else if backupStatus?.state === 'warning' && backupService.lastError}
+					</div>
+					<div class="transition-transform duration-200" class:rotate-180={showBackupDetails}>
+						<ChevronDown size={16} />
+					</div>
+				</button>
+			{/if}
+
+			{#if showBackupDetails}
+				<div transition:slide={{ duration: 200, easing: cubicInOut }} class="space-y-4">
+					{#if backupStatus?.state === 'error'}
+						<div class="px-2 text-xs text-red-400">
+							{backupStatus.details || 'Sync is disabled. Please reconnect to enable cloud backup.'}
+						</div>
+					{:else if backupStatus?.state === 'warning'}
 						<div class="px-2 text-xs break-all text-yellow-500">
-							Error: {backupService.lastError}
+							{backupStatus.details || backupStatus.message}
 						</div>
 					{/if}
 					<div class="flex gap-2">
@@ -248,6 +258,15 @@
 								onclick={() => attemptToConnectCloud('gdrive')}
 							>
 								Reconnect
+							</button>
+							<button
+								class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-700"
+								onclick={() => {
+									onboardingError = null;
+									backupService.clearError();
+								}}
+							>
+								Dismiss
 							</button>
 						{:else}
 							<button
@@ -286,9 +305,9 @@
 />
 
 <!-- For testing/debugging -->
-<button class="mt-3 w-full rounded-lg bg-zinc-900 p-4 text-blue-500" onclick={() => showDeviceRecoveryKit(true)}>
+<!-- <button class="mt-3 w-full rounded-lg bg-zinc-900 p-4 text-blue-500" onclick={() => showDeviceRecoveryKit(true)}>
 	[DEBUG] Show Recovery Kit
 </button> <br />
 <button class="mt-1 w-full rounded-lg bg-zinc-900 p-4 text-blue-500" onclick={() => (showRecoveryScanner = true)}>
 	[DEBUG] Show Recovery Scanner
-</button>
+</button> -->
