@@ -3,6 +3,10 @@
  * @typedef {import("$lib/types").KVStorage} KVStorage
  */
 
+import { cip, pic } from '$lib/utils/salada.js';
+
+const T_ES_ = 'T_ES_';
+
 /**
  * Local-storage based persistent, encrypted Key-Value vault.
  * Uses AES-256-GCM encryption mode.
@@ -24,7 +28,7 @@ export class LocalKVVault {
 	 * @param {string} key
 	 */
 	async get(key) {
-		const stored = localStorage.getItem(`T_ES_${key}`);
+		const stored = localStorage.getItem(cip(T_ES_ + key));
 		if (!stored) return null;
 
 		try {
@@ -57,14 +61,14 @@ export class LocalKVVault {
 			iv: Array.from(iv),
 			data: Array.from(new Uint8Array(ciphertext))
 		};
-		localStorage.setItem(`T_ES_${key}`, JSON.stringify(wrapped));
+		localStorage.setItem(cip(T_ES_ + key), JSON.stringify(wrapped));
 	}
 
 	/**
 	 * @param {string} key
 	 */
 	async delete(key) {
-		localStorage.removeItem(`T_ES_${key}`);
+		localStorage.removeItem(cip(T_ES_ + key));
 	}
 
 	/**
@@ -73,15 +77,10 @@ export class LocalKVVault {
 	 * @alias purge
 	 */
 	async clear() {
-		const keysToRemove = [];
-		for (let i = 0; i < localStorage.length; i++) {
-			const key = localStorage.key(i);
-			if (key && key.startsWith('T_ES_')) {
-				keysToRemove.push(key);
+		for (const key of Object.keys(localStorage)) {
+			if (key && pic(key).startsWith(T_ES_)) {
+				localStorage.removeItem(key);
 			}
-		}
-		for (const key of keysToRemove) {
-			localStorage.removeItem(key);
 		}
 	}
 }
