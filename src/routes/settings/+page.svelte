@@ -4,23 +4,17 @@
 	import { updated } from '$app/state';
 	import NavActions from '$lib/components/nav/NavActions.svelte';
 	import PasscodeDialog from '$lib/components/passcode/PasscodeDialog.svelte';
-	import RecoveryKit from '$lib/components/sync/RecoveryKit.svelte';
-	import RecoveryScannerDialog from '$lib/components/sync/RecoveryScannerDialog.svelte';
+	import BackupSettingsSection from '$lib/components/sync/BackupSettingsSection.svelte';
 	import ExportTokensDialog from '$lib/components/tokens/ExportTokens.svelte';
 	import ImportTokensDialog from '$lib/components/tokens/ImportTokens.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { keyManager } from '$lib/state/key-manager.svelte';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { isStorageAvailable, purgeStorage, rotateMSK } from '$lib/state/storage.svelte';
+	import { isStorageAvailable, purgeStorage } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
 	import { backupService } from '$lib/sync/backup.svelte';
 	import { devconsole } from '$lib/utils';
-
-	import { driveClient } from '$lib/sync/drive.svelte';
-	import { ChevronDown, LoaderCircle } from '@lucide/svelte';
-	import { cubicInOut } from 'svelte/easing';
-	import { slide } from 'svelte/transition';
 
 	const settingsContext = useSettingsContext();
 	let settings = $derived(settingsContext.getSettings());
@@ -31,28 +25,17 @@
 
 	let tokens = $derived(tokensContext.current?.getTokens() || []);
 
+	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
+
 	let showImportDialog = $state(false);
 	let showExportDialog = $state(false);
 	let showPasscodeDialog = $state(false);
 	/** @type {'verify' | 'create' | 'change'} */
 	let passcodeDialogMode = $state('create');
-	/** @type {'gdrive' | 'icloud' | null} */
-	let connectingProvider = $state(null);
 	/** @type {((value?: any) => void) | null} */
 	let cloudSyncFlowResolve = null;
 	/** @type {((reason?: any) => void) | null} */
 	let cloudSyncFlowReject = null;
-
-	let showRecoveryKit = $state(false);
-	let isInitialBackup = $state(true);
-	/** @type {string[]} */
-	let recoveryWords = $state([]);
-	let showRecoveryScanner = $state(false);
-
-	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
-
-	$inspect('connectingProvider', connectingProvider);
-	$inspect('isBackupEnabled', isBackupEnabled);
 
 	function handleCloudSyncCancel() {
 		if (cloudSyncFlowReject) {
@@ -60,147 +43,14 @@
 		}
 	}
 
-	let backupStatus = $derived.by(() => {
-		if (connectingProvider) return null;
+	async function onRequestPasscode() {
+		passcodeDialogMode = 'create';
+		showPasscodeDialog = true;
 
-		if (backupService.lastError) {
-			// Check for critical auth errors
-			if (/(token|auth|refresh|sign in)/.test(backupService.lastError.toLowerCase()))
-				return { state: 'error', color: 'bg-red-500', message: 'Signed Out' };
-
-			return { state: 'warning', color: 'bg-yellow-500', message: 'Sync Error' };
-		}
-
-		const lastSync = settings.lastSyncTime || 0;
-		// If never synced or synced more than 1 hour ago
-		if (!lastSync || Date.now() - lastSync > 60 * 60 * 1000) {
-			return { state: 'warning', color: 'bg-yellow-500', message: 'Sync Overdue' };
-		}
-
-		return { state: 'ok', color: 'bg-green-500', message: 'Active' };
-	});
-
-	let isBackupDetailsOpen = $derived(
-		backupStatus && (backupStatus.state === 'error' || backupStatus.message.toLowerCase().includes('error'))
-	);
-
-	/**
-	 * @param {number} timestamp
-	 */
-	function getRelativeSyncTime(timestamp) {
-		if (!timestamp) return 'Never synced';
-
-		const diff = Date.now() - timestamp;
-		const seconds = Math.floor(diff / 1000);
-		const minutes = Math.floor(seconds / 60);
-		const hours = Math.floor(minutes / 60);
-
-		if (hours >= 2) return 'a long time ago.';
-		if (hours >= 1) return 'an hour ago.';
-		if (minutes >= 2) return 'a few minutes ago.';
-		return 'a few seconds ago.';
-	}
-
-	/**
-	 * @param {'gdrive' | 'icloud'} provider
-	 */
-	async function attemptToConnectCloud(provider) {
-		if (connectingProvider) return;
-		connectingProvider = provider;
-
-		try {
-			if (!conditions.isUserPasscodeSet) {
-				alert('Please set an App Passcode first in the Security section.');
-				passcodeDialogMode = 'create';
-				showPasscodeDialog = true;
-
-				await new Promise((resolve, reject) => {
-					cloudSyncFlowResolve = resolve;
-					cloudSyncFlowReject = reject;
-				});
-			}
-
-			if (provider === 'gdrive') {
-				await driveClient.signIn();
-			}
-
-			const backupExists = await backupService.checkCloudBackupExists();
-			if (backupExists) {
-				showRecoveryScanner = true;
-				const words = await /** @type {Promise<string[]>} */ (
-					new Promise((resolve, reject) => {
-						cloudSyncFlowResolve = resolve;
-						cloudSyncFlowReject = reject;
-					})
-				);
-
-				const isValid = await backupService.verifyCloudBackupMnemonic(words);
-				if (isValid) {
-					await backupService.adoptCloudBackup(words);
-					alert('Cloud backup linked successfully!');
-				} else {
-					throw new Error('Incorrect recovery phrase. Backup could not be linked.');
-				}
-			} else {
-				// Rotate MSK before creating initial backup to ensure it was never weakly-wrapped
-				await rotateMSK();
-
-				recoveryWords = await backupService.getMnemonic();
-				isInitialBackup = true;
-				showRecoveryKit = true;
-
-				await new Promise((resolve, reject) => {
-					cloudSyncFlowResolve = resolve;
-					cloudSyncFlowReject = reject;
-				});
-
-				await backupService.enable();
-				alert('Backup enabled and initial sync completed!');
-			}
-		} catch (/** @type {any} */ e) {
-			if (e.message !== 'cancelled') {
-				alert('Failed to enable backup: ' + e);
-			}
-
-			if (provider === 'gdrive') {
-				driveClient.signOut();
-			}
-			backupService.disable();
-		} finally {
-			connectingProvider = null;
-			cloudSyncFlowResolve = null;
-			cloudSyncFlowReject = null;
-		}
-	}
-
-	/** @param {string[]} words */
-	function handleRecoveryScannerComplete(words) {
-		if (cloudSyncFlowResolve) {
-			cloudSyncFlowResolve(words);
-			cloudSyncFlowResolve = null;
-			cloudSyncFlowReject = null;
-		}
-	}
-
-	function handleRecoveryKitConfirm() {
-		if (cloudSyncFlowResolve) {
-			cloudSyncFlowResolve();
-			cloudSyncFlowResolve = null;
-			cloudSyncFlowReject = null;
-			return;
-		}
-
-		// Fallback for manual "Link Devices" flow where isInitialBackup is false
-	}
-
-	async function showDeviceRecoveryKit() {
-		try {
-			recoveryWords = await backupService.getMnemonic();
-			isInitialBackup = false;
-			showRecoveryKit = true;
-		} catch (e) {
-			alert('Failed to show recovery kit: ' + e);
-		}
+		return new Promise((resolve, reject) => {
+			cloudSyncFlowResolve = resolve;
+			cloudSyncFlowReject = reject;
+		});
 	}
 
 	/**
@@ -221,12 +71,6 @@
 				cloudSyncFlowResolve();
 				cloudSyncFlowResolve = null;
 				cloudSyncFlowReject = null;
-			} else {
-				const tokenCount = tokensContext.current?.getTokens().length || 0;
-				alert(
-					'Passcode set successfully!' +
-						(tokenCount > 0 ? ` ${tokenCount} token${tokenCount > 1 ? 's' : ''} secured.` : '')
-				);
 			}
 		} catch (err) {
 			devconsole.error('[Passcode] Set failed:', err);
@@ -245,12 +89,6 @@
 			if (!isStorageAvailable()) throw new Error('App must be unlocked to change passcode.');
 
 			await keyManager.changePasscode(newPasscode);
-
-			const tokenCount = tokensContext.current?.getTokens().length || 0;
-			alert(
-				'Passcode changed successfully!' +
-					(tokenCount > 0 ? ` ${tokenCount} token${tokenCount > 1 ? 's' : ''} secured.` : '')
-			);
 		} catch (err) {
 			devconsole.error('[Passcode] Change failed:', err);
 			alert('Failed to change passcode. Your data is unchanged — please try again.');
@@ -275,12 +113,6 @@
 			await keyManager.changePasscode(conditions.clientId);
 
 			conditionsContext.updateCondition('isUserPasscodeSet', false);
-
-			const tokenCount = tokensContext.current?.getTokens().length || 0;
-			alert(
-				'Passcode removed successfully!' +
-					(tokenCount > 0 ? ` ${tokenCount} token${tokenCount > 1 ? 's' : ''} secured with a device-specific key.` : '')
-			);
 		} catch (err) {
 			devconsole.error('[Passcode] Remove failed:', err);
 			alert('Failed to remove passcode. Your data is unchanged — please try again.');
@@ -323,8 +155,6 @@
 	}
 </script>
 
-<!-- {@debug pendingGDriveConnect} -->
-
 <svelte:head>
 	<title>Trezur · Settings</title>
 	<meta name="description" content="Trezur app" />
@@ -340,111 +170,7 @@
 		<section class="space-y-4">
 			<h2 class="text-sm text-zinc-500 uppercase">Backup</h2>
 
-			<!-- <div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
-				<div class="flex items-center justify-between p-4">
-					<span>iCloud Backup <sup class="text-xs text-zinc-500">&nbsp; Coming Soon</sup></span>
-					<Switch disabled checked={false} class={nonAppleSwitchTheme} />
-				</div>
-				<div class="flex items-center justify-between p-4">
-					<span>Last Synced</span>
-					<span class="text-zinc-500">Never</span>
-				</div>
-			</div> -->
-
-			<div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
-				<div class="flex items-center justify-between p-4">
-					<span>Google Drive Backup</span>
-					{#if connectingProvider === 'gdrive'}
-						<div class="flex h-6 w-10 items-center justify-center">
-							<LoaderCircle size={20} class="animate-spin text-zinc-400" />
-						</div>
-					{:else}
-						<Switch
-							checked={isBackupEnabled}
-							onCheckedChange={async (toBeChecked) => {
-								if (toBeChecked) {
-									// Turning ON
-									await attemptToConnectCloud('gdrive');
-								} else {
-									// Turning OFF
-									await backupService.disable();
-									driveClient.signOut();
-								}
-							}}
-						/>
-					{/if}
-				</div>
-				{#if isBackupEnabled}
-					<div class="flex flex-col gap-4 p-4">
-						<button
-							class="flex w-full items-center justify-between text-left"
-							onclick={() => (isBackupDetailsOpen = !isBackupDetailsOpen)}
-						>
-							<div class="flex items-center gap-3">
-								{#if backupService.isSyncing}
-									<LoaderCircle size={14} class="animate-spin text-zinc-400" />
-								{:else if backupStatus}
-									<div
-										class="h-2.5 w-2.5 rounded-full {backupStatus.color} shadow-[0_0_8px] shadow-{backupStatus.color}/50"
-									></div>
-								{/if}
-								<div class="flex flex-col">
-									{#if backupService.isSyncing}
-										<span class="text-sm text-zinc-300">Syncing...</span>
-									{:else}
-										<span class="text-sm text-zinc-300">
-											Last synced
-											<abbr title={settings.lastSyncTime ? new Date(settings.lastSyncTime).toLocaleString() : ''}>
-												{getRelativeSyncTime(settings.lastSyncTime || 0)}
-											</abbr>
-										</span>
-									{/if}
-								</div>
-							</div>
-							<div class="transition-transform duration-200" class:rotate-180={isBackupDetailsOpen}>
-								<ChevronDown size={16} />
-							</div>
-						</button>
-
-						{#if isBackupDetailsOpen}
-							<div transition:slide={{ duration: 200, easing: cubicInOut }} class="space-y-4">
-								{#if backupStatus?.state === 'error'}
-									<div class="px-2 text-xs text-red-400">Could not sign in to Google Drive. Please reconnect.</div>
-								{:else if backupStatus?.state === 'warning' && backupService.lastError}
-									<div class="px-2 text-xs break-all text-yellow-500">
-										Error: {backupService.lastError}
-									</div>
-								{/if}
-
-								<div class="flex gap-2">
-									{#if backupStatus?.state === 'error'}
-										<button
-											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-red-500 transition-colors hover:bg-zinc-700"
-											onclick={() => attemptToConnectCloud('gdrive')}
-										>
-											Reconnect
-										</button>
-									{:else}
-										<button
-											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-											disabled={backupService.isSyncing}
-											onclick={() => backupService.sync()}
-										>
-											{backupService.isSyncing ? 'Syncing...' : 'Sync Now'}
-										</button>
-										<button
-											class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700"
-											onclick={showDeviceRecoveryKit}
-										>
-											Link Devices
-										</button>
-									{/if}
-								</div>
-							</div>
-						{/if}
-					</div>
-				{/if}
-			</div>
+			<BackupSettingsSection {onRequestPasscode} />
 
 			<div class="flex gap-4">
 				<button
@@ -582,28 +308,3 @@
 	onSuccess={passcodeDialogMode === 'create' ? handleSetPasscode : handleChangePasscode}
 	onCancel={handleCloudSyncCancel}
 />
-
-<RecoveryKit
-	bind:open={showRecoveryKit}
-	words={recoveryWords}
-	mode={isInitialBackup ? 'save' : 'share'}
-	onSaveConfirm={handleRecoveryKitConfirm}
-	onCancel={handleCloudSyncCancel}
-/>
-
-<RecoveryScannerDialog
-	bind:open={showRecoveryScanner}
-	onCompletePhrase={handleRecoveryScannerComplete}
-	onCancel={handleCloudSyncCancel}
-/>
-
-<!-- For testing/debugging -->
-<!-- <button class="mt-3 hidden w-full rounded-lg bg-zinc-900 p-4 text-blue-500" onclick={showDeviceRecoveryKit}>
-	[DEBUG] Show Recovery Kit
-</button> <br />
-<button
-	class="mt-1 hidden w-full rounded-lg bg-zinc-900 p-4 text-blue-500"
-	onclick={() => (showRecoveryScanner = true)}
->
-	[DEBUG] Show Recovery Scanner
-</button> -->

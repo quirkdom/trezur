@@ -76,6 +76,25 @@ class BackupService {
 		this.stopAutoSync();
 	}
 
+	/**
+	 * @param {any} e
+	 */
+	async setError(e) {
+		this.lastError = e instanceof Error ? e.message : String(e);
+		const localVault = getLocalVault();
+		if (localVault) {
+			await localVault.set(T_LAST_ERROR, this.lastError);
+		}
+	}
+
+	async clearError() {
+		this.lastError = null;
+		const localVault = getLocalVault();
+		if (localVault) {
+			await localVault.delete(T_LAST_ERROR);
+		}
+	}
+
 	async sync() {
 		if (this.isSyncing) return;
 		if (!tokensContext.current) return;
@@ -178,19 +197,11 @@ class BackupService {
 
 			this.lastSync = Date.now();
 			if (this.settingsContext) this.settingsContext.updateSetting('lastSyncTime', this.lastSync);
-			this.lastError = null;
 
-			const localVault = getLocalVault();
-			if (localVault) {
-				await localVault.delete(T_LAST_ERROR);
-			}
+			await this.clearError();
 			devconsole.log('[Backup] Sync completed');
 		} catch (e) {
-			this.lastError = e instanceof Error ? e.message : String(e);
-			const localVault = getLocalVault();
-			if (localVault) {
-				await localVault.set(T_LAST_ERROR, this.lastError);
-			}
+			await this.setError(e);
 			devconsole.error('[Backup] Sync failed', e);
 		} finally {
 			this.isSyncing = false;
