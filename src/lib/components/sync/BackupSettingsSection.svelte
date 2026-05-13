@@ -56,7 +56,7 @@
 		}
 
 		const lastSync = settings.lastSyncTime || 0;
-		if (!lastSync || Date.now() - lastSync > 60 * 60 * 1000) {
+		if (lastSync && Date.now() - lastSync > 60 * 60 * 1000) {
 			return {
 				state: 'warning',
 				color: 'bg-yellow-500',
