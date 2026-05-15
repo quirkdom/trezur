@@ -3,7 +3,7 @@
  * @typedef {import("$lib/types").KVStorage} KVStorage
  */
 
-import { cip, pic } from '$lib/utils/salada.js';
+import { cip, pic } from '$lib/utils/salada';
 
 const T_ES_ = 'T_ES_';
 

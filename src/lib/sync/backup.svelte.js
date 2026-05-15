@@ -1,11 +1,11 @@
-import { keyManager } from '$lib/state/key-manager.svelte.js';
-import { getLocalVault, isStorageAvailable, createCloudVault, adoptMSK } from '$lib/state/storage.svelte.js';
-import { getMaxTimestamp, mergeTokens, tokensContext } from '$lib/state/tokens.svelte.js';
+import { keyManager } from '$lib/state/key-manager.svelte';
+import { adoptMSK, createCloudVault, getLocalVault, isStorageAvailable } from '$lib/state/storage.svelte';
+import { getMaxTimestamp, mergeTokens, tokensContext } from '$lib/state/tokens.svelte';
 import { driveClient } from '$lib/sync/gdrive';
 import { devconsole } from '$lib/utils';
-import { mnemonicToMSK } from '$lib/utils/bip39.js';
-import { CloudFileVault } from '$lib/utils/cloud-file-vault.js';
-import { importPayloadKey } from '$lib/utils/crypto-keys.js';
+import { mnemonicToMSK } from '$lib/utils/bip39';
+import { CloudFileVault } from '$lib/utils/cloud-file-vault';
+import { importPayloadKey } from '$lib/utils/crypto-keys';
 
 const T_BACKUP_ENABLED = 'T_backup_enabled';
 const T_LAST_ERROR = 'T_last_error';

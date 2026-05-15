@@ -1,5 +1,5 @@
-import { deriveLWK, generateMSK, importPayloadKey, unwrapMSK, wrapMSK } from '$lib/utils/crypto-keys.js';
-import { pic, getLegacySalt, generateKDFMetadata } from '$lib/utils/salada.js';
+import { deriveLWK, generateMSK, importPayloadKey, unwrapMSK, wrapMSK } from '$lib/utils/crypto-keys';
+import { pic, getLegacySalt, generateKDFMetadata } from '$lib/utils/salada';
 
 const T_ES_KDF_META = 'T_ES_KDF_META';
 const T_ES_WRAPPED_MSK = 'T_ES_WRAPPED_MSK';

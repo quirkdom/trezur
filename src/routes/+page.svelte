@@ -8,7 +8,7 @@
 
 	import { asset, resolve } from '$app/paths';
 	import { exportTokensDownload } from '$lib/components/tokens/ExportTokens.svelte';
-	import { useConditionsContext } from '$lib/state/conditions.svelte.js';
+	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { getLocalVault, initStorage } from '$lib/state/storage.svelte';
 	import { keyManager } from '$lib/state/key-manager.svelte';

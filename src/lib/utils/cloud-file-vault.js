@@ -1,4 +1,4 @@
-import { parseCloudFile, assembleCloudFile } from '$lib/sync/fileformat.js';
+import { parseCloudFile, assembleCloudFile } from '$lib/sync/fileformat';
 
 const VERSION = 1;
 const MAGIC = 'TRZR';

@@ -4,7 +4,7 @@
  */
 import { browser, dev } from '$app/environment';
 import { devconsole } from '$lib/utils';
-import { backupService } from '$lib/sync/backup.svelte.js';
+import { backupService } from '$lib/sync/backup.svelte';
 import { nanoid } from 'nanoid';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 

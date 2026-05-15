@@ -8,9 +8,9 @@
  */
 import { keyManager } from '$lib/state/key-manager.svelte';
 import { LocalKVVault } from '$lib/utils/local-kv-vault';
-import { CloudFileVault } from '$lib/utils/cloud-file-vault.js';
+import { CloudFileVault } from '$lib/utils/cloud-file-vault';
 import { tokensContext } from '$lib/state/tokens.svelte';
-import { generateMSK } from '$lib/utils/crypto-keys.js';
+import { generateMSK } from '$lib/utils/crypto-keys';
 
 /** @type {import('$lib/utils/local-kv-vault').LocalKVVault | null} */
 let localVault = $state(null);
