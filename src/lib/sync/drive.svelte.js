@@ -1,3 +1,5 @@
+/* global google */
+
 import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 import { devconsole } from '$lib/utils';
@@ -36,7 +38,7 @@ class DriveClient {
 	/** @type {number} */
 	tokenExpiry = $state(0);
 
-	/** @type {any} */
+	/** @type {google.accounts.oauth2.TokenClient | google.accounts.oauth2.CodeClient | null} */
 	tokenClient = null;
 
 	/** @type {Promise<void> | null} */
@@ -79,7 +81,7 @@ class DriveClient {
 	}
 
 	#initClient() {
-		if (typeof window === 'undefined' || !window.google) return;
+		if (typeof window === 'undefined' || typeof google === 'undefined') return;
 
 		try {
 			if (this.flow === 'implicit') {
@@ -141,7 +143,7 @@ class DriveClient {
 	}
 
 	/**
-	 * @param {any} resp
+	 * @param {google.accounts.oauth2.CodeResponse} resp
 	 */
 	async #handleCodeResponse(resp) {
 		if (resp.error) {
@@ -205,10 +207,12 @@ class DriveClient {
 			this.#signInRejecter = reject;
 			if (this.flow === 'implicit') {
 				// Request explicit consent
-				this.tokenClient.requestAccessToken({ prompt: 'consent' });
+				/** @type {google.accounts.oauth2.TokenClient} */ (this.tokenClient).requestAccessToken({
+					prompt: 'consent'
+				});
 			} else if (this.flow === 'pkce') {
 				// Request code with consent
-				this.tokenClient.requestCode();
+				/** @type {google.accounts.oauth2.CodeClient} */ (this.tokenClient).requestCode();
 			}
 		});
 	}
@@ -227,16 +231,18 @@ class DriveClient {
 			this.#signInRejecter = reject;
 			if (this.flow === 'implicit') {
 				// Try to refresh silently
-				this.tokenClient.requestAccessToken({ prompt: '' });
+				/** @type {google.accounts.oauth2.TokenClient} */ (this.tokenClient).requestAccessToken({
+					prompt: ''
+				});
 			} else if (this.flow === 'pkce') {
 				// No refresh token, fall back to full sign-in
-				this.tokenClient.requestCode();
+				/** @type {google.accounts.oauth2.CodeClient} */ (this.tokenClient).requestCode();
 			}
 		});
 	}
 
 	signOut() {
-		if (this.accessToken && window.google) {
+		if (this.accessToken && typeof google !== 'undefined') {
 			google.accounts.oauth2.revoke(this.accessToken, () => {
 				devconsole.log('[Drive] Token revoked');
 			});
@@ -317,7 +323,6 @@ class DriveClient {
 	 * @param {string} [mimeType='application/json']
 	 */
 	async upload(filename, content, mimeType = 'application/json') {
-		const token = await this.ensureToken();
 		const file = await this.findFile(filename);
 
 		const metadata = {
@@ -340,7 +345,7 @@ class DriveClient {
 			method = 'PATCH';
 		}
 
-		const res = await fetch(url, {
+		const res = await this.#fetchWithTimeout(url, {
 			method,
 			headers: { Authorization: `Bearer ${token}` },
 			body: form
@@ -364,7 +369,7 @@ class DriveClient {
 		if (!file) throw new Error('File not found');
 
 		const url = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
-		const res = await fetch(url, {
+		const res = await this.#fetchWithTimeout(url, {
 			headers: { Authorization: `Bearer ${token}` }
 		});
 
