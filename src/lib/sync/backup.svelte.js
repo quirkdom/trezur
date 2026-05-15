@@ -16,14 +16,14 @@ const SYNC_INTERVAL = 60 * 60 * 1000; // 1 hour
 class BackupService {
 	/** @type {boolean} */
 	isSyncing = $state(false);
-	/** @type {number} */
-	lastSync = $state(0);
 	/** @type {string | null} */
 	lastError = $state(null);
 	/** @type {boolean} */
 	autoSyncEnabled = $state(false);
 	/** @type {any} */
 	settingsContext = null;
+	/** @type {number} */
+	lastSyncedAt = $derived(this.settingsContext?.getSettings().lastSyncTime || 0);
 
 	/**
 	 * @param {any} settingsContext
@@ -45,13 +45,6 @@ class BackupService {
 		const lastError = await localVault.get(T_LAST_ERROR);
 		if (lastError) {
 			this.lastError = lastError;
-		}
-
-		if (this.settingsContext) {
-			const settings = this.settingsContext.getSettings();
-			if (settings.lastSyncTime) {
-				this.lastSync = settings.lastSyncTime;
-			}
 		}
 	}
 
@@ -195,8 +188,7 @@ class BackupService {
 				new Blob([/** @type {ArrayBuffer} */ (cloudFileBytes.buffer)], { type: 'application/octet-stream' })
 			);
 
-			this.lastSync = Date.now();
-			if (this.settingsContext) this.settingsContext.updateSetting('lastSyncTime', this.lastSync);
+			this.settingsContext?.updateSetting('lastSyncTime', Date.now());
 
 			await this.clearError();
 			devconsole.log('[Backup] Sync completed');
@@ -266,14 +258,14 @@ class BackupService {
 
 		// 10-second delayed sync on app load (with 1-hour guard)
 		setTimeout(() => {
-			if (this.autoSyncEnabled && Date.now() - this.lastSync > SYNC_INTERVAL) {
+			if (this.autoSyncEnabled && Date.now() - this.lastSyncedAt > SYNC_INTERVAL) {
 				this.sync();
 			}
 		}, 10000);
 
 		// Visibility change trigger (with 1-hour guard)
 		document.addEventListener('visibilitychange', () => {
-			if (!document.hidden && this.autoSyncEnabled && Date.now() - this.lastSync > SYNC_INTERVAL) {
+			if (!document.hidden && this.autoSyncEnabled && Date.now() - this.lastSyncedAt > SYNC_INTERVAL) {
 				this.sync();
 			}
 		});

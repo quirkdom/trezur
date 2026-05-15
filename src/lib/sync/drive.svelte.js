@@ -28,15 +28,15 @@ class DriveClient {
 	flow;
 
 	/** @type {boolean} */
-	isReady = $state(false);
+	isReady = false;
 	/** @type {boolean} */
-	isSignedIn = $state(false);
+	isSignedIn = false;
 	/** @type {string | null} */
-	accessToken = $state(null);
+	accessToken = null;
 	/** @type {string | null} */
-	refreshToken = $state(null);
+	refreshToken = null;
 	/** @type {number} */
-	tokenExpiry = $state(0);
+	tokenExpiry = 0;
 
 	/** @type {google.accounts.oauth2.TokenClient | google.accounts.oauth2.CodeClient | null} */
 	tokenClient = null;
