@@ -6,7 +6,7 @@
 	import RecoveryKit from './RecoveryKit.svelte';
 	import RecoveryScannerDialog from './RecoveryScannerDialog.svelte';
 	import { backupService } from '$lib/sync/backup.svelte';
-	import { driveClient } from '$lib/sync/drive.svelte';
+	import { driveClient } from '$lib/sync/gdrive';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { rotateMSK } from '$lib/state/storage.svelte';

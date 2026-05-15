@@ -1,7 +1,7 @@
 import { keyManager } from '$lib/state/key-manager.svelte.js';
 import { getLocalVault, isStorageAvailable, createCloudVault, adoptMSK } from '$lib/state/storage.svelte.js';
 import { getMaxTimestamp, mergeTokens, tokensContext } from '$lib/state/tokens.svelte.js';
-import { driveClient } from '$lib/sync/drive.svelte.js';
+import { driveClient } from '$lib/sync/gdrive';
 import { devconsole } from '$lib/utils';
 import { mnemonicToMSK } from '$lib/utils/bip39.js';
 import { CloudFileVault } from '$lib/utils/cloud-file-vault.js';
