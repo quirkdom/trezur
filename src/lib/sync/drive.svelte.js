@@ -44,6 +44,28 @@ class DriveClient {
 	/** @type {Promise<void> | null} */
 	#loadingPromise = null;
 
+	/** @type {string | null} */
+	#cachedFileId = null;
+
+	/**
+	 * @param {string} url
+	 * @param {RequestInit} options
+	 * @param {number} [timeoutMs=10000]
+	 */
+	async #fetchWithTimeout(url, options, timeoutMs = 10000) {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+		try {
+			const res = await fetch(url, { ...options, signal: controller.signal });
+			clearTimeout(timeoutId);
+			return res;
+		} catch (/** @type {any} */ err) {
+			clearTimeout(timeoutId);
+			if (err.name === 'AbortError') throw new Error('Request timed out', { cause: err });
+			throw err;
+		}
+	}
+
 	/** @param {'implicit' | 'pkce'} flow */
 	constructor(flow = 'implicit') {
 		this.flow = flow;
@@ -304,17 +326,23 @@ class DriveClient {
 	 * @returns {Promise<DriveFile | null>}
 	 */
 	async findFile(filename) {
+		if (this.#cachedFileId) {
+			return { id: this.#cachedFileId, name: filename };
+		}
+
 		const token = await this.ensureToken();
 		const q = `name = '${filename}' and 'appDataFolder' in parents and trashed = false`;
 		const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&spaces=appDataFolder&fields=files(id, name)`;
 
-		const res = await fetch(url, {
+		const res = await this.#fetchWithTimeout(url, {
 			headers: { Authorization: `Bearer ${token}` }
 		});
 
 		if (!res.ok) throw new Error('Failed to find file');
 		const data = await res.json();
-		return data.files && data.files.length > 0 ? data.files[0] : null;
+		const file = data.files && data.files.length > 0 ? data.files[0] : null;
+		if (file) this.#cachedFileId = file.id;
+		return file;
 	}
 
 	/**
@@ -324,6 +352,7 @@ class DriveClient {
 	 */
 	async upload(filename, content, mimeType = 'application/json') {
 		const file = await this.findFile(filename);
+		const token = this.accessToken;
 
 		const metadata = {
 			name: filename,
@@ -356,6 +385,8 @@ class DriveClient {
 			throw new Error(`Upload failed: ${err}`);
 		}
 
+		this.#cachedFileId = null;
+
 		return await res.json();
 	}
 
@@ -364,9 +395,10 @@ class DriveClient {
 	 * @param {'text' | 'arraybuffer'} responseType
 	 */
 	async download(filename, responseType = 'text') {
-		const token = await this.ensureToken();
 		const file = await this.findFile(filename);
 		if (!file) throw new Error('File not found');
+
+		const token = this.accessToken;
 
 		const url = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
 		const res = await this.#fetchWithTimeout(url, {

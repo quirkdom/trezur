@@ -18,7 +18,7 @@ Individual files have small, inline TODO reminders.
 - [x] (P0) [Bug: Settings -> Import/Export/Migrate]: If the settings page is directly loaded, there is no tokensContext.current inited. Any imports or exports will _silently_ fail. This is because the $effect that inits tokensContext.current is in the Codes page.
   - [x] We need to either move the $effect to the +layout.svelte or Settings +page.svelte, or we need to manually init tokensContext.current in the settings page.
 
-- [ ] (P0) [Bug: Cloud Backup Sync] Even when isBackupEnabled is false, an auto sync can still be triggered.
+- [ ] ~~(P0) [Bug: Cloud Backup Sync] Even when isBackupEnabled is false, an auto sync can still be triggered.~~ **[needs repro]**
 
 - [x] (P0) All keys in localVault are currently unobfuscated.
 
@@ -49,7 +49,7 @@ Individual files have small, inline TODO reminders.
 - [ ] (P1) Cloud Sync Perf Improvements
   - [ ] Do quick verification on the headers, instead of downloading the entire backup file. Need range reads from gDrive for that.
   - [ ] Also, revisit all the stored metadata in local vault, related to backup engine.
-  - [ ] Revisit auto sync 60s interval loop. Do we really need to poll every 60 secs?
+  - [x] Revisit auto sync 60s interval loop. Do we really need to poll every 60 secs?
 
 - [ ] Cloud Backup Sync Onboarding UX papercuts
   - [x] Too many alerts for both success and failures. We should integrate into the traffic light backup status that we already have.
@@ -90,7 +90,7 @@ Individual files have small, inline TODO reminders.
 - [x] Add passcode to encrypt/decrypt tokens (also serves to lock / unlock app)
   - [ ] Investigate WebAuthn / Passkey support. [[Client side WebAuthn](https://github.com/mylofi/webauthn-local-client)]
 - [ ] Move settings and conditions to exported global states. Contexts are overkill for that.
-- [ ] Setup GDrive [app folder backup](https://developers.google.com/drive/api/guides/appdata)
+- [x] Setup GDrive [app folder backup](https://developers.google.com/drive/api/guides/appdata)
 - [ ] Setup iCloud backup using [CloudKit](https://developer.apple.com/documentation/cloudkit)
 - [ ] Most Recently Used sort order
 - [ ] Better PWA support

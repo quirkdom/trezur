@@ -4,6 +4,7 @@
  */
 import { browser, dev } from '$app/environment';
 import { devconsole } from '$lib/utils';
+import { backupService } from '$lib/sync/backup.svelte.js';
 import { nanoid } from 'nanoid';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
@@ -172,6 +173,7 @@ class TokensCtx {
 
 		if (newTokens.length > 0) {
 			this.#tokens.push(...newTokens);
+			backupService.scheduleSyncOnUserAction();
 			return this.#persist();
 		}
 	}
@@ -209,6 +211,7 @@ class TokensCtx {
 
 		// Apply the update.
 		this.#tokens[tokenIndex] = updatedToken;
+		backupService.scheduleSyncOnUserAction();
 		return this.#persist();
 	}
 
@@ -220,6 +223,7 @@ class TokensCtx {
 		const now = Date.now();
 		this.#tokens = this.#tokens.filter((t) => t.id !== id);
 		this.#tombstones[id] = now;
+		backupService.scheduleSyncOnUserAction();
 		return this.#persist();
 	}
 
@@ -240,10 +244,14 @@ class TokensCtx {
 	 * Atomically replaces the current tokens and tombstones
 	 * @param {Token[]} tokens
 	 * @param {Record<string, number>} tombstones
+	 * @param {{ skipSyncNotify?: boolean }} [options]
 	 */
-	async setTokensAndTombstones(tokens, tombstones) {
+	async setTokensAndTombstones(tokens, tombstones, options) {
 		this.#tokens = tokens;
 		this.#tombstones = tombstones;
+		if (!options?.skipSyncNotify) {
+			backupService.scheduleSyncOnUserAction();
+		}
 		return this.#persist();
 	}
 }

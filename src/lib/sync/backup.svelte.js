@@ -178,7 +178,7 @@ class BackupService {
 
 			// Save to local context
 			const newLocalTokens = Object.values(mergedTokens);
-			await tokensContext.current.setTokensAndTombstones(newLocalTokens, mergedTombstones);
+			await tokensContext.current.setTokensAndTombstones(newLocalTokens, mergedTombstones, { skipSyncNotify: true });
 
 			// Prepare payload
 			const finalPayload = {
@@ -257,23 +257,46 @@ class BackupService {
 	}
 
 	/** @type {any} */
-	#intervalId;
+	#userActionTimeout;
+	/** @type {number} */
+	#batchEndTime = 0;
 
 	startAutoSync() {
-		if (this.#intervalId) clearInterval(this.#intervalId);
-		const check = () => {
-			if (!this.autoSyncEnabled) return;
-			if (Date.now() - this.lastSync > SYNC_INTERVAL) this.sync();
-		};
-		this.#intervalId = setInterval(check, 60000);
+		if (this.#userActionTimeout) clearTimeout(this.#userActionTimeout);
+
+		// 10-second delayed sync on app load (with 1-hour guard)
+		setTimeout(() => {
+			if (this.autoSyncEnabled && Date.now() - this.lastSync > SYNC_INTERVAL) {
+				this.sync();
+			}
+		}, 10000);
+
+		// Visibility change trigger (with 1-hour guard)
 		document.addEventListener('visibilitychange', () => {
-			if (!document.hidden) check();
+			if (!document.hidden && this.autoSyncEnabled && Date.now() - this.lastSync > SYNC_INTERVAL) {
+				this.sync();
+			}
 		});
-		check();
 	}
 
 	stopAutoSync() {
-		if (this.#intervalId) clearInterval(this.#intervalId);
+		if (this.#userActionTimeout) clearTimeout(this.#userActionTimeout);
+	}
+
+	/**
+	 * Schedule a sync after user modifies tokens (30-second batch window).
+	 * No 1-hour guard - user actions should sync ASAP.
+	 * First edit starts a 30s window; subsequent edits within the window are batched.
+	 */
+	scheduleSyncOnUserAction() {
+		if (!this.autoSyncEnabled) return;
+		if (Date.now() < this.#batchEndTime) return;
+
+		this.#batchEndTime = Date.now() + 30000;
+		clearTimeout(this.#userActionTimeout);
+		this.#userActionTimeout = setTimeout(() => {
+			this.sync();
+		}, 30000);
 	}
 }
 
