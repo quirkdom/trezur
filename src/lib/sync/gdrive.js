@@ -399,17 +399,22 @@ class DriveClient {
 	/**
 	 * @param {string} filename
 	 * @param {'text' | 'arraybuffer'} responseType
+	 * @param {{ range?: string }} [options]
 	 */
-	async download(filename, responseType = 'text') {
+	async download(filename, responseType = 'text', options = {}) {
 		const file = await this.findFile(filename);
 		if (!file) throw new Error('File not found');
 
 		const token = this.accessToken;
 
+		/** @type {Record<string, string>} */
+		const headers = { Authorization: `Bearer ${token}` };
+		if (options.range) {
+			headers['Range'] = options.range;
+		}
+
 		const url = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
-		const res = await this.#fetchWithTimeout(url, {
-			headers: { Authorization: `Bearer ${token}` }
-		});
+		const res = await this.#fetchWithTimeout(url, { headers });
 
 		if (!res.ok) throw new Error('Download failed');
 		if (responseType === 'arraybuffer') {

@@ -236,10 +236,12 @@ export async function verifyCloudBackupMnemonic(words) {
 		const tempKey = await importPayloadKey(candidateMsk);
 		const vault = new CloudFileVault(tempKey);
 
-		const buffer = await driveClient.download(BACKUP_FILENAME, 'arraybuffer');
+		const { data: buffer } = await driveClient.download(BACKUP_FILENAME, 'arraybuffer', {
+			range: 'bytes=0-63'
+		});
 		const arrayBuffer = typeof buffer === 'string' ? new TextEncoder().encode(buffer).buffer : buffer;
 
-		await vault.unpack(new Uint8Array(arrayBuffer));
+		await vault.verifyHeader(new Uint8Array(arrayBuffer));
 		return true;
 	} catch (e) {
 		devconsole.warn('[Backup] Mnemonic verification failed', e);

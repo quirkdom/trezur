@@ -35,6 +35,29 @@ export class CloudFileVault {
 	}
 
 	/**
+	 * @param {Uint8Array} aadBlock
+	 * @param {Uint8Array} tagIV
+	 * @param {Uint8Array} authTag
+	 * @returns {Promise<boolean>}
+	 */
+	async #verifyAuthTag(aadBlock, tagIV, authTag) {
+		try {
+			await crypto.subtle.decrypt(
+				{
+					name: 'AES-GCM',
+					iv: /** @type {BufferSource} */ (tagIV),
+					additionalData: /** @type {BufferSource} */ (aadBlock)
+				},
+				this.#cryptoKey,
+				/** @type {BufferSource} */ (authTag)
+			);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
 	 * @param {object} payload
 	 * @param {string} [type='DATA']
 	 * @returns {Promise<Uint8Array>}
@@ -47,13 +70,11 @@ export class CloudFileVault {
 		const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, this.#cryptoKey, encoded);
 
 		const { aadBlock, tagIV } = this.#buildHeaderVerification(VERSION, type, iv);
-
-		// Compute auth tag by encrypting empty plaintext with header as AAD
 		const tagResult = await crypto.subtle.encrypt(
 			{
 				name: 'AES-GCM',
-				iv: /** @type {any} */ (tagIV),
-				additionalData: /** @type {any} */ (aadBlock)
+				iv: /** @type {BufferSource} */ (tagIV),
+				additionalData: /** @type {BufferSource} */ (aadBlock)
 			},
 			this.#cryptoKey,
 			new Uint8Array(0)
@@ -64,28 +85,29 @@ export class CloudFileVault {
 
 	/**
 	 * @param {Uint8Array} buffer
+	 * @returns {Promise<boolean>}
+	 */
+	async verifyHeader(buffer) {
+		const parsed = parseCloudFile(buffer);
+		const { aadBlock, tagIV } = this.#buildHeaderVerification(parsed.version, parsed.type, parsed.payloadIV);
+		return this.#verifyAuthTag(aadBlock, tagIV, parsed.authTag);
+	}
+
+	/**
+	 * @param {Uint8Array} buffer
 	 * @returns {Promise<object>}
 	 */
 	async unpack(buffer) {
 		const parsed = parseCloudFile(buffer);
-
 		const { aadBlock, tagIV } = this.#buildHeaderVerification(parsed.version, parsed.type, parsed.payloadIV);
-
-		// Verify auth tag — throws OperationError if key/header mismatch
-		await crypto.subtle.decrypt(
-			{
-				name: 'AES-GCM',
-				iv: /** @type {any} */ (tagIV),
-				additionalData: /** @type {any} */ (aadBlock)
-			},
-			this.#cryptoKey,
-			/** @type {any} */ (parsed.authTag)
-		);
+		if (!(await this.#verifyAuthTag(aadBlock, tagIV, parsed.authTag))) {
+			throw new Error('Auth tag verification failed');
+		}
 
 		const decrypted = await crypto.subtle.decrypt(
-			{ name: 'AES-GCM', iv: /** @type {any} */ (parsed.payloadIV) },
+			{ name: 'AES-GCM', iv: /** @type {BufferSource} */ (parsed.payloadIV) },
 			this.#cryptoKey,
-			/** @type {any} */ (parsed.payloadCiphertext)
+			/** @type {BufferSource} */ (parsed.payloadCiphertext)
 		);
 
 		const jsonStr = new TextDecoder().decode(decrypted);
