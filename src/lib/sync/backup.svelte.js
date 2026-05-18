@@ -164,14 +164,18 @@ class BackupService {
 
 	#startAutoSync() {
 		this.#clearTimer();
-		this.#scheduleTimer(UNLOCK_DELAY);
 
-		this.#visibilityHandler = () => {
-			if (document.hidden || this.#syncTimer) return;
-			if (Date.now() - this.lastSyncTime < SYNC_INTERVAL) return;
-			this.#runAutoSync();
-		};
-		document.addEventListener('visibilitychange', this.#visibilityHandler);
+		const delay = UNLOCK_DELAY + Math.max(0, SYNC_INTERVAL - (Date.now() - this.lastSyncTime));
+		this.#scheduleTimer(delay);
+
+		if (!this.#visibilityHandler) {
+			this.#visibilityHandler = () => {
+				if (document.hidden || this.#syncTimer || Date.now() - this.lastSyncTime < SYNC_INTERVAL) return;
+				this.#runAutoSync();
+			};
+
+			document.addEventListener('visibilitychange', this.#visibilityHandler);
+		}
 	}
 
 	/**
