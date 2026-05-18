@@ -128,6 +128,7 @@
 		)
 			return;
 
+		backupService.stopAutoSync();
 		purgeStorage();
 
 		settingsContext.resetSettings();

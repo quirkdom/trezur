@@ -31,7 +31,6 @@ export interface Settings {
 	showNextCode: boolean;
 	useBiometricUnlock: boolean;
 	sortOrder: 'asc' | 'desc' | 'none';
-	lastSyncTime?: number;
 }
 
 export interface Conditions {

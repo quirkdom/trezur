@@ -8,7 +8,6 @@
 	import { backupService } from '$lib/sync/backup.svelte';
 	import { driveClient } from '$lib/sync/gdrive';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
-	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { rotateMSK } from '$lib/state/storage.svelte';
 
 	/**
@@ -16,8 +15,6 @@
 	 */
 	let { onRequestPasscode } = $props();
 
-	const settingsContext = useSettingsContext();
-	let settings = $derived(settingsContext.getSettings());
 	const conditionsContext = useConditionsContext();
 	let conditions = $derived(conditionsContext.getConditions());
 	let nonAppleSwitchTheme = $derived(conditions.isAppleDevice ? '' : 'data-[state=on]:bg-[#EB3912]');
@@ -55,7 +52,7 @@
 			return { state: 'warning', color: 'bg-yellow-500', message: 'Sync Error', details: backupService.lastError };
 		}
 
-		const lastSync = settings.lastSyncTime || 0;
+		const lastSync = backupService.lastSyncTime || 0;
 		if (lastSync && Date.now() - lastSync > 60 * 60 * 1000) {
 			return {
 				state: 'warning',
@@ -227,8 +224,8 @@
 							{:else}
 								<span class="text-sm text-zinc-300">
 									Last synced
-									<abbr title={settings.lastSyncTime ? new Date(settings.lastSyncTime).toLocaleString() : ''}>
-										{getRelativeSyncTime(settings.lastSyncTime || 0)}
+									<abbr title={backupService.lastSyncTime ? new Date(backupService.lastSyncTime).toLocaleString() : ''}>
+										{getRelativeSyncTime(backupService.lastSyncTime || 0)}
 									</abbr>
 								</span>
 							{/if}

@@ -13,13 +13,7 @@
 
 	devconsole.log('+layout.js load data', data);
 
-	const settingsContext = createSettingsContext(data.settings);
-
-	/**
-	 * @todo Why is backup service inited proactively? No need to init if no cloud service actually connected
-	 */
-	backupService.init(settingsContext);
-
+	createSettingsContext(data.settings);
 	const conditionsContext = createConditionsContext(data.conditions);
 	const conditions = $derived(conditionsContext.getConditions());
 
@@ -34,7 +28,9 @@
 	if (browser) {
 		const { isUserPasscodeSet, clientId } = conditions;
 		if (!isUserPasscodeSet && clientId && !isStorageAvailable()) {
-			initStorage(clientId);
+			initStorage(clientId).then((ok) => {
+				if (ok) backupService.init();
+			});
 		}
 	}
 
@@ -42,17 +38,9 @@
 	$effect(() => {
 		const { isUserPasscodeSet, isAppLocked } = conditions;
 		if (isUserPasscodeSet && !isStorageAvailable() && !isAppLocked) {
+			backupService.stopAutoSync();
 			clearStorage();
 			conditionsContext.updateCondition('isAppLocked', true);
-		}
-	});
-
-	/**
-	 * @todo Look into this after you figure out why backup service is being inited proactively?
-	 */
-	$effect(() => {
-		if (isStorageAvailable()) {
-			backupService.loadFromStorage();
 		}
 	});
 
@@ -62,7 +50,10 @@
 		if (isAppLocked) {
 			if (!isUserPasscodeSet && clientId) {
 				const ok = await initStorage(clientId);
-				if (ok) conditionsContext.updateCondition('isAppLocked', false);
+				if (ok) {
+					conditionsContext.updateCondition('isAppLocked', false);
+					backupService.init();
+				}
 			} else {
 				unlockScreenRef?.openPasscodeDialog();
 			}
