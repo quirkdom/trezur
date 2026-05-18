@@ -89,14 +89,12 @@ class BackupService {
 				// 4. Push to cloud (only if something changed)
 				if (!_isStateEqual(merged.tokens, merged.tombstones, cloudState)) {
 					const finalPayload = {
-						version: 5,
-						lastSyncTs: Date.now(),
 						tokens: Object.fromEntries(merged.tokens.map((t) => [t.id, t])),
 						tombstones: merged.tombstones
 					};
 
 					try {
-						await _uploadCloudState(vault, finalPayload, etag);
+						await _uploadCloudState(vault, finalPayload, Date.now(), etag);
 						devconsole.log('[Backup] Cloud state updated');
 						break; // Success!
 					} catch (/** @type {any} */ uploadErr) {
@@ -296,7 +294,7 @@ async function _fetchCloudState(vault) {
 	try {
 		const { data: buffer, etag } = await driveClient.download(BACKUP_FILENAME, 'arraybuffer');
 		const arrayBuffer = typeof buffer === 'string' ? new TextEncoder().encode(buffer).buffer : buffer;
-		const cloudPayload = await vault.unpack(new Uint8Array(arrayBuffer));
+		const { payload: cloudPayload } = await vault.unpack(new Uint8Array(arrayBuffer));
 
 		/** @type {Record<string, Token>} */
 		const cloudTokens = {};
@@ -367,10 +365,11 @@ function _resolveSyncConflicts(local, cloud) {
 /**
  * @param {import('$lib/utils/cloud-file-vault').CloudFileVault} vault
  * @param {any} payload
+ * @param {number} snapshotTime
  * @param {string | null} [etag]
  */
-async function _uploadCloudState(vault, payload, etag) {
-	const cloudFileBytes = await vault.pack(payload, BACKUP_FILE_TYPE);
+async function _uploadCloudState(vault, payload, snapshotTime, etag) {
+	const cloudFileBytes = await vault.pack(payload, BACKUP_FILE_TYPE, snapshotTime);
 	await driveClient.upload(
 		BACKUP_FILENAME,
 		new Blob([/** @type {BlobPart} */ (cloudFileBytes)], { type: 'application/octet-stream' }),

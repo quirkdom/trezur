@@ -1,7 +1,6 @@
-import { parseCloudFile, assembleCloudFile } from '$lib/sync/fileformat';
+import { parseCloudFile, assembleCloudFile, MAGIC } from '$lib/sync/fileformat';
 
-const VERSION = 1;
-const MAGIC = 'TRZR';
+const CURRENT_VERSION = 1;
 
 export class CloudFileVault {
 	/** @type {CryptoKey} */
@@ -60,16 +59,17 @@ export class CloudFileVault {
 	/**
 	 * @param {object} payload
 	 * @param {string} [type='DATA']
+	 * @param {number} [snapshotTime=0]
 	 * @returns {Promise<Uint8Array>}
 	 */
-	async pack(payload, type = 'DATA') {
+	async pack(payload, type = 'DATA', snapshotTime = 0) {
 		const jsonStr = JSON.stringify(payload);
 		const encoded = new TextEncoder().encode(jsonStr);
 		const iv = crypto.getRandomValues(new Uint8Array(12));
 
 		const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, this.#cryptoKey, encoded);
 
-		const { aadBlock, tagIV } = this.#buildHeaderVerification(VERSION, type, iv);
+		const { aadBlock, tagIV } = this.#buildHeaderVerification(CURRENT_VERSION, type, iv);
 		const tagResult = await crypto.subtle.encrypt(
 			{
 				name: 'AES-GCM',
@@ -80,7 +80,14 @@ export class CloudFileVault {
 			new Uint8Array(0)
 		);
 
-		return assembleCloudFile(VERSION, type, new Uint8Array(ciphertext), iv, new Uint8Array(tagResult));
+		return assembleCloudFile(
+			CURRENT_VERSION,
+			type,
+			new Uint8Array(ciphertext),
+			iv,
+			new Uint8Array(tagResult),
+			snapshotTime
+		);
 	}
 
 	/**
@@ -95,7 +102,7 @@ export class CloudFileVault {
 
 	/**
 	 * @param {Uint8Array} buffer
-	 * @returns {Promise<object>}
+	 * @returns {Promise<{ payload: object, snapshotTime: number, type: string }>}
 	 */
 	async unpack(buffer) {
 		const parsed = parseCloudFile(buffer);
@@ -111,6 +118,10 @@ export class CloudFileVault {
 		);
 
 		const jsonStr = new TextDecoder().decode(decrypted);
-		return JSON.parse(jsonStr);
+		return {
+			payload: JSON.parse(jsonStr),
+			snapshotTime: parsed.snapshotTime,
+			type: parsed.type
+		};
 	}
 }
