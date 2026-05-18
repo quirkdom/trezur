@@ -3,9 +3,11 @@
 import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 import { devconsole } from '$lib/utils';
+import { ExpiringMap } from '$lib/utils/cache';
 
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 const GSI_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
+const CACHE_TTL = 300_000; // 5 minutes - enough for a sync session but expires between autosyncs
 
 /**
  * @todo Use static imports from `$env/dynamic/static` once we migrate to CF Workers and can define build variables in `wrangler.toml`.
@@ -44,8 +46,8 @@ class DriveClient {
 	/** @type {Promise<void> | null} */
 	#loadingPromise = null;
 
-	/** @type {string | null} */
-	#cachedFileId = null;
+	/** @type {ExpiringMap<string, string>} */
+	#cachedFileIds = new ExpiringMap(CACHE_TTL);
 
 	/**
 	 * @param {string} url
@@ -224,6 +226,8 @@ class DriveClient {
 		await this.load();
 		if (!this.tokenClient) return;
 
+		this.#cachedFileIds.clear();
+
 		return new Promise((resolve, reject) => {
 			this.#signInResolver = resolve;
 			this.#signInRejecter = reject;
@@ -273,6 +277,7 @@ class DriveClient {
 		this.refreshToken = null;
 		this.isSignedIn = false;
 		this.tokenExpiry = 0;
+		this.#cachedFileIds.clear();
 	}
 
 	/**
@@ -326,8 +331,9 @@ class DriveClient {
 	 * @returns {Promise<DriveFile | null>}
 	 */
 	async findFile(filename) {
-		if (this.#cachedFileId) {
-			return { id: this.#cachedFileId, name: filename };
+		const cachedId = this.#cachedFileIds.get(filename);
+		if (cachedId) {
+			return { id: cachedId, name: filename };
 		}
 
 		const token = await this.ensureToken();
@@ -341,7 +347,7 @@ class DriveClient {
 		if (!res.ok) throw new Error('Failed to find file');
 		const data = await res.json();
 		const file = data.files && data.files.length > 0 ? data.files[0] : null;
-		if (file) this.#cachedFileId = file.id;
+		if (file) this.#cachedFileIds.set(filename, file.id);
 		return file;
 	}
 
@@ -385,7 +391,7 @@ class DriveClient {
 			throw new Error(`Upload failed: ${err}`);
 		}
 
-		this.#cachedFileId = null;
+		this.#cachedFileIds.delete(filename);
 
 		return await res.json();
 	}
