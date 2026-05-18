@@ -354,9 +354,12 @@ class DriveClient {
 	/**
 	 * @param {string} filename
 	 * @param {string | Blob | Uint8Array} content
-	 * @param {string} [mimeType='application/json']
+	 * @param {Object} [options]
+	 * @param {string} [options.mimeType='application/json']
+	 * @param {string} [options.etag]
 	 */
-	async upload(filename, content, mimeType = 'application/json') {
+	async upload(filename, content, options = {}) {
+		const { mimeType = 'application/json', etag } = options;
 		const file = await this.findFile(filename);
 		const token = this.accessToken;
 
@@ -375,19 +378,28 @@ class DriveClient {
 		let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
 		let method = 'POST';
 
+		/** @type {Record<string, string>} */
+		const headers = { Authorization: `Bearer ${token}` };
+
 		if (file) {
 			url = `https://www.googleapis.com/upload/drive/v3/files/${file.id}?uploadType=multipart`;
 			method = 'PATCH';
+			if (etag) {
+				headers['If-Match'] = etag;
+			}
 		}
 
 		const res = await this.#fetchWithTimeout(url, {
 			method,
-			headers: { Authorization: `Bearer ${token}` },
+			headers,
 			body: form
 		});
 
 		if (!res.ok) {
 			const err = await res.text();
+			if (res.status === 412) {
+				throw new Error('Precondition Failed: File changed on server');
+			}
 			throw new Error(`Upload failed: ${err}`);
 		}
 
@@ -400,6 +412,7 @@ class DriveClient {
 	 * @param {string} filename
 	 * @param {'text' | 'arraybuffer'} responseType
 	 * @param {{ range?: string }} [options]
+	 * @returns {Promise<{ data: any, etag: string | null }>}
 	 */
 	async download(filename, responseType = 'text', options = {}) {
 		const file = await this.findFile(filename);
@@ -417,10 +430,17 @@ class DriveClient {
 		const res = await this.#fetchWithTimeout(url, { headers });
 
 		if (!res.ok) throw new Error('Download failed');
+
+		const etag = res.headers.get('ETag');
+		let data;
+
 		if (responseType === 'arraybuffer') {
-			return await res.arrayBuffer();
+			data = await res.arrayBuffer();
+		} else {
+			data = await res.text();
 		}
-		return await res.text();
+
+		return { data, etag };
 	}
 }
 

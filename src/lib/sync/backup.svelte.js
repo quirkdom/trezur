@@ -64,32 +64,58 @@ class BackupService {
 		this.isSyncing = true;
 		devconsole.log('[Backup] Starting sync...');
 
+		let retryCount = 0;
+		const MAX_RETRIES = 3;
+
 		try {
 			const vault = createCloudVault();
 
-			// 1. Fetch cloud state
-			const cloudState = await _fetchCloudState(vault);
+			while (retryCount <= MAX_RETRIES) {
+				// 1. Fetch cloud state
+				const { state: cloudState, etag } = await _fetchCloudState(vault);
 
-			// 2. Resolve conflicts (LWW Merge)
-			const localState = {
-				tokens: tokensContext.current.getTokens(),
-				tombstones: tokensContext.current.getTombstones()
-			};
-			const merged = _resolveSyncConflicts(localState, cloudState);
+				// 2. Resolve conflicts (LWW Merge)
+				const localState = {
+					tokens: tokensContext.current.getTokens(),
+					tombstones: tokensContext.current.getTombstones()
+				};
+				const merged = _resolveSyncConflicts(localState, cloudState);
 
-			// 3. Update local context
-			await tokensContext.current.setTokensAndTombstones(merged.tokens, merged.tombstones, {
-				skipSyncNotify: true
-			});
+				// 3. Update local context
+				await tokensContext.current.setTokensAndTombstones(merged.tokens, merged.tombstones, {
+					skipSyncNotify: true
+				});
 
-			// 4. Push to cloud
-			const finalPayload = {
-				version: 5,
-				lastSyncTs: Date.now(),
-				tokens: Object.fromEntries(merged.tokens.map((t) => [t.id, t])),
-				tombstones: merged.tombstones
-			};
-			await _uploadCloudState(vault, finalPayload);
+				// 4. Push to cloud (only if something changed)
+				if (!_isStateEqual(merged.tokens, merged.tombstones, cloudState)) {
+					const finalPayload = {
+						version: 5,
+						lastSyncTs: Date.now(),
+						tokens: Object.fromEntries(merged.tokens.map((t) => [t.id, t])),
+						tombstones: merged.tombstones
+					};
+
+					try {
+						await _uploadCloudState(vault, finalPayload, etag);
+						devconsole.log('[Backup] Cloud state updated');
+						break; // Success!
+					} catch (/** @type {any} */ uploadErr) {
+						if (uploadErr.message.includes('Precondition Failed') && retryCount < MAX_RETRIES) {
+							retryCount++;
+							const delay = Math.floor(Math.random() * (250 - 100 + 1) + 100);
+							devconsole.warn(
+								`[Backup] Sync conflict (ETag mismatch), retrying ${retryCount}/${MAX_RETRIES} after ${delay}ms...`
+							);
+							await new Promise((resolve) => setTimeout(resolve, delay));
+							continue; // Retry sync loop
+						}
+						throw uploadErr;
+					}
+				} else {
+					devconsole.log('[Backup] No changes to upload');
+					break;
+				}
+			}
 
 			this.lastSyncTime = Date.now();
 			await this.#persistState();
@@ -268,7 +294,7 @@ export async function adoptCloudBackup(words) {
  */
 async function _fetchCloudState(vault) {
 	try {
-		const buffer = await driveClient.download(BACKUP_FILENAME, 'arraybuffer');
+		const { data: buffer, etag } = await driveClient.download(BACKUP_FILENAME, 'arraybuffer');
 		const arrayBuffer = typeof buffer === 'string' ? new TextEncoder().encode(buffer).buffer : buffer;
 		const cloudPayload = await vault.unpack(new Uint8Array(arrayBuffer));
 
@@ -281,12 +307,15 @@ async function _fetchCloudState(vault) {
 		}
 
 		return {
-			tokens: cloudTokens,
-			tombstones: /** @type {Record<string, number>} */ (/** @type {any} */ (cloudPayload).tombstones || {})
+			state: {
+				tokens: cloudTokens,
+				tombstones: /** @type {Record<string, number>} */ (/** @type {any} */ (cloudPayload).tombstones || {})
+			},
+			etag
 		};
 	} catch (/** @type {any} */ err) {
 		if (err.message !== 'File not found') throw err;
-		return { tokens: {}, tombstones: {} };
+		return { state: { tokens: {}, tombstones: {} }, etag: null };
 	}
 }
 
@@ -338,11 +367,40 @@ function _resolveSyncConflicts(local, cloud) {
 /**
  * @param {import('$lib/utils/cloud-file-vault').CloudFileVault} vault
  * @param {any} payload
+ * @param {string | null} [etag]
  */
-async function _uploadCloudState(vault, payload) {
+async function _uploadCloudState(vault, payload, etag) {
 	const cloudFileBytes = await vault.pack(payload, BACKUP_FILE_TYPE);
 	await driveClient.upload(
 		BACKUP_FILENAME,
-		new Blob([/** @type {BlobPart} */ (cloudFileBytes)], { type: 'application/octet-stream' })
+		new Blob([/** @type {BlobPart} */ (cloudFileBytes)], { type: 'application/octet-stream' }),
+		{ etag: etag ?? undefined }
 	);
+}
+
+/**
+ * Compare local merged state with cloud state to determine if an upload is necessary.
+ * @param {Token[]} mergedTokens
+ * @param {Record<string, number>} mergedTombstones
+ * @param {{tokens: Record<string, Token>, tombstones: Record<string, number>}} cloudState
+ */
+function _isStateEqual(mergedTokens, mergedTombstones, cloudState) {
+	const cloudTokenIds = Object.keys(cloudState.tokens);
+	if (mergedTokens.length !== cloudTokenIds.length) return false;
+
+	for (const t of mergedTokens) {
+		const cloudT = cloudState.tokens[t.id];
+		if (!cloudT) return false;
+		if (getMaxTimestamp(t) !== getMaxTimestamp(cloudT)) return false;
+	}
+
+	const mergedTombIds = Object.keys(mergedTombstones);
+	const cloudTombIds = Object.keys(cloudState.tombstones);
+	if (mergedTombIds.length !== cloudTombIds.length) return false;
+
+	for (const id of mergedTombIds) {
+		if (mergedTombstones[id] !== cloudState.tombstones[id]) return false;
+	}
+
+	return true;
 }
