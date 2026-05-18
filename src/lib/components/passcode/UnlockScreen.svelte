@@ -6,7 +6,6 @@
 	import { initStorage, purgeStorage } from '$lib/state/storage.svelte';
 	import { Lock } from '@lucide/svelte';
 	import PasscodeDialog from './PasscodeDialog.svelte';
-	import { backupService } from '$lib/sync/backup.svelte';
 
 	const conditionsContext = useConditionsContext();
 	const conditions = $derived(conditionsContext.getConditions());
@@ -28,7 +27,6 @@
 		const ok = await initStorage(passcode);
 		if (ok) {
 			conditionsContext.updateCondition('isAppLocked', false);
-			backupService.init();
 		}
 	}
 
@@ -47,7 +45,6 @@
 
 		const { clientId } = conditions;
 
-		backupService.stopAutoSync();
 		purgeStorage();
 
 		conditionsContext.updateConditions({
@@ -57,8 +54,7 @@
 
 		// Re-init with existing clientId
 		if (clientId) {
-			const ok = await initStorage(clientId);
-			if (ok) backupService.init();
+			await initStorage(clientId);
 		}
 
 		await goto(resolve('/'));

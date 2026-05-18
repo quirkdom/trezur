@@ -7,7 +7,6 @@
 	import { isStorageAvailable, initStorage, clearStorage } from '$lib/state/storage.svelte';
 	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
 	import { devconsole } from '$lib/utils';
-	import { backupService } from '$lib/sync/backup.svelte';
 
 	const { children, data } = $props();
 
@@ -28,9 +27,7 @@
 	if (browser) {
 		const { isUserPasscodeSet, clientId } = conditions;
 		if (!isUserPasscodeSet && clientId && !isStorageAvailable()) {
-			initStorage(clientId).then((ok) => {
-				if (ok) backupService.init();
-			});
+			initStorage(clientId);
 		}
 	}
 
@@ -38,7 +35,6 @@
 	$effect(() => {
 		const { isUserPasscodeSet, isAppLocked } = conditions;
 		if (isUserPasscodeSet && !isStorageAvailable() && !isAppLocked) {
-			backupService.stopAutoSync();
 			clearStorage();
 			conditionsContext.updateCondition('isAppLocked', true);
 		}
@@ -52,7 +48,6 @@
 				const ok = await initStorage(clientId);
 				if (ok) {
 					conditionsContext.updateCondition('isAppLocked', false);
-					backupService.init();
 				}
 			} else {
 				unlockScreenRef?.openPasscodeDialog();

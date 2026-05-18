@@ -5,7 +5,7 @@
 	import Switch from '../ui/Switch.svelte';
 	import RecoveryKit from './RecoveryKit.svelte';
 	import RecoveryScannerDialog from './RecoveryScannerDialog.svelte';
-	import { backupService } from '$lib/sync/backup.svelte';
+	import { backupService, verifyCloudBackupMnemonic, adoptCloudBackup } from '$lib/sync/backup.svelte';
 	import { driveClient } from '$lib/sync/gdrive';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { rotateMSK } from '$lib/state/storage.svelte';
@@ -119,9 +119,9 @@
 					})
 				);
 
-				const isValid = await backupService.verifyCloudBackupMnemonic(words);
+				const isValid = await verifyCloudBackupMnemonic(words);
 				if (isValid) {
-					await backupService.adoptCloudBackup(words);
+					await adoptCloudBackup(words);
 				} else {
 					throw new Error('Incorrect recovery phrase. Backup could not be linked.');
 				}
