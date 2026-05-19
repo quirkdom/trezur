@@ -46,9 +46,9 @@ Individual files have small, inline TODO reminders.
   - In `storage.init()`, `cryptoKey` is gathered from `keyManager.unlock()`.
   - In `backup.sync()`, we JIT initialize an instance of `CloudFileVault` which needs `cryptoKey`. Since sync can only happen in unlocked state, maybe we can do some sort of unlock mechanism here as well.
 
-- [ ] (P1) Cloud Sync Perf Improvements
-  - [ ] Do quick verification on the headers, instead of downloading the entire backup file. Need range reads from gDrive for that.
-  - [ ] Also, revisit all the stored metadata in local vault, related to backup engine.
+- [x] (P1) Cloud Sync Perf Improvements
+  - [x] Do quick verification on the headers, instead of downloading the entire backup file. Need range reads from gDrive for that.
+  - [x] Also, revisit all the stored metadata in local vault, related to backup engine.
   - [x] Revisit auto sync 60s interval loop. Do we really need to poll every 60 secs?
 
 - [ ] Cloud Backup Sync Onboarding UX papercuts
@@ -94,6 +94,7 @@ Individual files have small, inline TODO reminders.
 - [ ] Setup iCloud backup using [CloudKit](https://developer.apple.com/documentation/cloudkit)
 - [ ] Most Recently Used sort order
 - [ ] Better PWA support
+  - [ ] Handle the notch [[ref 1]](https://www.reddit.com/r/PWA/comments/lgdcms/i_wrote_about_how_to_make_pwas_cover_the_notch_on/) [[ref 2]](https://itnext.io/make-your-pwas-look-handsome-on-ios-fd8fdfcd5777)
   - [ ] [iOS Tips](https://www.netguru.com/blog/pwa-ios)
   - [ ] [Webmanifest tips](https://web.dev/learn/pwa/web-app-manifest)
   - [ ] PWA Install: [prompt](https://web.dev/learn/pwa/installation-prompt), [install criteria](https://web.dev/articles/install-criteria), [custom install experience](https://web.dev/articles/customize-install)
