@@ -4,7 +4,7 @@
 	import { updated } from '$app/state';
 	import NavActions from '$lib/components/nav/NavActions.svelte';
 	import PasscodeDialog from '$lib/components/passcode/PasscodeDialog.svelte';
-	import BackupSettingsSection from '$lib/components/sync/BackupSettingsSection.svelte';
+	import CloudSyncBackupSettings from '$lib/components/sync/CloudSyncBackupSettings.svelte';
 	import ExportTokensDialog from '$lib/components/tokens/ExportTokens.svelte';
 	import ImportTokensDialog from '$lib/components/tokens/ImportTokens.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
@@ -168,9 +168,9 @@
 <main>
 	<div class="space-y-6">
 		<section class="space-y-4">
-			<h2 class="text-sm text-zinc-500 uppercase">Backup</h2>
+			<h2 class="text-sm text-zinc-500 uppercase">Backup & Sync</h2>
 
-			<BackupSettingsSection {onRequestPasscode} />
+			<CloudSyncBackupSettings {onRequestPasscode} />
 
 			<div class="flex gap-4">
 				<button

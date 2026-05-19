@@ -132,7 +132,7 @@
 						<h3 class="font-bold">Total Control</h3>
 						<p>
 							Effortlessly import and export your tokens. Set up automatic backups and multi-device sync with your
-							preferred cloud service. <sub class="text-xs text-zinc-500">Coming Soon</sub>
+							preferred cloud service.
 						</p>
 					</div>
 				</div>

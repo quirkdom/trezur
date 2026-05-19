@@ -186,7 +186,7 @@
 
 <div class="divide-y divide-gray-800 rounded-lg bg-zinc-900">
 	<div class="flex items-center justify-between p-4">
-		<span>Google Drive Backup</span>
+		<span>Google Drive</span>
 		{#if connectingProvider === 'gdrive'}
 			<div class="flex h-6 w-10 items-center justify-center">
 				<LoaderCircle size={20} class="animate-spin text-zinc-400" />
