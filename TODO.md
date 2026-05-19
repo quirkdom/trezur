@@ -50,10 +50,12 @@ Individual files have small, inline TODO reminders.
   - [x] Do quick verification on the headers, instead of downloading the entire backup file. Need range reads from gDrive for that.
   - [x] Also, revisit all the stored metadata in local vault, related to backup engine.
   - [x] Revisit auto sync 60s interval loop. Do we really need to poll every 60 secs?
+  - [ ] Cache G-Drive access token in case user action triggers syncs and previous token is still valid (Implicit tokens are usually valid for an hour).
 
 - [ ] Cloud Backup Sync Onboarding UX papercuts
   - [x] Too many alerts for both success and failures. We should integrate into the traffic light backup status that we already have.
   - [x] On first sync, "sync overdue" warning is shown. We should detect this situation and not cause a warning.
+  - [ ] On each G-drive sync, user with multiple logged in Google accounts, may be shown account picker while trying to get a new access token. Try to bypass this by providing an account hint for the connected account while trying to get new token.
   - [ ] Share mode Recovery Kit ("Link Devices") should be a modal instead of a drawer. Easy distinction: Drawers are for forms/actions, Modals are for ephemeral output/displays
 
 - [ ] Fix the container layout of the pages to better position and align text content on Codes screen
@@ -68,6 +70,7 @@ Individual files have small, inline TODO reminders.
 
 - [ ] [AddTokenForm.svelte](src/lib/components/tokens/AddTokenForm.svelte) QR scanner should show similar loading failure / error messages to how [TokenQRCode.svelte](src/lib/components/tokens/TokenQRCode.svelte) does it. TokenQRCode (dynamic lib load -> show QR svg) is awaited; we should adapt the AddTokenForm QR scanner (dynamic lib load -> start camera -> render frames to canvas) to await similarly.
 
+- [ ] Longpress on the app lock button on mobile may select the label text as well. Make non-interactive text elements non-selectable in the app.
 - [x] Fix the longpress interaction on the app lock button. The longpress animation keeps on playing even after the longpress event has been triggered, in all browsers except FF.
 - [x] Reset Option on Wrong Passcode missing from view
 - [x] Refactor how sentinel and encrypted storage metadata is stored
