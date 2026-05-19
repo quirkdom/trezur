@@ -1,282 +1,277 @@
 # Test Flows for Trezur App
 
-Comprehensive test flows covering all app functionality: storage initialization, token management, import/export, settings, security, UI/UX, and edge cases. Use browser dev tools to monitor console logs, storage state, and network activity.
+Comprehensive test flows covering all app functionality. Use browser dev tools to monitor console logs, localStorage state, and network activity.
 
-## Storage Initialization Flows
+## Browser Storage Keys
 
-After the updates (combined `$effect` in `+layout.svelte` and unlock init in `UnlockScreen.svelte`), test these flows to ensure storage initializes correctly, tokens load, and no races/errors occur. Focus on scenarios where storage wasn't previously inited (e.g., direct settings access, post-purge).
+| Key                    | Purpose                                                                |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `T_settings`           | User preferences (`showNextCode`, `sortOrder`) — plaintext             |
+| `T_conditions`         | `clientId`, `isUserPasscodeSet` — plaintext                            |
+| `T_ES_KDF_META`        | KDF parameters: `{ v, name, salt, iterations, hash }` — plaintext JSON |
+| `T_ES_WRAPPED_MSK`     | MSK encrypted with LWK: `{ iv, data }` — stored as JSON arrays         |
+| `T_ES_WRAPPED_MSK_BAK` | Backup wrapped MSK (temporary, during passcode change)                 |
+| `T_ES_tokens`          | Token list ciphertext — AES-GCM encrypted                              |
+| `T_ES_tombstones`      | Tombstone list ciphertext — AES-GCM encrypted                          |
+| `T_ES_backup_state`    | Cloud sync state ciphertext — AES-GCM encrypted                        |
 
-#### 1. **Fresh App Load (No Passcode Set)**
+`T_ES_*` values (except KDF_META) are encrypted via `LocalKVVault` using the payload CryptoKey derived from the MSK.
 
-- **Steps**: Clear localStorage, load `/` (codes page).
-- **Expected**: Storage inits on `clientId` via layout `$effect`. Tokens load/display. No errors.
-- **Storage Check**: `localStorage` should contain `T_settings` with default values. No `T_tokens` if no tokens exist. Encrypted storage initialized with clientId key.
-- **Edge**: Direct load to `/settings` → Storage inits, settings page renders.
+## Cold Start & Storage Init
 
-#### 2. **Fresh App Load (Passcode Set)**
+#### 1. Fresh App Load (No Passcode)
 
-- **Steps**: Set passcode, reload app.
-- **Expected**: App locks. Unlock → Storage inits on passcode, tokens load.
-- **Storage Check**: Encrypted storage should have sentinel set. Tokens encrypted with passcode key.
+- **Steps**: Clear all localStorage, load `/`.
+- **Expected**: App shows empty token list. No lock screen.
+- **Storage Check**: `T_conditions` has `clientId` + `isUserPasscodeSet: false`. `T_ES_KDF_META` + `T_ES_WRAPPED_MSK` exist. `T_settings` created with defaults.
+- **Edge**: Direct load to `/settings` → Storage inits, settings page renders with no errors.
 
-#### 3. **Unlock Flow**
+#### 2. Fresh App Load (Passcode Set)
 
-- **Steps**: With passcode set, reload → Unlock via dialog.
-- **Expected**: `handleUnlock` inits storage on passcode, unlocks app, tokens load immediately.
-- **Storage Check**: Same encrypted storage key persists, no re-encryption during unlock.
+- **Steps**: Set passcode in settings. Close tab. Reopen app.
+- **Expected**: App opens to lock screen with `UnlockScreen`. Tokens hidden.
+- **Storage Check**: `T_conditions` has `isUserPasscodeSet: true`. `T_ES_KDF_META` exists. `T_ES_WRAPPED_MSK` re-wrapped under passcode-derived LWK.
 
-#### 4. **Set Passcode**
+#### 3. Unlock Flow
 
-- **Steps**: In settings, set new passcode.
-- **Expected**: `handleSetPasscode` inits storage, migrates tokens, updates conditions.
-- **Storage Check**: New encrypted storage created with passcode key, sentinel set, tokens migrated and re-encrypted.
+- **Steps**: On lock screen, long-press lock icon → passcode dialog opens. Enter correct passcode.
+- **Expected**: `isAppLocked` becomes false, tokens appear. No flash of main content. No dialog remounting.
+- **Storage Check**: No storage changes during unlock. Only in-memory `cryptoKey` is derived and cached.
 
-#### 5. **Change Passcode**
+#### 4. Set Passcode
 
-- **Steps**: In settings, change existing passcode.
-- **Expected**: `handleChangePasscode` re-inits storage, migrates tokens.
-- **Storage Check**: Storage re-initialized with new passcode key, tokens re-encrypted, old storage cleared.
+- **Steps**: No passcode set. Go to Settings → Set Passcode → enter passcode → confirm.
+- **Expected**: Passcode set. `isUserPasscodeSet` becomes true. Lock icon now shows locked state.
+- **Storage Check**: `T_ES_WRAPPED_MSK` re-wrapped with passcode-derived LWK (was wrapped with clientId-LWK). `T_ES_KDF_META` may update with new salt. `T_conditions` shows `isUserPasscodeSet: true`. Tokens unchanged.
 
-#### 6. **Remove Passcode**
+#### 5. Change Passcode
 
-- **Steps**: In settings, remove passcode.
-- **Expected**: `handleRemovePasscode` inits storage on `clientId`, updates conditions.
-- **Storage Check**: Sentinel removed, storage re-initialized with clientId key, tokens re-encrypted with device key.
+- **Steps**: Passcode already set. Settings → Change Passcode → enter old → enter new → confirm.
+- **Expected**: Passcode changed. Lock/unlock works with new passcode. Tokens intact.
+- **Storage Check**: `T_ES_KDF_META` updated with new salt. `T_ES_WRAPPED_MSK` re-wrapped with new passcode-derived LWK. `T_ES_WRAPPED_MSK_BAK` should be absent (deleted after successful change). Token data unchanged.
 
-#### 7. **Purge All Data**
+#### 6. Remove Passcode
 
-- **Steps**: In settings, purge data.
-- **Expected**: Resets storage/conditions, `goto('/')` with invalidate → Layout `$effect` re-runs, inits on new `clientId`, tokens reload.
-- **Storage Check**: All localStorage cleared (`T_settings`, `T_tokens` removed), encrypted storage reset.
+- **Steps**: Passcode set. Settings → Remove Passcode → type confirmation → confirm.
+- **Expected**: `isUserPasscodeSet` becomes false. Lock icon shows unlocked state. App no longer locks on reload.
+- **Storage Check**: `T_ES_WRAPPED_MSK` re-wrapped with clientId-derived LWK. `T_conditions` shows `isUserPasscodeSet: false`. Tokens unchanged.
 
-#### 8. **Direct Settings Access (No Prior Codes Visit)**
+#### 7. App Lock (Manual)
 
-- **Steps**: Clear storage, navigate directly to `/settings`.
-- **Expected**: Layout `$effect` inits storage on `clientId` (since no passcode), settings render.
-- **Storage Check**: `T_settings` created with defaults, no encrypted storage changes.
+- **Steps**: Passcode set. Long-press lock icon in FooterNav while unlocked.
+- **Expected**: `isAppLocked = true`. UnlockScreen renders. In-memory cryptoKey cleared.
+- **Storage Check**: No localStorage changes. Encrypted data remains, just not decryptable without passcode.
 
-#### 9. **App Lock/Unlock Toggle**
+#### 8. App Unlock Without Passcode
 
-- **Steps**: With passcode, toggle lock in settings.
-- **Expected**: Locks/unlocks without re-init (storage persists).
-- **Storage Check**: No storage changes, only UI state changes.
+- **Steps**: No passcode set. Lock → long-press lock icon to unlock.
+- **Expected**: `initStorage(clientId)` re-derives keys. App unlocks immediately, no dialog.
+- **Storage Check**: No storage changes.
 
-#### 10. **Navigation Between Pages**
+#### 9. Forgot Passcode
 
-- **Steps**: Load codes, nav to settings, back to codes.
-- **Expected**: Storage stays inited, no re-init calls.
-- **Storage Check**: Storage state unchanged, no additional localStorage writes.
+- **Steps**: On lock screen, "Forgot passcode?" → type "YES" → confirm.
+- **Expected**: All data purged. `isAppLocked = false`, `isUserPasscodeSet = false`. App resets to `/` with fresh MSK, empty vault.
+- **Storage Check**: `T_ES_KDF_META`, `T_ES_WRAPPED_MSK`, and all `T_ES_*` vault keys deleted. `T_conditions` reset. Fresh MSK generated and wrapped with clientId-LWK.
 
-#### 11. **Forgot Passcode (Reset)**
+#### 10. Purge All Data
 
-- **Steps**: In unlock screen, forgot passcode → Confirm reset.
-- **Expected**: Resets storage/conditions, `goto('/')` → Re-init on new `clientId`.
-- **Storage Check**: All encrypted storage cleared, new clientId-based storage initialized.
+- **Steps**: Settings → Delete all data → type confirmation → confirm.
+- **Expected**: All data cleared. App redirects to `/` and cold-starts fresh.
+- **Storage Check**: All localStorage keys removed. `T_settings`, `T_conditions`, all `T_ES_*` keys gone.
 
-## Token Management Flows
+#### 11. Page Reload (Passcode Set)
 
-#### 12. **Manual Token Addition**
+- **Steps**: Passcode set. Unlock app normally. Reload page.
+- **Expected**: App opens to lock screen. Auto-lock `$effect` fires: detects passcode set + no cryptoKey in memory → sets `isAppLocked = true`.
+- **Storage Check**: No storage changes.
 
-- **Steps**: Click add button → Fill form (issuer, account, secret) → Submit.
-- **Expected**: Token validates, adds to list, appears immediately. Duplicate secrets rejected.
-- **Storage Check**: `T_tokens` in encrypted storage should contain new token with generated ID, proper fields.
-- **Edge**: Invalid Base32 secret, missing required fields, special characters.
+#### 12. Navigation Between Pages
 
-#### 13. **QR Code Scanning**
+- **Steps**: Load `/`. Navigate to `/settings`. Navigate back to `/`.
+- **Expected**: Vault stays initialized. No re-init. No errors.
+- **Storage Check**: No additional localStorage writes.
 
-- **Steps**: Click add → Scan QR → Camera opens → Point at valid otpauth QR.
-- **Expected**: QR parses, form auto-fills, submits automatically if complete.
-- **Storage Check**: Same as manual addition - new token stored in `T_tokens`.
-- **Edge**: Invalid QR format, camera permission denied, partial QR data.
+## Token Management
 
-#### 14. **Token Code Generation**
+#### 13. Manual Token Addition
 
-- **Steps**: Add TOTP token → Wait for code changes.
-- **Expected**: Code updates every 30s, shows countdown, next code displays when enabled.
-- **Storage Check**: No storage changes during code generation - only runtime calculation.
-- **Edge**: HOTP counter increment, custom periods/algorithms.
+- **Steps**: Add button → fill issuer, account, Base32 secret → submit.
+- **Expected**: Token validates and appears in list. Duplicate `id:secret` pairs rejected silently.
+- **Storage Check**: `T_ES_tokens` in vault updated after encryption. All `updatedAt` fields stamped with `Date.now()`.
 
-#### 15. **Token Editing**
+#### 14. QR Code Scanning
 
-- **Steps**: Click edit on token → Modify fields → Save.
-- **Expected**: Changes persist, validation works, UI updates immediately.
-- **Storage Check**: `T_tokens` updated with modified token fields, same ID preserved.
+- **Steps**: Add → Scan QR → point at valid `otpauth://` QR.
+- **Expected**: QR parsed, form auto-fills, submits if complete.
+- **Edge**: Invalid QR format, camera denied, partial data — should show clear error, no partial additions.
 
-#### 16. **Token Deletion**
+#### 15. Token Code Display
 
-- **Steps**: Click delete on token → Confirm.
-- **Expected**: Token removed from list and storage, no orphaned data.
-- **Storage Check**: Token removed from `T_tokens` array, array compacted.
+- **Steps**: Add TOTP token → watch code change.
+- **Expected**: Code updates every 30 seconds. Countdown shown. "Next code" displays when setting enabled.
+- **Storage Check**: No writes during code generation (runtime calculation).
 
-#### 17. **Search & Filter**
+#### 16. Token Editing
 
-- **Steps**: Type in search bar with tokens present.
-- **Expected**: Filters by issuer/account, case-insensitive, real-time updates.
-- **Storage Check**: No storage changes - filtering is client-side only.
+- **Steps**: Edit token → change account name or other field → save.
+- **Expected**: Changes persist. Only changed fields get new `updatedAt` timestamps.
+- **Storage Check**: `T_ES_tokens` updated. Unchanged field timestamps preserved.
 
-#### 18. **Token Sorting**
+#### 17. Token Deletion
 
-- **Steps**: Click sort button → Change order (asc/desc/none).
-- **Expected**: Tokens reorder, setting persists across sessions.
-- **Storage Check**: `T_settings` updated with new `sortOrder` value.
+- **Steps**: Delete token → confirm.
+- **Expected**: Token removed from list. Tombstone created.
+- **Storage Check**: Token removed from `T_ES_tokens`. Tombstone added to `T_ES_tombstones` with `Date.now()` timestamp.
 
-## Import/Export Flows
+#### 18. Search & Filter
 
-#### 19. **Import from Trezur Backup**
+- **Steps**: Type in search bar with multiple tokens.
+- **Expected**: Real-time case-insensitive filtering by issuer/account.
+- **Storage Check**: No writes. Client-side filter only.
 
-- **Steps**: Settings → Import → Select Trezur JSON file.
-- **Expected**: Tokens parse and add, duplicates handled, success message.
-- **Storage Check**: `T_tokens` updated with imported tokens, deduplication applied, IDs preserved from import.
+#### 19. Token Sorting
 
-#### 20. **Import from External Services**
+- **Steps**: Change sort order in settings.
+- **Expected**: Tokens reorder. Setting persists across sessions.
+- **Storage Check**: `T_settings.sortOrder` updated.
 
-- **Steps**: Settings → Import → Select service (LastPass, Raivo, 2FAS, Ente, Aegis, Chronos).
-- **Expected**: File parses correctly, tokens import with proper mapping.
-- **Storage Check**: `T_tokens` contains new tokens with generated IDs, proper field mapping from source format.
-- **Edge**: Invalid file format, missing fields, unsupported algorithms.
+## Import/Export
 
-#### 21. **Export Tokens**
+#### 20. Import Trezur JSON
 
-- **Steps**: Settings → Export → Set filename → Export.
-- **Expected**: JSON downloads, contains all token data, proper format.
-- **Storage Check**: No storage changes - export reads from `T_tokens` without modification.
+- **Steps**: Settings → Import → select Trezur backup file.
+- **Expected**: Tokens parse and add. Duplicates detected by `id:secret`.
+- **Storage Check**: `T_ES_tokens` updated with imported tokens.
 
-#### 22. **Import Error Handling**
+#### 21. Import from External Services
 
-- **Steps**: Import invalid/corrupted file.
-- **Expected**: Clear error message, no partial imports, form remains open.
-- **Storage Check**: `T_tokens` unchanged if import fails.
+- **Steps**: Import from LastPass, Raivo, 2FAS, Ente, Aegis, Chronos formats.
+- **Expected**: Correct mapping. Proper `updatedAt` timestamps (imports get `Date.now()`).
+- **Edge**: Invalid/corrupt file → clear error, no partial imports.
 
-## Settings & Security Flows
+#### 22. Export Tokens
 
-#### 23. **Settings Changes**
+- **Steps**: Settings → Export → save file.
+- **Expected**: JSON downloads with all token data.
+- **Storage Check**: No changes. Read-only operation.
 
-- **Steps**: Toggle "Show next code", change sort order.
-- **Expected**: Settings persist, UI updates immediately, tokens reflect changes.
-- **Storage Check**: `T_settings` updated with new values (`showNextCode`, `sortOrder`).
+## Cloud Sync
 
-#### 24. **Passcode Operations (Beyond Init)**
+#### 23. Enable Backup (Fresh)
 
-- **Steps**: Set/change/remove passcode with existing tokens.
-- **Expected**: Migration works, no data loss, proper encryption.
-- **Storage Check**: See flows 4-6 for specific storage changes during passcode operations.
+- **Steps**: Settings → toggle Google Drive Backup ON. Set passcode if prompted. Sign in with Google. Save recovery words.
+- **Expected**: Backup enabled. RecoveryKit shows 24 words. First backup pushed to Drive.
+- **Storage Check**: `T_ES_backup_state` updated with `autoSyncEnabled: true`. Cloud file `tokens.trzr` exists in Google Drive `appDataFolder`.
 
-#### 25. **App Lock/Unlock UI**
+#### 24. Enable Backup (Existing) — Recovery
 
-- **Steps**: With passcode set, use lock toggle in settings.
-- **Expected**: UI hides tokens, unlock dialog appears, state persists.
-- **Storage Check**: No storage changes - lock state is runtime only.
+- **Steps**: On a new device with existing cloud backup, toggle backup ON. Sign in to same Google account. Scan QR or enter 24 recovery words.
+- **Expected**: `verifyCloudBackupMnemonic` passes. Backup adopted. Tokens sync down.
+- **Storage Check**: MSK replaced with mnemonic-derived key. Local tokens replaced by cloud state.
 
-#### 26. **Data Purge Confirmation**
+#### 25. Auto-Sync After Token Change
 
-- **Steps**: Click "Delete all app data" → Enter confirmation.
-- **Expected**: All data cleared, app resets to initial state.
-- **Storage Check**: All localStorage cleared (`T_settings`, `T_tokens`), encrypted storage reset.
+- **Steps**: Backup enabled. Add/edit/delete a token. Wait 30 seconds.
+- **Expected**: Cloud sync triggers. Tokens synced to Google Drive.
+- **Storage Check**: `tokens.trzr` updated on Drive. ETag changes.
 
-## UI/UX Flows
+#### 26. Sync Conflict Resolution
 
-#### 27. **Navigation**
+- **Steps**: Two devices with same account, same MSK, backup enabled. Make different changes on each device. Let both sync.
+- **Expected**: LWW per-field merge applies. Later field timestamps win. No data loss.
+- **Storage Check**: Merged token has per-field timestamps from the later writer for each field.
 
-- **Steps**: Navigate between / and /settings, use back buttons.
-- **Expected**: Smooth transitions, state preserved, no layout shifts.
+#### 27. Sync After Unlock
 
-#### 28. **Modal/Dialog Interactions**
+- **Steps**: Backup enabled. Lock app. Wait > 10s. Unlock.
+- **Expected**: Sync triggers ~10s after unlock.
+- **Storage Check**: Sync runs if state differs from cloud.
 
-- **Steps**: Open add/import/export modals, interact with forms.
-- **Expected**: Proper focus management, ESC to close, overlay behavior.
+#### 28. Disable Backup
 
-#### 29. **Loading States**
+- **Steps**: Toggle backup OFF in settings.
+- **Expected**: Auto-sync stops. Cloud file remains on Drive (not deleted).
+- **Storage Check**: `T_ES_backup_state.autoSyncEnabled = false`.
 
-- **Steps**: Trigger operations that load (token loading, camera init).
-- **Expected**: Spinners show, UI disabled during operations.
+## Recovery Kit & Mnemonic
 
-#### 30. **Responsive Design**
+#### 29. RecoveryKit Display
 
-- **Steps**: Test on mobile/desktop, different screen sizes.
-- **Expected**: Layout adapts, touch targets appropriate, text readable.
+- **Steps**: Settings → Backup → "View Recovery Kit".
+- **Expected**: 24 BIP39 words shown in 4-column grid. No word numbers. Copy/download available. QR code for device linking.
+- **Storage Check**: No changes.
 
-#### 31. **Error States**
+#### 30. QR Code Scanning for Recovery
 
-- **Steps**: Trigger errors (invalid input, network issues).
-- **Expected**: Clear error messages, recovery options, no crashes.
+- **Steps**: On new device, choose "Scan QR Code" during recovery. Point at recovery QR from another device.
+- **Expected**: Scanner opens. QR decoded. Mnemonic verified via header auth tag.
+- **Edge**: Non-Trezur QR → error. Camera denied → fallback to manual entry.
 
-## Migration & Update Flows
+#### 31. Manual Recovery Entry
 
-#### 32. **App Update Migration**
+- **Steps**: Recovery flow → enter 24 words manually.
+- **Expected**: Words validated as BIP39. Header auth tag verified. Backup adopted.
+- **Edge**: Invalid words → clear error. Wrong words (valid BIP39, wrong key) → header verification fails → error.
 
-- **Steps**: Load app with migration-needed flag set.
-- **Expected**: Alert shows, backup downloads, migration completes.
-- **Storage Check**: Tokens migrated to new encryption format, old storage cleared, migration flag reset.
+## Edge Cases
 
-#### 33. **Version Compatibility**
+#### 32. Storage Quota
 
-- **Steps**: Import exports from different app versions.
-- **Expected**: Backward compatibility, graceful degradation.
-- **Storage Check**: Imported tokens stored in current format, regardless of export version.
+- **Steps**: Add many tokens, monitor localStorage usage.
+- **Expected**: Graceful failure if quota exceeded. User notified.
+- **Storage Check**: Monitor for quota errors.
 
-## Edge Cases & Error Scenarios
+#### 33. Legacy Migration (v0 → v1 KDF)
 
-#### 34. **Invalid Token Data**
+- **Steps**: Manually set `T_ES_KDF_META` with `v: 0`. Set `T_ES_WRAPPED_MSK` with old-format wrapped data. Reload.
+- **Expected**: KeyManager detects v0, upgrades to v1 metadata, re-wraps MSK with new salt/iterations. Tokens intact.
+- **Storage Check**: `T_ES_KDF_META.v` becomes `1`. `T_ES_WRAPPED_MSK` re-wrapped.
 
-- **Steps**: Add token with invalid secret/algorithm.
-- **Expected**: Validation prevents save, clear error messages.
-- **Storage Check**: `T_tokens` unchanged if validation fails.
+#### 34. MSK Backup Self-Healing
 
-#### 35. **Storage Quota Issues**
+- **Steps**: Set `T_ES_WRAPPED_MSK` to garbage. Set `T_ES_WRAPPED_MSK_BAK` to valid wrapped MSK. Reload and unlock.
+- **Expected**: KeyManager detects corrupted primary, restores from backup, deletes backup.
+- **Storage Check**: `T_ES_WRAPPED_MSK` restored. `T_ES_WRAPPED_MSK_BAK` absent.
 
-- **Steps**: Fill browser storage, add more tokens.
-- **Expected**: Graceful failure, user notification.
-- **Storage Check**: Monitor localStorage size, check for quota exceeded errors in console.
+#### 35. Concurrent Operations
 
-#### 36. **Camera Access Issues**
+- **Steps**: Import tokens while adding one manually.
+- **Expected**: No race conditions. Both operations' tokens present.
+- **Storage Check**: All tokens in vault.
 
-- **Steps**: Deny camera permission, try QR scan.
-- **Expected**: Fallback to manual entry, clear error message.
-- **Storage Check**: No storage changes during camera operations.
+#### 36. Offline Operation
 
-#### 37. **Concurrent Operations**
+- **Steps**: Disconnect network. Use app normally. Add/edit/delete tokens.
+- **Expected**: All local operations work. Cloud sync defers.
+- **Storage Check**: Local vault updated. Sync will catch up when online.
 
-- **Steps**: Import while adding tokens manually.
-- **Expected**: No race conditions, proper state management.
-- **Storage Check**: `T_tokens` should contain all tokens from both operations, no data loss.
+#### 37. Data Corruption
 
-#### 38. **Browser Compatibility**
+- **Steps**: Manually corrupt `T_ES_WRAPPED_MSK` in localStorage. Reload.
+- **Expected**: App detects failed decryption. Falls back to lock screen state.
+- **Storage Check**: Corrupted data detected, app doesn't crash.
 
-- **Steps**: Test in different browsers, private/incognito mode.
-- **Expected**: Core functionality works, graceful degradation.
-- **Storage Check**: localStorage behavior may vary (incognito mode clears on close).
+## UI / UX
 
-#### 39. **Network Issues**
+#### 38. Responsive Design
 
-- **Steps**: Offline operation, service worker behavior.
-- **Expected**: App works offline, sync when online.
-- **Storage Check**: All data remains local, no network-dependent storage changes.
+- **Steps**: Test on mobile (iOS Safari, Android Chrome) and desktop.
+- **Expected**: Layout adapts. Touch targets adequate. Text readable.
 
-#### 40. **Data Corruption Recovery**
+#### 39. Keyboard Navigation
 
-- **Steps**: Manually corrupt localStorage, reload app.
-- **Expected**: App handles gracefully, offers recovery options.
-- **Storage Check**: Corrupted data detected, app falls back to clean state or shows recovery UI.
+- **Steps**: Tab through all interactive elements.
+- **Expected**: Focus visible. Forms operable. Dialogs trap focus.
+
+#### 40. Service Worker / PWA
+
+- **Steps**: Install as PWA. Use offline. Return online.
+- **Expected**: App loads from cache offline. Updates when online.
 
 ## General Checks
 
-- **No Races/Errors**: Monitor console for async issues, uncaught promises, or "storage not ready" errors.
-- **Token Loading**: Ensure tokens appear after storage init (via `+page.svelte` `$effect`).
-- **SSR/Safety**: No init on server; browser checks work.
-- **Performance**: No excessive re-inits; init only when needed. Token generation smooth.
-- **Security**: Secrets never logged, encrypted storage works, no XSS vulnerabilities.
-- **Accessibility**: Keyboard navigation, screen reader support, color contrast.
-- **UI Consistency**: Consistent styling, loading states, error handling across components.
-- **Data Integrity**: No data loss during operations, proper validation.
-- **Cross-Platform**: Test on iOS Safari, Android Chrome, desktop browsers.
-- **Storage Integrity**: `T_tokens` and `T_settings` in localStorage match app state. Encrypted storage properly initialized. No orphaned data.
-- **Storage Performance**: Storage operations complete within reasonable time. No blocking operations on main thread.
-
-Run in dev mode with `$inspect` logs. Use browser dev tools for storage inspection, network monitoring, and performance profiling. Test on multiple devices and browsers. Report any failures for fixes.
-
-### Browser Storage Keys to Monitor
-
-- `T_settings`: User preferences (showNextCode, useBiometricUnlock, sortOrder)
-- `T_tokens`: Encrypted token data (only in dev mode for debugging)
-- Encrypted storage: Main token storage with clientId/passcode keys
-- Sentinels: Passcode validation markers in encrypted storage
+- **No console errors**: Monitor for uncaught promises, init failures, React warnings.
+- **Security**: Secrets never logged. Encrypted data not readable without key. No XSS vectors.
+- **Performance**: Storage operations non-blocking. Token codes smooth. No excessive re-renders.
+- **Data integrity**: No data loss during passcode changes, imports, or sync conflicts.
