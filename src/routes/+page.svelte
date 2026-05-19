@@ -22,7 +22,7 @@
 	const conditions = $derived(conditionsContext.getConditions());
 	let isAppleDevice = $derived(conditions.isAppleDevice);
 
-	$inspect('tokensContext.current', tokensContext.current);
+	// $inspect('tokensContext.current', tokensContext.current); // for debugging
 
 	let isLoading = $derived(browser && tokensContext.current?.storage !== getLocalVault());
 
@@ -51,7 +51,9 @@
 	 */
 	function handleAddToken(tokenable) {
 		if (!tokensContext.current) {
-			devconsole.warn('App without valid Tokens context. Attempts to add token will fail.');
+			devconsole.warn(
+				'[Codes > Add Token] App without valid Tokens context. Attempts to add token will fail; skipping.'
+			);
 			return;
 		}
 

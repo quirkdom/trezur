@@ -6,19 +6,16 @@
 	import { createConditionsContext } from '$lib/state/conditions.svelte';
 	import { isStorageAvailable, initStorage, clearStorage } from '$lib/state/storage.svelte';
 	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
-	import { devconsole } from '$lib/utils';
 
 	const { children, data } = $props();
-
-	devconsole.log('+layout.js load data', data);
 
 	createSettingsContext(data.settings);
 	const conditionsContext = createConditionsContext(data.conditions);
 	const conditions = $derived(conditionsContext.getConditions());
 
-	$inspect('conditions.isAppLocked', conditions.isAppLocked); // for debugging
-	$inspect('conditions.isUserPasscodeSet', conditions.isUserPasscodeSet); // for debugging
-	$inspect('conditions.clientId', conditions.clientId); // for debugging
+	// $inspect('conditions.isAppLocked', conditions.isAppLocked); // for debugging
+	// $inspect('conditions.isUserPasscodeSet', conditions.isUserPasscodeSet); // for debugging
+	// $inspect('conditions.clientId', conditions.clientId); // for debugging
 
 	/** @type {{ openPasscodeDialog: () => void } | null} */
 	let unlockScreenRef = $state(null);

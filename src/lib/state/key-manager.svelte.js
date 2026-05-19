@@ -1,3 +1,4 @@
+import { devconsole } from '$lib/utils';
 import { deriveLWK, generateMSK, importPayloadKey, unwrapMSK, wrapMSK } from '$lib/utils/crypto-keys';
 import { pic, getLegacySalt, generateKDFMetadata } from '$lib/utils/salada';
 
@@ -137,7 +138,7 @@ class KeyManager {
 			this.#passcode = passkey;
 			return this.#cryptoKey;
 		} catch (err) {
-			console.error('[KeyManager] Failed to unlock:', err);
+			devconsole.error('[KeyManager] Failed to unlock:', err);
 			return null;
 		}
 	}

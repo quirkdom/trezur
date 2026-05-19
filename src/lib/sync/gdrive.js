@@ -95,7 +95,7 @@ class DriveClient {
 				resolve();
 			};
 			script.onerror = (e) => {
-				devconsole.error('[Drive] Failed to load GSI script', e);
+				devconsole.error('[G-Drive] Failed to load GSI script', e);
 				reject(e);
 			};
 			document.head.appendChild(script);
@@ -123,9 +123,9 @@ class DriveClient {
 				});
 			}
 			this.isReady = true;
-			devconsole.log(`[Drive] GSI Client initialized (${this.flow} flow)`);
+			devconsole.log(`[G-Drive] GSI Client initialized (${this.flow} flow)`);
 		} catch (e) {
-			devconsole.error('[Drive] Failed to initialize GSI', e);
+			devconsole.error('[G-Drive] Failed to initialize GSI', e);
 		}
 	}
 
@@ -139,7 +139,7 @@ class DriveClient {
 	 */
 	#handleTokenResponse(resp) {
 		if (resp.error) {
-			devconsole.error('[Drive] Token error', resp);
+			devconsole.error('[G-Drive] Token error', resp);
 			if (this.#signInRejecter) {
 				this.#signInRejecter(resp.error);
 				this.#signInResolver = null;
@@ -153,7 +153,7 @@ class DriveClient {
 		this.isSignedIn = true;
 
 		devconsole.log(
-			'[Drive] Token received:',
+			'[G-Drive] Token received:',
 			this.accessToken,
 			'expires at: ',
 			new Date(this.tokenExpiry).toLocaleString()
@@ -171,7 +171,7 @@ class DriveClient {
 	 */
 	async #handleCodeResponse(resp) {
 		if (resp.error) {
-			devconsole.error('[Drive] Code error', resp);
+			devconsole.error('[G-Drive] Code error', resp);
 			if (this.#signInRejecter) {
 				this.#signInRejecter(resp.error);
 				this.#signInResolver = null;
@@ -205,7 +205,7 @@ class DriveClient {
 			this.tokenExpiry = Date.now() + tokens.expires_in * 1000 - 60000;
 			this.isSignedIn = true;
 
-			devconsole.log('[Drive] Tokens received (PKCE)', tokens);
+			devconsole.log('[G-Drive] Tokens received (PKCE)', tokens);
 
 			if (this.#signInResolver) {
 				this.#signInResolver(this.accessToken || '');
@@ -213,7 +213,7 @@ class DriveClient {
 				this.#signInRejecter = null;
 			}
 		} catch (e) {
-			devconsole.error('[Drive] Token exchange error', e);
+			devconsole.error('[G-Drive] Token exchange error', e);
 			if (this.#signInRejecter) {
 				this.#signInRejecter(e);
 				this.#signInResolver = null;
@@ -270,7 +270,7 @@ class DriveClient {
 	signOut() {
 		if (this.accessToken && typeof google !== 'undefined') {
 			google.accounts.oauth2.revoke(this.accessToken, () => {
-				devconsole.log('[Drive] Token revoked');
+				devconsole.log('[G-Drive] Token revoked');
 			});
 		}
 		this.accessToken = null;
@@ -287,7 +287,7 @@ class DriveClient {
 		await this.load();
 
 		if (!this.accessToken || Date.now() > this.tokenExpiry) {
-			devconsole.log('[Drive] Token expired or missing, trying silent refresh...');
+			devconsole.log('[G-Drive] Token expired or missing, trying silent refresh...');
 			try {
 				const token = await this.signInSilent();
 				return token;
@@ -322,7 +322,7 @@ class DriveClient {
 		this.accessToken = tokens.access_token;
 		this.tokenExpiry = Date.now() + tokens.expires_in * 1000 - 60000;
 
-		devconsole.log('[Drive] Token refreshed (PKCE)');
+		devconsole.log('[G-Drive] Token refreshed (PKCE)');
 		return this.accessToken;
 	}
 

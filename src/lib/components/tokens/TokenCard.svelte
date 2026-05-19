@@ -56,7 +56,7 @@
 	 */
 	function handleUpdate(updates) {
 		if (!tokensContext.current) {
-			devconsole.warn('App without valid Tokens context. Attempts to update token will fail.');
+			devconsole.warn('[TokenCard] App without valid Tokens context. Attempts to update token will fail; skipping.');
 			return;
 		}
 		tokensContext.current.updateToken(id, updates);
@@ -64,7 +64,7 @@
 
 	function handleDelete() {
 		if (!tokensContext.current) {
-			devconsole.warn('App without valid Tokens context. Attempts to delete token will fail.');
+			devconsole.warn('[TokenCard] App without valid Tokens context. Attempts to delete token will fail; skipping.');
 			return;
 		}
 

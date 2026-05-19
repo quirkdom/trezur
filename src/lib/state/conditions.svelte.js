@@ -91,7 +91,9 @@ class ConditionsCtx {
 		this.state = DEFAULT_CONDITIONS;
 		purge();
 
-		devconsole.warn("Resetting conditions always purges it from persistent storage. This won't survive an app reload.");
+		devconsole.warn(
+			"[Conditions] Resetting conditions always purges it from persistent storage. This won't survive an app reload."
+		);
 	}
 }
 

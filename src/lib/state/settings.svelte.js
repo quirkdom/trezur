@@ -80,7 +80,7 @@ class SettingsCtx {
 			purge();
 
 			devconsole.warn(
-				"Resetting settings also purges it from persistent storage by default. This won't survive an app reload."
+				"[Settings] Resetting settings also purges it from persistent storage by default. This won't survive an app reload."
 			);
 		}
 	}

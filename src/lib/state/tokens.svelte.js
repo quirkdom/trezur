@@ -186,7 +186,7 @@ class TokensCtx {
 	updateToken(id, updates) {
 		const tokenIndex = this.#tokens.findIndex((t) => t.id === id);
 		if (tokenIndex === -1) {
-			devconsole.warn(`Token with id ${id} not found for update.`);
+			devconsole.error(`[Tokens] Token with id ${id} not found for update; skipping.`);
 			return; // Token not found
 		}
 
@@ -295,7 +295,7 @@ class TokensContext {
 		this.#current = null;
 
 		devconsole.warn(
-			'App without valid Tokens context; subsequent token operations will fail. Call iMake() to re-initialize.'
+			'[Tokens] App without valid Tokens context; subsequent token operations will fail. Call iMake() to re-initialize.'
 		);
 	}
 
@@ -310,7 +310,7 @@ class TokensContext {
 		this.#current = null;
 
 		devconsole.warn(
-			'App without valid Tokens context; subsequent token operations will fail. Remember to invalidate app state and reload the app.'
+			'[Tokens] App without valid Tokens context; subsequent token operations will fail. Remember to invalidate app state and reload the app.'
 		);
 	}
 }

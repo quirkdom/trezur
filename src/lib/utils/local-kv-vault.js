@@ -4,6 +4,7 @@
  */
 
 import { cip, pic } from '$lib/utils/salada';
+import { devconsole } from '.';
 
 const T_ES_ = 'T_ES_';
 
@@ -41,7 +42,7 @@ export class LocalKVVault {
 			const jsonStr = new TextDecoder().decode(decrypted);
 			return JSON.parse(jsonStr);
 		} catch (err) {
-			console.error(`[LocalKVVault] Failed to decrypt key ${key}:`, err);
+			devconsole.error(`[LocalKVVault] Failed to decrypt key ${key}:`, err);
 			return null;
 		}
 	}

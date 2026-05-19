@@ -73,7 +73,7 @@
 				cloudSyncFlowReject = null;
 			}
 		} catch (err) {
-			devconsole.error('[Passcode] Set failed:', err);
+			devconsole.error('[Settings > Passcode] Set failed:', err);
 			alert('Failed to set passcode. Your data is unchanged — please try again.');
 			if (cloudSyncFlowReject) {
 				cloudSyncFlowReject(err);
@@ -90,7 +90,7 @@
 
 			await keyManager.changePasscode(newPasscode);
 		} catch (err) {
-			devconsole.error('[Passcode] Change failed:', err);
+			devconsole.error('[Settings > Passcode] Change failed:', err);
 			alert('Failed to change passcode. Your data is unchanged — please try again.');
 		}
 	}
@@ -114,7 +114,7 @@
 
 			conditionsContext.updateCondition('isUserPasscodeSet', false);
 		} catch (err) {
-			devconsole.error('[Passcode] Remove failed:', err);
+			devconsole.error('[Settings > Passcode] Remove failed:', err);
 			alert('Failed to remove passcode. Your data is unchanged — please try again.');
 		}
 	}
@@ -145,7 +145,9 @@
 	function handleImport(tokens) {
 		if (tokens?.length) {
 			if (!tokensContext.current) {
-				devconsole.warn('App without valid Tokens context. Attempts to import tokens will fail.');
+				devconsole.warn(
+					'[Settings > Import] App without valid Tokens context. Attempts to import tokens will fail; skipping.'
+				);
 				return;
 			}
 
