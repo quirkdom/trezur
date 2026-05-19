@@ -5,10 +5,13 @@
 	import Switch from '../ui/Switch.svelte';
 	import RecoveryKit from './RecoveryKit.svelte';
 	import RecoveryScannerDialog from './RecoveryScannerDialog.svelte';
-	import { backupService, verifyCloudBackupMnemonic, adoptCloudBackup } from '$lib/sync/backup.svelte';
+	import { cloudSyncService } from '$lib/sync/cloud-sync.svelte';
+	import { verifyCloudBackupMnemonic, adoptCloudBackup } from '$lib/sync/recovery';
 	import { driveClient } from '$lib/sync/gdrive';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { rotateMSK } from '$lib/state/storage.svelte';
+
+	const ONE_HOUR = 3_600_000; // in milliseconds
 
 	/**
 	 * @type {{ onRequestPasscode: () => Promise<void> }}
@@ -35,7 +38,7 @@
 	/** @type {((reason?: any) => void) | null} */
 	let cloudSyncFlowReject = null;
 
-	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
+	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && cloudSyncService.autoSyncEnabled);
 
 	let backupStatus = $derived.by(() => {
 		if (connectingProvider) return null;
@@ -44,16 +47,16 @@
 			return { state: 'error', color: 'bg-red-500', message: 'Setup Failed', details: onboardingError };
 		}
 
-		if (backupService.lastError) {
-			const errLower = backupService.lastError.toLowerCase();
+		if (cloudSyncService.lastError) {
+			const errLower = cloudSyncService.lastError.toLowerCase();
 			if (/(token|auth|refresh|sign in|unauthorized|forbidden|credentials)/.test(errLower)) {
-				return { state: 'error', color: 'bg-red-500', message: 'Signed Out', details: backupService.lastError };
+				return { state: 'error', color: 'bg-red-500', message: 'Signed Out', details: cloudSyncService.lastError };
 			}
-			return { state: 'warning', color: 'bg-yellow-500', message: 'Sync Error', details: backupService.lastError };
+			return { state: 'warning', color: 'bg-yellow-500', message: 'Sync Error', details: cloudSyncService.lastError };
 		}
 
-		const lastSync = backupService.lastSyncTime || 0;
-		if (lastSync && Date.now() - lastSync > 60 * 60 * 1000) {
+		const lastSync = cloudSyncService.lastSyncTime || 0;
+		if (lastSync && Date.now() - lastSync > ONE_HOUR) {
 			return {
 				state: 'warning',
 				color: 'bg-yellow-500',
@@ -109,7 +112,7 @@
 				await driveClient.signIn();
 			}
 
-			const backupExists = await backupService.checkCloudBackupExists();
+			const backupExists = await cloudSyncService.checkCloudBackupExists();
 			if (backupExists) {
 				showRecoveryScanner = true;
 				const words = await /** @type {Promise<string[]>} */ (
@@ -135,7 +138,7 @@
 					cloudSyncFlowReject = reject;
 				});
 
-				await backupService.enable();
+				await cloudSyncService.enable();
 			}
 		} catch (/** @type {any} */ e) {
 			if (e.message !== 'cancelled') {
@@ -145,7 +148,7 @@
 			if (provider === 'gdrive') {
 				driveClient.signOut();
 			}
-			backupService.disable();
+			cloudSyncService.disable();
 		} finally {
 			connectingProvider = null;
 			cloudSyncFlowResolve = null;
@@ -172,7 +175,7 @@
 
 	async function showDeviceRecoveryKit(isInitial = false) {
 		try {
-			recoveryWords = await backupService.getMnemonic();
+			recoveryWords = await cloudSyncService.getMnemonic();
 			isInitialBackup = isInitial;
 			showRecoveryKit = true;
 		} catch (e) {
@@ -195,7 +198,7 @@
 					if (toBeChecked) {
 						await attemptToConnectCloud('gdrive');
 					} else {
-						await backupService.disable();
+						await cloudSyncService.disable();
 						driveClient.signOut();
 					}
 				}}
@@ -211,7 +214,7 @@
 					onclick={() => (showBackupDetails = !showBackupDetails)}
 				>
 					<div class="flex items-center gap-3">
-						{#if backupService.isSyncing}
+						{#if cloudSyncService.isSyncing}
 							<LoaderCircle size={14} class="animate-spin text-zinc-400" />
 						{:else if backupStatus}
 							<div
@@ -219,13 +222,17 @@
 							></div>
 						{/if}
 						<div class="flex flex-col">
-							{#if backupService.isSyncing}
+							{#if cloudSyncService.isSyncing}
 								<span class="text-sm text-zinc-300">Syncing...</span>
 							{:else}
 								<span class="text-sm text-zinc-300">
 									Last synced
-									<abbr title={backupService.lastSyncTime ? new Date(backupService.lastSyncTime).toLocaleString() : ''}>
-										{getRelativeSyncTime(backupService.lastSyncTime || 0)}
+									<abbr
+										title={cloudSyncService.lastSyncTime
+											? new Date(cloudSyncService.lastSyncTime).toLocaleString()
+											: ''}
+									>
+										{getRelativeSyncTime(cloudSyncService.lastSyncTime || 0)}
 									</abbr>
 								</span>
 							{/if}
@@ -260,7 +267,7 @@
 								class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-700"
 								onclick={() => {
 									onboardingError = null;
-									backupService.clearError();
+									cloudSyncService.clearError();
 								}}
 							>
 								Dismiss
@@ -268,10 +275,10 @@
 						{:else}
 							<button
 								class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-								disabled={backupService.isSyncing}
-								onclick={() => backupService.sync()}
+								disabled={cloudSyncService.isSyncing}
+								onclick={() => cloudSyncService.sync()}
 							>
-								{backupService.isSyncing ? 'Syncing...' : 'Sync Now'}
+								{cloudSyncService.isSyncing ? 'Syncing...' : 'Sync Now'}
 							</button>
 							<button
 								class="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-blue-500 transition-colors hover:bg-zinc-700"

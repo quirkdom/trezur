@@ -13,7 +13,7 @@
 	import { useSettingsContext } from '$lib/state/settings.svelte';
 	import { isStorageAvailable, purgeStorage } from '$lib/state/storage.svelte';
 	import { tokensContext } from '$lib/state/tokens.svelte';
-	import { backupService } from '$lib/sync/backup.svelte';
+	import { cloudSyncService } from '$lib/sync/cloud-sync.svelte';
 	import { devconsole } from '$lib/utils';
 
 	const settingsContext = useSettingsContext();
@@ -25,7 +25,7 @@
 
 	let tokens = $derived(tokensContext.current?.getTokens() || []);
 
-	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && backupService.autoSyncEnabled);
+	let isBackupEnabled = $derived(conditions.isUserPasscodeSet && cloudSyncService.autoSyncEnabled);
 
 	let showImportDialog = $state(false);
 	let showExportDialog = $state(false);

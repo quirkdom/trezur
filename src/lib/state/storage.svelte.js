@@ -11,7 +11,7 @@ import { LocalKVVault } from '$lib/utils/local-kv-vault';
 import { CloudFileVault } from '$lib/utils/cloud-file-vault';
 import { tokensContext } from '$lib/state/tokens.svelte';
 import { generateMSK } from '$lib/utils/crypto-keys';
-import { backupService } from '$lib/sync/backup.svelte';
+import { cloudSyncService } from '$lib/sync/cloud-sync.svelte';
 
 /** @type {import('$lib/utils/local-kv-vault').LocalKVVault | null} */
 let localVault = $state(null);
@@ -44,7 +44,7 @@ export async function initStorage(passkeyParam) {
 		cryptoKey = derivedKey;
 		localVault = new LocalKVVault(cryptoKey);
 		await tokensContext.iMake(localVault);
-		await backupService.init();
+		await cloudSyncService.init();
 		return true;
 	} catch (err) {
 		console.error('[storage] initStorage failed:', err);
@@ -82,7 +82,7 @@ export async function adoptMSK(newMSK) {
 
 	localVault = new LocalKVVault(cryptoKey);
 	await tokensContext.iMake(localVault);
-	await backupService.init();
+	await cloudSyncService.init();
 }
 
 /**
@@ -100,7 +100,7 @@ export async function rotateMSK() {
  * Does _not_ touch the `isAppLocked` condition — callers own that responsibility.
  */
 export function clearStorage() {
-	backupService.stopAutoSync();
+	cloudSyncService.stopAutoSync();
 	tokensContext.resetTokens();
 	localVault = null;
 	cryptoKey = null;
@@ -114,7 +114,7 @@ export function clearStorage() {
  * Does not touch the `isAppLocked` condition — callers own that responsibility.
  */
 export async function purgeStorage() {
-	backupService.stopAutoSync();
+	cloudSyncService.stopAutoSync();
 	tokensContext.purgeTokens();
 	localVault?.clear();
 	localVault = null;

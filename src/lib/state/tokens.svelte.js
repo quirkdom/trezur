@@ -4,7 +4,7 @@
  */
 import { browser, dev } from '$app/environment';
 import { devconsole } from '$lib/utils';
-import { scheduleSyncOnUserAction } from '$lib/sync/backup.svelte';
+import { cloudSyncService } from '$lib/sync/cloud-sync.svelte';
 import { nanoid } from 'nanoid';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
@@ -173,7 +173,7 @@ class TokensCtx {
 
 		if (newTokens.length > 0) {
 			this.#tokens.push(...newTokens);
-			scheduleSyncOnUserAction();
+			cloudSyncService.scheduleSyncOnUserAction();
 			return this.#persist();
 		}
 	}
@@ -211,7 +211,7 @@ class TokensCtx {
 
 		// Apply the update.
 		this.#tokens[tokenIndex] = updatedToken;
-		scheduleSyncOnUserAction();
+		cloudSyncService.scheduleSyncOnUserAction();
 		return this.#persist();
 	}
 
@@ -223,7 +223,7 @@ class TokensCtx {
 		const now = Date.now();
 		this.#tokens = this.#tokens.filter((t) => t.id !== id);
 		this.#tombstones[id] = now;
-		scheduleSyncOnUserAction();
+		cloudSyncService.scheduleSyncOnUserAction();
 		return this.#persist();
 	}
 
@@ -250,7 +250,7 @@ class TokensCtx {
 		this.#tokens = tokens;
 		this.#tombstones = tombstones;
 		if (!options?.skipSyncNotify) {
-			scheduleSyncOnUserAction();
+			cloudSyncService.scheduleSyncOnUserAction();
 		}
 		return this.#persist();
 	}
