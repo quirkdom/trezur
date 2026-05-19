@@ -45,16 +45,12 @@ class SettingsCtx {
 	state = $state(DEFAULT_SETTINGS);
 
 	/**
-	 * @param {Settings | undefined} initialSettings
+	 * @param {Partial<Settings>} [initialSettings]
 	 */
 	constructor(initialSettings) {
-		if (initialSettings) {
-			this.state = initialSettings;
-			persist($state.snapshot(this.state)); // always persist because initial settings are provided and may be different from default settings
-		} else {
-			const loaded = load();
-			if (loaded) this.state = loaded;
-		}
+		const loaded = load() ?? DEFAULT_SETTINGS;
+		this.state = { ...loaded, ...initialSettings };
+		persist($state.snapshot(this.state));
 	}
 
 	getSettings() {
@@ -87,7 +83,7 @@ class SettingsCtx {
 }
 
 /**
- * @param {Settings | undefined} initialSettings
+ * @param {Partial<Settings>} [initialSettings]
  * @returns {SettingsCtx}
  */
 function createSettingsContext(initialSettings) {

@@ -6,6 +6,7 @@
 import { browser } from '$app/environment';
 import { devconsole } from '$lib/utils';
 import { getContext, hasContext, setContext } from 'svelte';
+import { nanoid } from 'nanoid';
 
 const T_CONDITIONS = 'T_conditions';
 const PERSISTABLE_KEYS = ['clientId', 'isUserPasscodeSet'];
@@ -50,16 +51,15 @@ class ConditionsCtx {
 	state = $state(DEFAULT_CONDITIONS);
 
 	/**
-	 * @param {Conditions | undefined} initialConditions
+	 * @param {Partial<Conditions>} [initialConditions]
 	 */
 	constructor(initialConditions) {
-		if (initialConditions) {
-			this.state = initialConditions;
-			persist($state.snapshot(this.state));
-		} else {
-			const loaded = load();
-			if (loaded) this.state = loaded;
-		}
+		const loaded = load() ?? DEFAULT_CONDITIONS;
+
+		this.state = { ...loaded, ...initialConditions };
+		this.state.clientId ??= browser ? nanoid() : undefined;
+
+		persist($state.snapshot(this.state));
 	}
 
 	getConditions() {
@@ -98,7 +98,7 @@ class ConditionsCtx {
 }
 
 /**
- * @param {Conditions | undefined} initialConditions
+ * @param {Partial<Conditions>} [initialConditions]
  * @returns {ConditionsCtx}
  */
 function createConditionsContext(initialConditions) {

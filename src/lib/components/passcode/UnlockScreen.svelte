@@ -10,7 +10,7 @@
 	const conditionsContext = useConditionsContext();
 	const conditions = $derived(conditionsContext.getConditions());
 
-	let showPasscodeDialog = $state(conditions.isUserPasscodeSet);
+	let showPasscodeDialog = $state(conditionsContext.getConditions().isUserPasscodeSet);
 
 	/**
 	 * Called by the layout (via bind:this) when FooterNav long-press

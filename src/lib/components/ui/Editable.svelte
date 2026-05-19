@@ -1,6 +1,6 @@
 <script>
 	let { class: className, value, onEdit = undefined, children = undefined } = $props();
-	let initialValue = value;
+	/** @type {string} */ let initialValue;
 </script>
 
 <div
@@ -22,10 +22,7 @@
 		}
 	}}
 	onblur={() => {
-		if (value !== initialValue) {
-			onEdit?.(value, initialValue);
-		}
-		initialValue = value;
+		if (value !== initialValue) onEdit?.(value, initialValue);
 	}}
 >
 	{#if children}

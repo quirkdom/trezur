@@ -9,20 +9,22 @@
 
 	const { children, data } = $props();
 
-	createSettingsContext(data.settings);
-	const conditionsContext = createConditionsContext(data.conditions);
+	createSettingsContext();
+
+	// svelte-ignore state_referenced_locally (intentional, since `isAppleDevice` cannot change for the session lifetime)
+	const conditionsContext = createConditionsContext({ isAppleDevice: data.isAppleDevice });
 	const conditions = $derived(conditionsContext.getConditions());
 
 	// $inspect('conditions.isAppLocked', conditions.isAppLocked); // for debugging
 	// $inspect('conditions.isUserPasscodeSet', conditions.isUserPasscodeSet); // for debugging
 	// $inspect('conditions.clientId', conditions.clientId); // for debugging
 
-	/** @type {{ openPasscodeDialog: () => void } | null} */
+	/** @type {UnlockScreen | null} */
 	let unlockScreenRef = $state(null);
 
 	// Cold start: no passcode, have clientId, no vault yet
 	if (browser) {
-		const { isUserPasscodeSet, clientId } = conditions;
+		const { isUserPasscodeSet, clientId } = conditionsContext.getConditions();
 		if (!isUserPasscodeSet && clientId && !isStorageAvailable()) {
 			initStorage(clientId);
 		}
