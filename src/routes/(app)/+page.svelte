@@ -116,7 +116,10 @@
 						<h3 class="font-bold">Offline-First Privacy</h3>
 						<p>
 							Trezur keeps your data on your device, not on our servers. Enjoy seamless offline access after your first
-							visit. <span class="text-[#EB3912]"><em>We don't collect any user data.</em></span>
+							visit.
+							<a href={resolve('/privacy')} class="text-[#EB3912] underline underline-offset-4"
+								><em>We don't collect any user data.</em></a
+							>
 						</p>
 					</div>
 				</div>

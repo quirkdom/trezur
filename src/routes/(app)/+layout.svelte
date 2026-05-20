@@ -6,6 +6,7 @@
 	import { createConditionsContext } from '$lib/state/conditions.svelte';
 	import { isStorageAvailable, initStorage, clearStorage } from '$lib/state/storage.svelte';
 	import UnlockScreen from '$lib/components/passcode/UnlockScreen.svelte';
+	import { resolve } from '$app/paths';
 
 	const { children, data } = $props();
 
@@ -68,6 +69,14 @@
 
 		<footer class="mt-24">
 			<FooterNav onToggleLock={handleToggleLock} />
+
+			<div class="fixed inset-x-0 bottom-1 flex justify-center gap-2 text-xs text-zinc-500">
+				© 2026 Quirkdom
+				<span>·</span>
+				<a href={resolve('/privacy')} class="hover:text-zinc-400">Privacy</a>
+				<span>·</span>
+				<a href={resolve('/terms')} class="hover:text-zinc-400">Terms</a>
+			</div>
 		</footer>
 	</div>
 </div>
