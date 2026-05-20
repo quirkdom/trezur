@@ -9,3 +9,7 @@
 }
 
 @custom-variant touch-device (@media (not (hover)) and (pointer: coarse));
+
+@theme {
+	--text-tiny: 0.625rem;
+}

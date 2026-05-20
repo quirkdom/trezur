@@ -16,9 +16,7 @@
 		if (!settings.sortOrder || settings.sortOrder === 'none') return filtered;
 
 		return filtered.toSorted((a, b) =>
-			settings.sortOrder === 'asc'
-				? a.issuer.localeCompare(b.issuer)
-				: b.issuer.localeCompare(a.issuer)
+			settings.sortOrder === 'asc' ? a.issuer.localeCompare(b.issuer) : b.issuer.localeCompare(a.issuer)
 		);
 	});
 </script>

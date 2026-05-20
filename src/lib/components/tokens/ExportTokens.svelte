@@ -1,5 +1,35 @@
-<script>
+<script module>
 	import { version } from '$app/environment';
+
+	/**
+	 * @param {import('$lib/types').Token[]} tokens
+	 * @param {string} filename
+	 */
+	export function exportTokensDownload(tokens, filename) {
+		const exportData = {
+			date: new Date().toISOString(),
+			v: version,
+			tokens: tokens.map((token) => ({
+				id: token.id,
+				account: token.account,
+				issuer: token.issuer,
+				secret: token.secret,
+				type: token.type,
+				algorithm: token.algorithm,
+				digits: token.digits,
+				period: token.period,
+				counter: token.counter
+			}))
+		};
+
+		const jsonString = JSON.stringify(exportData, null, 2);
+		const file = new File([jsonString], filename, { type: 'application/json' });
+		triggerDownloadFile(file);
+	}
+</script>
+
+<script>
+	import { triggerDownloadFile } from '$lib/utils';
 	import Modal from '../ui/Modal.svelte';
 
 	/**
@@ -15,44 +45,11 @@
 	 */
 	function handleExport(event) {
 		event.preventDefault();
+
 		try {
 			errorMessage = '';
-
-			// Create the export object
-			const exportData = {
-				date: new Date().toISOString(),
-				v: version,
-				tokens: tokens.map((token) => ({
-					id: token.id,
-					account: token.account,
-					issuer: token.issuer,
-					secret: token.secret,
-					type: token.type,
-					algorithm: token.algorithm,
-					digits: token.digits,
-					period: token.period,
-					counter: token.counter
-				}))
-			};
-
-			// Convert to JSON
-			const jsonString = JSON.stringify(exportData, null, 2);
-			const blob = new Blob([jsonString], { type: 'application/json' });
-
-			// Create download link
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = filename;
-			document.body.appendChild(a);
-			a.click();
-
-			// Clean up
-			setTimeout(() => {
-				document.body.removeChild(a);
-				URL.revokeObjectURL(url);
-				open = false;
-			}, 100);
+			exportTokensDownload(tokens, filename);
+			open = false;
 		} catch (error) {
 			console.error('Export error:', error);
 			errorMessage = `Error exporting tokens: ${error instanceof Error ? error.message : error}`;
@@ -72,9 +69,7 @@
 			<p>
 				This will export {tokens.length} token{tokens.length !== 1 ? 's' : ''} as a JSON file.
 			</p>
-			<p class="mt-1 text-sm text-zinc-500">
-				The exported file contains sensitive information. Store it securely.
-			</p>
+			<p class="mt-1 text-sm text-zinc-500">The exported file contains sensitive information. Store it securely.</p>
 		</div>
 
 		<div class="form-field">
@@ -96,10 +91,7 @@
 			>
 				Cancel
 			</button>
-			<button
-				type="submit"
-				class="flex-1 rounded-lg bg-[#EB3912] py-3 transition-colors hover:bg-[#D83511]"
-			>
+			<button type="submit" class="flex-1 rounded-lg bg-[#EB3912] py-3 transition-colors hover:bg-[#D83511]">
 				Export
 			</button>
 		</div>

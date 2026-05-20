@@ -1,5 +1,6 @@
 <script>
-	import { ArrowLeft, ArrowUpDown, Plus, ArrowDownZA, ArrowDownAZ } from 'lucide-svelte';
+	import { resolve } from '$app/paths';
+	import { ArrowLeft, ArrowUpDown, Plus, ArrowDownZA, ArrowDownAZ } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	let {
@@ -22,7 +23,7 @@
 
 <nav class="flex gap-4">
 	{#if backButtonTo}
-		<a href={backButtonTo}>
+		<a href={resolve(backButtonTo)}>
 			<button class="text-primary align-middle">
 				<ArrowLeft size={24} />
 				<span class="sr-only">Go back</span>

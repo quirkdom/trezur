@@ -360,9 +360,7 @@
 			class="hidden"
 		/>
 		<div class="flex gap-2">
-			<button class="flex-1 rounded-lg bg-zinc-800 py-3 hover:bg-zinc-700" onclick={resetSelection}>
-				Back
-			</button>
+			<button class="flex-1 rounded-lg bg-zinc-800 py-3 hover:bg-zinc-700" onclick={resetSelection}> Back </button>
 			<button
 				class="flex-1 rounded-lg bg-[#EB3912] py-3 transition-colors hover:bg-[#D83511]"
 				onclick={() => fileInput?.click()}
@@ -373,7 +371,7 @@
 	{:else}
 		<p class="mb-4">Select a service to import tokens from:</p>
 		<div class="mb-4 grid grid-cols-2 gap-2">
-			{#each importSources as source}
+			{#each importSources as source (source.id)}
 				<button
 					class="rounded-lg bg-zinc-800 p-4 text-left transition-colors hover:bg-zinc-700"
 					onclick={() => selectSource(source)}
@@ -382,10 +380,7 @@
 				</button>
 			{/each}
 		</div>
-		<button
-			class="w-full rounded-lg bg-zinc-800 py-3 transition-colors hover:bg-zinc-700"
-			onclick={close}
-		>
+		<button class="w-full rounded-lg bg-zinc-800 py-3 transition-colors hover:bg-zinc-700" onclick={close}>
 			Cancel
 		</button>
 	{/if}

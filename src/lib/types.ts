@@ -1,6 +1,6 @@
 /**
  * Same as {@link Token} but with some optional fields.
- * Any Token candidate starts it's life as a Tokenable; post-validation, it can be stored as a Token.
+ * Any Token candidate starts its life as a Tokenable; post-validation, it can be stored as a Token.
  */
 export interface Tokenable {
 	digits?: number;
@@ -18,6 +18,12 @@ export interface Tokenable {
  */
 export interface Token extends Required<Tokenable> {
 	id: string;
+	updatedAt?: {
+		account?: number;
+		issuer?: number;
+		secret?: number;
+		params?: number;
+	};
 }
 
 export interface Settings {
@@ -35,17 +41,9 @@ export interface Conditions {
 	clientId?: string;
 }
 
-export interface AsyncStorageEngine {
-	getItem(key: string): Promise<string | null>;
-	setItem(key: string, value: string): Promise<void>;
-	removeItem(key: string): Promise<void>;
-	clear(): Promise<void>;
-	keys(): Promise<string[]>;
-}
-
-export interface EncryptedStorage {
+export interface KVStorage {
 	get(key: string): Promise<any>;
 	set(key: string, value: any): Promise<void>;
 	delete(key: string): Promise<void>;
-	purge(): Promise<void>;
+	clear(): Promise<void>;
 }

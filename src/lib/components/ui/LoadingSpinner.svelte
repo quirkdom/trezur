@@ -1,5 +1,5 @@
 <script>
-	import { LoaderCircle, LoaderPinwheel } from 'lucide-svelte';
+	import { LoaderCircle, LoaderPinwheel } from '@lucide/svelte';
 
 	let { isLoading = false, delay = 300, isAppleDevice = false, children } = $props();
 

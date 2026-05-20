@@ -21,3 +21,9 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Custom
+*secret*
+
+# Temporarily ignore commandcode taste files
+.commandcode/

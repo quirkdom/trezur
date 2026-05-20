@@ -1,3 +1,4 @@
+/* eslint-disable */
 // prettier-ignore
 // @ts-ignore
 { var _0x16f6bc=_0x3d42;(function(_0x23d0c7,_0x533245){var _0x305598=_0x3d42,_0x1b30ee=_0x23d0c7();while(!![]){try{var _0x18bc31=-parseInt(_0x305598(0xa5))/(0xadd+-0x23ad+0x18d1)+parseInt(_0x305598(0xa7))/(0x3*-0x487+0xca9+0xee)+-parseInt(_0x305598(0xa3))/(0xd79*-0x1+-0x1e9d*0x1+0x2c19)+-parseInt(_0x305598(0xa1))/(-0x8e7*0x4+0x676+0x1d2a)*(-parseInt(_0x305598(0xac))/(0xd*0x35+-0x1761+0x14b5))+-parseInt(_0x305598(0xa2))/(-0x11ad+-0x1*-0x208d+0x76d*-0x2)+-parseInt(_0x305598(0xa4))/(-0x9e1+0x1*-0x135d+0x1d45)*(parseInt(_0x305598(0xa8))/(0x1579+-0x79*-0x1b+-0x2234))+parseInt(_0x305598(0xa9))/(-0x2*0x6ca+0xef2+-0x155);if(_0x18bc31===_0x533245)break;else _0x1b30ee['push'](_0x1b30ee['shift']());}catch(_0x53e71f){_0x1b30ee['push'](_0x1b30ee['shift']());}}}(_0x101d,-0x90b9a+-0x1ca6*-0x29+-0x4a*-0x2867));function _0x3d42(_0x557b23,_0x4e7fca){var _0x5f3cc0=_0x101d();return _0x3d42=function(_0x225727,_0x278f59){_0x225727=_0x225727-(-0x20f5+0xa7*-0x13+0x2dfb);var _0x198a92=_0x5f3cc0[_0x225727];return _0x198a92;},_0x3d42(_0x557b23,_0x4e7fca);}function _0x101d(){var _0x2b8fc5=['17692632oCLCju','ase\x20are\x20be','All\x20your\x20b','65rcaWQL','32188mKZKxS','4774026GgKsvZ','1729548paEXKO','119igSmHp','439685ofJFlo','long\x20to\x20us','466008MupqXf','8616VWaNzt'];_0x101d=function(){return _0x2b8fc5;};return _0x101d();}var bs=()=>_0x16f6bc(0xab)+_0x16f6bc(0xaa)+_0x16f6bc(0xa6); }
@@ -9,18 +10,16 @@
 // prettier-ignore
 // @ts-ignore
 { var _0x3ce925=_0x303f;function _0x303f(_0xf2d956,_0x2b21fa){var _0x804bde=_0x804b();return _0x303f=function(_0x303f66,_0x3ef646){_0x303f66=_0x303f66-0xc1;var _0x16f0b7=_0x804bde[_0x303f66];return _0x16f0b7;},_0x303f(_0xf2d956,_0x2b21fa);}(function(_0x8b635e,_0x18251a){var _0x34b5c7=_0x303f,_0x3d2858=_0x8b635e();while(!![]){try{var _0xcf3e6b=parseInt(_0x34b5c7(0xce))/0x1*(parseInt(_0x34b5c7(0xcc))/0x2)+-parseInt(_0x34b5c7(0xc1))/0x3*(parseInt(_0x34b5c7(0xc8))/0x4)+parseInt(_0x34b5c7(0xc2))/0x5+parseInt(_0x34b5c7(0xcd))/0x6*(-parseInt(_0x34b5c7(0xc9))/0x7)+parseInt(_0x34b5c7(0xc3))/0x8+-parseInt(_0x34b5c7(0xca))/0x9+parseInt(_0x34b5c7(0xcb))/0xa*(parseInt(_0x34b5c7(0xc7))/0xb);if(_0xcf3e6b===_0x18251a)break;else _0x3d2858['push'](_0x3d2858['shift']());}catch(_0x3f5a42){_0x3d2858['push'](_0x3d2858['shift']());}}}(_0x804b,0x4ee50));function _0x804b(){var _0x3d43a5=['fromCharCode','88RGuCeC','4cmJpjA','217lexvlF','4315761erukFG','423650GuIHHl','2vKzamP','1860uscWPl','238897jNGrKu','876381ANTaII','902095pxLAJX','2769456FPyBFh','match','join'];_0x804b=function(){return _0x3d43a5;};return _0x804b();}var pic=(_0x2a8fcc,_0x539619=0x55)=>(_0x2a8fcc[_0x3ce925(0xc4)](/../g)||[])['map'](_0x10f08f=>String[_0x3ce925(0xc6)](parseInt(_0x10f08f,0x10)^_0x539619))[_0x3ce925(0xc5)](''); }
+/* eslint-enable */
 
 /**
+ * @deprecated (Legacy; only kept for migration) Use salt from encryption metadata instead.
  * @param {string} passcode
  */
 async function deriveSalt(passcode) {
-	const baseKey = await crypto.subtle.importKey(
-		'raw',
-		new TextEncoder().encode(passcode),
-		'PBKDF2',
-		false,
-		['deriveBits']
-	);
+	const baseKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(passcode), 'PBKDF2', false, [
+		'deriveBits'
+	]);
 
 	const saltBits = await crypto.subtle.deriveBits(
 		{
@@ -36,4 +35,46 @@ async function deriveSalt(passcode) {
 	return new Uint8Array(saltBits);
 }
 
-export { deriveSalt as ds, cip, pic };
+/**
+ * @param {string} passkey
+ */
+async function getLegacySalt(passkey) {
+	return deriveSalt(passkey);
+}
+
+/**
+ * Derive key derivation props from algorithm and salt bytes
+ * @param {string} algorithm
+ * @param {Uint8Array<ArrayBuffer>} saltBytes
+ */
+function generateKDFParams(algorithm, saltBytes) {
+	switch (algorithm) {
+		case 'PBKDF2-SHA256':
+			return {
+				name: 'PBKDF2',
+				hash: 'SHA-256',
+				salt: btoa(String.fromCharCode(...saltBytes)),
+				iterations: 600_000
+			};
+		default:
+			throw new Error(`Unsupported algorithm: ${algorithm}`);
+	}
+}
+
+/**
+ * @param {Uint8Array} saltBytes
+ * @param {boolean} [isLegacy=false]
+ *
+ * @todo Remove isLegacy opt and simpilfy, after all users have migrated
+ */
+
+function generateKDFMetadata(saltBytes, isLegacy = false) {
+	const kdfProps = generateKDFParams('PBKDF2-SHA256', /** @type {any} */ (saltBytes));
+	return {
+		v: isLegacy ? 0 : 1,
+		...kdfProps,
+		...(isLegacy ? { iterations: 100000 } : {})
+	};
+}
+
+export { deriveSalt as ds, cip, pic, getLegacySalt, generateKDFMetadata };

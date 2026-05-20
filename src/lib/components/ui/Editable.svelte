@@ -1,13 +1,10 @@
 <script>
 	let { class: className, value, onEdit = undefined, children = undefined } = $props();
-	let initialValue = value;
+	/** @type {string} */ let initialValue;
 </script>
 
 <div
-	class={[
-		'focus:rounded-md focus:outline-2 focus:outline-offset-1 focus:outline-[#EB3912]',
-		className
-	]}
+	class={['focus:rounded-md focus:outline-2 focus:outline-offset-1 focus:outline-[#EB3912]', className]}
 	role="textbox"
 	contenteditable
 	spellcheck="false"
@@ -25,10 +22,7 @@
 		}
 	}}
 	onblur={() => {
-		if (value !== initialValue) {
-			onEdit?.(value, initialValue);
-		}
-		initialValue = value;
+		if (value !== initialValue) onEdit?.(value, initialValue);
 	}}
 >
 	{#if children}

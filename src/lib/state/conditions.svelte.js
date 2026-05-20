@@ -4,10 +4,12 @@
  * @typedef {import("$lib/types").Conditions} Conditions
  */
 import { browser } from '$app/environment';
+import { devconsole } from '$lib/utils';
 import { getContext, hasContext, setContext } from 'svelte';
+import { nanoid } from 'nanoid';
 
 const T_CONDITIONS = 'T_conditions';
-const PERSISTABLE_KEYS = ['clientId'];
+const PERSISTABLE_KEYS = ['clientId', 'isUserPasscodeSet'];
 
 /** @type Conditions */
 const DEFAULT_CONDITIONS = {
@@ -49,16 +51,15 @@ class ConditionsCtx {
 	state = $state(DEFAULT_CONDITIONS);
 
 	/**
-	 * @param {Conditions | undefined} initialConditions
+	 * @param {Partial<Conditions>} [initialConditions]
 	 */
 	constructor(initialConditions) {
-		if (initialConditions) {
-			this.state = initialConditions;
-			persist($state.snapshot(this.state));
-		} else {
-			const loaded = load();
-			if (loaded) this.state = loaded;
-		}
+		const loaded = load() ?? DEFAULT_CONDITIONS;
+
+		this.state = { ...loaded, ...initialConditions };
+		this.state.clientId ??= browser ? nanoid() : undefined;
+
+		persist($state.snapshot(this.state));
 	}
 
 	getConditions() {
@@ -66,31 +67,38 @@ class ConditionsCtx {
 	}
 
 	/**
-	 * @param {keyof Conditions} key
-	 * @param {Conditions[keyof Conditions]} value
+	 * @template {keyof Conditions} K
+	 * @param {K} key
+	 * @param {Conditions[K]} value
 	 */
 	updateCondition(key, value) {
-		// Using a type assertion to fix the type checking issue
-		this.state = { ...this.state, [key]: value };
-		persist($state.snapshot(this.state));
+		this.state[key] = value;
+		if (PERSISTABLE_KEYS.includes(key)) persist($state.snapshot(this.state));
 	}
 
 	/**
 	 * @param {Partial<{[key in keyof Conditions]: Conditions[key]}>} conditions
 	 */
 	updateConditions(conditions) {
-		this.state = { ...this.state, ...conditions };
+		Object.assign(this.state, conditions);
 		persist($state.snapshot(this.state));
 	}
 
+	/**
+	 * **CAUTION:** Resetting conditions always purges from persistent storage. This won't survive an app reload.
+	 */
 	resetConditions() {
 		this.state = DEFAULT_CONDITIONS;
 		purge();
+
+		devconsole.warn(
+			"[Conditions] Resetting conditions always purges it from persistent storage. This won't survive an app reload."
+		);
 	}
 }
 
 /**
- * @param {Conditions | undefined} initialConditions
+ * @param {Partial<Conditions>} [initialConditions]
  * @returns {ConditionsCtx}
  */
 function createConditionsContext(initialConditions) {
@@ -104,9 +112,7 @@ function createConditionsContext(initialConditions) {
  */
 function useConditionsContext() {
 	if (!hasContext(T_CONDITIONS))
-		throw new Error(
-			'Conditions context not found. Did you forget to call createConditionsContext()?'
-		);
+		throw new Error('Conditions context not found. Did you forget to call createConditionsContext()?');
 
 	return getContext(T_CONDITIONS);
 }

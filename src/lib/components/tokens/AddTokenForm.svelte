@@ -1,5 +1,5 @@
 <script>
-	import { Eye, EyeOff, ScanQrCodeIcon } from 'lucide-svelte';
+	import { Eye, EyeOff, ScanQrCodeIcon } from '@lucide/svelte';
 	import Drawer from '../ui/Drawer.svelte';
 	import { onDestroy, tick } from 'svelte';
 	import { TOTP, URI } from 'otpauth';
@@ -66,8 +66,7 @@
 			if (isProcessing) return;
 
 			// Skip frames until video is actually playing
-			if (!videoElement || videoElement.paused || videoElement.ended || videoElement.readyState < 2)
-				return;
+			if (!videoElement || videoElement.paused || videoElement.ended || videoElement.readyState < 2) return;
 
 			// TODO: Investiagate errors when full resolution is used
 			const qrData = frontCamera.readFrame(qrCanvas, true);
@@ -157,11 +156,8 @@
 <Drawer bind:open title="Add Token" onClose={close} class="mx-auto max-w-lg">
 	{#if showCameraFeed}
 		<div class="relative mb-6 overflow-hidden rounded-lg bg-black">
-			<video bind:this={videoElement} autoplay muted playsinline class="h-64 w-full object-cover"
-			></video>
-			<canvas
-				bind:this={overlayCanvas}
-				class="pointer-events-none absolute top-0 left-0 h-full w-full opacity-70"
+			<video bind:this={videoElement} autoplay muted playsinline class="h-64 w-full object-cover"></video>
+			<canvas bind:this={overlayCanvas} class="pointer-events-none absolute top-0 left-0 h-full w-full opacity-70"
 			></canvas>
 		</div>
 	{:else}
@@ -202,11 +198,13 @@
 		<div>
 			<label for="secret" class="mb-1 block text-sm text-gray-400">Secret</label>
 			<div class="relative">
+				<!-- TODO: Move to stricter regex for Base32 secret: ^(?:[A-Z2-7]{8})*(?:[A-Z2-7]{2}={6}|[A-Z2-7]{4}={4}|[A-Z2-7]{5}={3}|[A-Z2-7]{7}=)?$ -->
 				<input
 					id="secret"
 					type={revealSecret ? 'text' : 'password'}
 					pattern={'([A-Z2-7=]{8})+'}
 					required
+					autocomplete="off"
 					placeholder="Enter token secret"
 					title="A valid Base32 encoded secret"
 					bind:value={secret}
@@ -215,7 +213,10 @@
 				<button
 					type="button"
 					class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-400 hover:text-white"
-					onclick={() => (revealSecret = !revealSecret)}
+					onclick={() => {
+						revealSecret = !revealSecret;
+						tick().then(() => document.getElementById('secret')?.focus());
+					}}
 				>
 					{#if revealSecret}
 						<EyeOff size={20} />
@@ -234,10 +235,7 @@
 			>
 				Cancel
 			</button>
-			<button
-				type="submit"
-				class="flex-1 rounded-lg bg-[#EB3912] py-3 text-white transition-colors hover:bg-[#D83511]"
-			>
+			<button type="submit" class="flex-1 rounded-lg bg-[#EB3912] py-3 text-white transition-colors hover:bg-[#D83511]">
 				Add
 			</button>
 		</div>

@@ -4,6 +4,7 @@
  * @typedef {import("$lib/types").Settings} Settings
  */
 import { browser } from '$app/environment';
+import { devconsole } from '$lib/utils';
 import { getContext, hasContext, setContext } from 'svelte';
 
 const T_SETTINGS = 'T_settings';
@@ -44,16 +45,12 @@ class SettingsCtx {
 	state = $state(DEFAULT_SETTINGS);
 
 	/**
-	 * @param {Settings | undefined} initialSettings
+	 * @param {Partial<Settings>} [initialSettings]
 	 */
 	constructor(initialSettings) {
-		if (initialSettings) {
-			this.state = initialSettings;
-			persist($state.snapshot(this.state)); // always persist because initial settings are provided and may be different from default settings
-		} else {
-			const loaded = load();
-			if (loaded) this.state = loaded;
-		}
+		const loaded = load() ?? DEFAULT_SETTINGS;
+		this.state = { ...loaded, ...initialSettings };
+		persist($state.snapshot(this.state));
 	}
 
 	getSettings() {
@@ -61,23 +58,32 @@ class SettingsCtx {
 	}
 
 	/**
-	 * @param {keyof Settings} key
-	 * @param {Settings[keyof Settings]} value
+	 * @template {keyof Settings} K
+	 * @param {K} key
+	 * @param {Settings[K]} value
 	 */
 	updateSetting(key, value, shouldPersist = true) {
-		// Using a type assertion to fix the type checking issue
-		this.state = { ...this.state, [key]: value };
+		this.state[key] = value;
 		if (shouldPersist) persist($state.snapshot(this.state));
 	}
 
+	/**
+	 * **CAUTION:** Resetting settings also purges from persistent storage by default. This won't survive an app reload.
+	 */
 	resetSettings(shouldPurge = true) {
 		this.state = DEFAULT_SETTINGS;
-		if (shouldPurge) purge();
+		if (shouldPurge) {
+			purge();
+
+			devconsole.warn(
+				"[Settings] Resetting settings also purges it from persistent storage by default. This won't survive an app reload."
+			);
+		}
 	}
 }
 
 /**
- * @param {Settings | undefined} initialSettings
+ * @param {Partial<Settings>} [initialSettings]
  * @returns {SettingsCtx}
  */
 function createSettingsContext(initialSettings) {
