@@ -13,7 +13,7 @@ class KeyManager {
 	/** @type {string | null} */
 	#passcode = null;
 
-	#needsMigration = false;
+	#needsMigration = $state(false);
 
 	get needsMigration() {
 		return this.#needsMigration;
@@ -58,85 +58,99 @@ class KeyManager {
 
 	/**
 	 * @param {string} passkey
+	 */
+	async #legacyUnlockAndFlagForMigration(passkey) {
+		const metadataStr = localStorage.getItem(T_ES_KDF_META);
+		let metadata;
+
+		if (metadataStr) {
+			metadata = JSON.parse(metadataStr);
+		} else {
+			const oldSalt = await getLegacySalt(passkey);
+			metadata = generateKDFMetadata(oldSalt, true);
+			localStorage.setItem(T_ES_KDF_META, JSON.stringify(metadata));
+		}
+
+		this.#needsMigration = true;
+
+		const lwk = await deriveLWK(passkey, metadata);
+		this.#cryptoKey = lwk;
+		this.#passcode = passkey;
+		return this.#cryptoKey;
+	}
+
+	/**
+	 * @param {string} passkey
+	 */
+	async #initializeNew(passkey) {
+		const salt = crypto.getRandomValues(new Uint8Array(16));
+		const metadata = generateKDFMetadata(salt);
+
+		const lwk = await deriveLWK(passkey, metadata);
+		const msk = generateMSK();
+		const wrapped = await wrapMSK(msk, lwk);
+
+		localStorage.setItem(T_ES_KDF_META, JSON.stringify(metadata));
+		localStorage.setItem(T_ES_WRAPPED_MSK, JSON.stringify(wrapped));
+		this.#needsMigration = false;
+
+		this.#cryptoKey = await importPayloadKey(msk);
+		this.#passcode = passkey;
+		return this.#cryptoKey;
+	}
+
+	/**
+	 * @param {string | null} storedWrappedMSK
+	 * @param {{ v: number } & { [key: string]: unknown } | null} storedMetadata
+	 */
+	#checkIfNeedsMigration(storedWrappedMSK, storedMetadata) {
+		if (this.#needsMigration) return false; // already flagged for migration
+
+		return (
+			!storedWrappedMSK &&
+			(!storedMetadata || storedMetadata.v < 1) &&
+			Object.keys(localStorage).some((key) => pic(key).startsWith('T_ES_'))
+		);
+	}
+
+	/**
+	 * @param {string} passkey
 	 * @returns
 	 */
 	async unlock(passkey) {
 		try {
-			// Check for backup MSK and restore if primary is missing
-			const primaryWrapped = localStorage.getItem(T_ES_WRAPPED_MSK);
-			const backupWrapped = localStorage.getItem(T_ES_WRAPPED_MSK_BAK);
+			let storedWrappedMSK = localStorage.getItem(T_ES_WRAPPED_MSK);
 
-			if (!primaryWrapped && backupWrapped) {
-				localStorage.setItem(T_ES_WRAPPED_MSK, backupWrapped);
-			}
+			if (!storedWrappedMSK) {
+				// Check for backup MSK and restore if primary is missing
+				const backupWrappedMSK = localStorage.getItem(T_ES_WRAPPED_MSK_BAK);
 
-			const storedWrapped = localStorage.getItem(T_ES_WRAPPED_MSK);
-			let metadataStr = localStorage.getItem(T_ES_KDF_META);
-
-			let msk;
-			if (storedWrapped && metadataStr) {
-				const metadata = JSON.parse(metadataStr);
-				if (metadata.v < 1) {
-					// Force upgrade: create new metadata with random salt for migration
-					const salt = crypto.getRandomValues(new Uint8Array(16));
-					const newMetadata = {
-						v: 1,
-						name: 'PBKDF2',
-						salt: btoa(String.fromCharCode(...salt)),
-						iterations: 600000,
-						hash: 'SHA-256'
-					};
-
-					const lwkOld = await deriveLWK(passkey, metadata);
-					msk = await unwrapMSK(JSON.parse(storedWrapped), lwkOld);
-
-					const lwkNew = await deriveLWK(passkey, newMetadata);
-					const wrapped = await wrapMSK(msk, lwkNew);
-
-					localStorage.setItem(T_ES_KDF_META, JSON.stringify(newMetadata));
-					localStorage.setItem(T_ES_WRAPPED_MSK, JSON.stringify(wrapped));
-					this.#needsMigration = false;
-				} else {
-					const lwk = await deriveLWK(passkey, metadata);
-					msk = await unwrapMSK(JSON.parse(storedWrapped), lwk);
-					this.#needsMigration = false;
-				}
-			} else {
-				const hasData = Object.keys(localStorage).some((key) => pic(key).startsWith('T_ES_'));
-				if (hasData) {
-					// Legacy v0 detected
-					const oldSalt = await getLegacySalt(passkey);
-					const metadata = generateKDFMetadata(oldSalt, true);
-					localStorage.setItem(T_ES_KDF_META, JSON.stringify(metadata));
-					this.#needsMigration = true;
-
-					const lwk = await deriveLWK(passkey, metadata);
-					this.#cryptoKey = lwk;
-					this.#passcode = passkey;
-					return this.#cryptoKey;
-				} else {
-					// Initialize new
-					const salt = crypto.getRandomValues(new Uint8Array(16));
-					const metadata = {
-						v: 1,
-						name: 'PBKDF2',
-						salt: btoa(String.fromCharCode(...salt)),
-						iterations: 600000,
-						hash: 'SHA-256'
-					};
-					const lwk = await deriveLWK(passkey, metadata);
-					msk = generateMSK();
-					const wrapped = await wrapMSK(msk, lwk);
-
-					localStorage.setItem(T_ES_KDF_META, JSON.stringify(metadata));
-					localStorage.setItem(T_ES_WRAPPED_MSK, JSON.stringify(wrapped));
-					this.#needsMigration = false;
+				if (backupWrappedMSK) {
+					devconsole.log('[KeyManager] Primary wrapped MSK missing but backup found — restoring from backup');
+					localStorage.setItem(T_ES_WRAPPED_MSK, backupWrappedMSK);
+					storedWrappedMSK = backupWrappedMSK;
 				}
 			}
 
-			this.#cryptoKey = await importPayloadKey(msk);
-			this.#passcode = passkey;
-			return this.#cryptoKey;
+			const storedMetadata = JSON.parse(localStorage.getItem(T_ES_KDF_META) || 'null');
+
+			// Standard unlock flow for modern v1 state
+			if (storedWrappedMSK && storedMetadata?.v >= 1) {
+				const lwk = await deriveLWK(passkey, storedMetadata);
+				const msk = await unwrapMSK(JSON.parse(storedWrappedMSK), lwk);
+				this.#needsMigration = false;
+				this.#cryptoKey = await importPayloadKey(msk);
+				this.#passcode = passkey;
+				return this.#cryptoKey;
+			}
+
+			// Check if legacy v0 state that requires migration
+			if (this.#checkIfNeedsMigration(storedWrappedMSK, storedMetadata)) {
+				return await this.#legacyUnlockAndFlagForMigration(passkey); // return await is necessary here to catch errors from #handleLegacyUnlock within this try-catch
+			}
+
+			// Must be fresh install or needs migration, so initialize new state
+			return await this.#initializeNew(passkey); // return await is necessary here to catch errors from #initializeNew within this try-catch
 		} catch (err) {
 			devconsole.error('[KeyManager] Failed to unlock:', err);
 			return null;
@@ -147,24 +161,27 @@ class KeyManager {
 	 * @param {string} passkey
 	 */
 	async testPasskey(passkey) {
-		const storedWrapped = localStorage.getItem(T_ES_WRAPPED_MSK);
-		const metadataStr = localStorage.getItem(T_ES_KDF_META);
-		if (!storedWrapped || !metadataStr) return false;
+		const storedWrappedMSK = localStorage.getItem(T_ES_WRAPPED_MSK);
+		const storedMetadata = JSON.parse(localStorage.getItem(T_ES_KDF_META) || 'null');
 
-		try {
-			const metadata = JSON.parse(metadataStr);
-			const lwk = await deriveLWK(passkey, metadata);
-			await unwrapMSK(JSON.parse(storedWrapped), lwk);
-			return true;
-		} catch {
-			return false;
+		if (storedWrappedMSK && storedMetadata?.v >= 1) {
+			try {
+				const lwk = await deriveLWK(passkey, storedMetadata);
+				await unwrapMSK(JSON.parse(storedWrappedMSK), lwk);
+				return true;
+			} catch {
+				return false;
+			}
 		}
+
+		// Can't test since required information isn't present
+		return false;
 	}
 
 	/**
-	 * @param {string} newPass
+	 * @param {string} newPasskey
 	 */
-	async changePasscode(newPass) {
+	async changePasskey(newPasskey) {
 		if (!this.#passcode || !this.#cryptoKey) throw new Error('App must be unlocked to change passcode');
 
 		const storedWrapped = localStorage.getItem(T_ES_WRAPPED_MSK);
@@ -181,21 +198,15 @@ class KeyManager {
 
 		// Re-wrap with new passcode
 		const newSalt = crypto.getRandomValues(new Uint8Array(16));
-		const newMetadata = {
-			v: 1,
-			name: 'PBKDF2',
-			salt: btoa(String.fromCharCode(...newSalt)),
-			iterations: 600000,
-			hash: 'SHA-256'
-		};
-		const newLwk = await deriveLWK(newPass, newMetadata);
+		const newMetadata = generateKDFMetadata(newSalt);
+		const newLwk = await deriveLWK(newPasskey, newMetadata);
 		const newWrapped = await wrapMSK(msk, newLwk);
 
 		localStorage.setItem(T_ES_KDF_META, JSON.stringify(newMetadata));
 		localStorage.setItem(T_ES_WRAPPED_MSK, JSON.stringify(newWrapped));
 		localStorage.removeItem(T_ES_WRAPPED_MSK_BAK);
 
-		this.#passcode = newPass;
+		this.#passcode = newPasskey;
 	}
 
 	/**
@@ -207,15 +218,14 @@ class KeyManager {
 		let metadata;
 		if (metadataStr) {
 			metadata = JSON.parse(metadataStr);
+			// Upgrade metadata to v1 if it was legacy v0
+			if (metadata.v === 0) {
+				const salt = crypto.getRandomValues(new Uint8Array(16));
+				metadata = generateKDFMetadata(salt);
+			}
 		} else {
 			const salt = crypto.getRandomValues(new Uint8Array(16));
-			metadata = {
-				v: 1,
-				name: 'PBKDF2',
-				salt: btoa(String.fromCharCode(...salt)),
-				iterations: 600000,
-				hash: 'SHA-256'
-			};
+			metadata = generateKDFMetadata(salt);
 		}
 
 		const lwk = await deriveLWK(passkey, metadata);

@@ -31,9 +31,8 @@
 			alert(
 				'This app has been updated to a newer version. Your tokens need to be migrated to more secure encryption. Click OK to automatically download a backup and proceed with the migration.'
 			);
-			handleMigration();
 
-			if (conditions.clientId) initStorage(conditions.clientId);
+			handleMigration();
 		}
 	});
 
@@ -60,10 +59,12 @@
 		tokensContext.current.addTokens(tokenize(tokenable));
 	}
 
-	function handleMigration() {
+	async function handleMigration() {
 		const tokens = tokensContext.current?.getTokens() || [];
 		const filename = `trezur_backup_${new Date().toISOString().split('T')[0]}.json`;
 		exportTokensDownload(tokens, filename);
+
+		if (conditions.clientId) await initStorage(conditions.clientId);
 	}
 
 	/** @type {import('./$types').Snapshot<string>} */

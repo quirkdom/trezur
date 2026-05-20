@@ -77,4 +77,4 @@ function generateKDFMetadata(saltBytes, isLegacy = false) {
 	};
 }
 
-export { deriveSalt as ds, cip, pic, getLegacySalt, generateKDFParams, generateKDFMetadata };
+export { deriveSalt as ds, cip, pic, getLegacySalt, generateKDFMetadata };

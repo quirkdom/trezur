@@ -102,43 +102,48 @@ conditionsContext.updateCondition('isAppLocked', true);
 
 ### unlock(passkey)
 
-Three branches depending on what's stored:
+Three branches depending on what's stored and the current app state:
 
-**Branch A — Normal (wrapped MSK + KDF metadata exist):**
+**Branch A — Normal (wrapped MSK + v1 KDF metadata exist):**
 
 - Reads `T_ES_WRAPPED_MSK` and `T_ES_KDF_META`.
-- If metadata version < 1 (legacy v0): force-upgrades KDF parameters, re-wraps MSK with new salt/iterations.
+- Verifies metadata version is 1 or higher.
 - Derives LWK from passkey + metadata, unwraps MSK, imports as CryptoKey.
+- Sets `#needsMigration = false`.
 - Returns the CryptoKey.
 
-**Branch B — Legacy migration (no wrapped MSK, but vault data exists):**
+**Branch B — Legacy detection (no wrapped MSK, but legacy data exists):**
 
-- Detected by presence of old `T_ES_*` localStorage keys.
+- Detected if no wrapped MSK exists AND (no metadata exists OR metadata version < 1) AND legacy `T_ES_` keys are present in localStorage.
 - Derives salt from passkey using legacy method, creates v0 metadata.
-- Sets `#needsMigration = true` — on next `initStorage`, tokens will be re-encrypted under the new MSK architecture.
-- Returns the LWK directly as CryptoKey (MSK doesn't exist yet).
+- Sets `#needsMigration = true` — this flags the app to perform an automatic migration.
+- Returns the derived LWK directly as the payload key (temporary access to legacy tokens).
 
-**Branch C — Fresh start (nothing stored):**
+**Branch C — Fresh start or Migration execution:**
 
-- Generates random 16-byte salt, KDF metadata (v1, PBKDF2, 600K iter, SHA-256).
-- Derives LWK, generates new 32-byte MSK, wraps it with LWK.
+- Triggered if no legacy data is found (fresh install) OR if the app is already flagged for migration (`#needsMigration` is true).
+- Generates random 16-byte salt, modern KDF metadata (v1, PBKDF2, 600K iter, SHA-256).
+- Derives LWK, generates a brand new 32-byte MSK, and wraps it with the LWK.
 - Stores metadata + wrapped MSK.
+- Sets `#needsMigration = false`.
 - Imports MSK as CryptoKey and returns it.
+
+In the migration case, this branch effectively rotates the key material from the legacy "passkey-is-payload-key" model to the modern "wrapped-MSK" model. Any existing tokens in the vault are then re-encrypted using the new MSK when the storage layer initializes.
 
 ### testPasskey(passkey)
 
 Read-only check: derives LWK from passkey + stored metadata, attempts to unwrap MSK. Returns boolean. Does not modify state or import the crypto key.
 
-### changePasscode(newPass)
+### changePasskey(newPasskey)
 
 1. Unwraps MSK with current LWK.
 2. Backs up current wrapped MSK to `T_ES_WRAPPED_MSK_BAK` (safety net).
 3. Generates new salt, new KDF metadata.
-4. Derives new LWK from new passcode.
+4. Derives new LWK from new passkey.
 5. Re-wraps MSK with new LWK, stores it.
 6. Deletes backup.
 
-This is also used to "remove" a passcode — `changePasscode(clientId)` re-wraps the MSK from the user passcode to the device clientId. The MSK and all tokens remain intact.
+This is also used to "remove" a passcode — `changePasskey(clientId)` re-wraps the MSK from the user passcode to the device clientId. The MSK and all tokens remain intact.
 
 ### lock()
 
@@ -196,13 +201,13 @@ Generates a fresh MSK and calls `adoptMSK`. Used during cloud onboarding to ensu
 
 ## Setting, Changing, or Removing a Passcode
 
-All three operations use `keyManager.changePasscode()` — the only difference is what passkey is passed:
+All three operations use `keyManager.changePasskey()` — the only difference is what passkey is passed:
 
-| Operation       | Passed to changePasscode | What happens                                             |
-| --------------- | ------------------------ | -------------------------------------------------------- |
-| Set passcode    | User's new passcode      | MSK re-wrapped from clientId-LWK to passcode-LWK         |
-| Change passcode | User's new passcode      | MSK re-wrapped from old passcode-LWK to new passcode-LWK |
-| Remove passcode | `conditions.clientId`    | MSK re-wrapped from passcode-LWK to clientId-LWK         |
+| Operation       | Passed to changePasskey | What happens                                             |
+| --------------- | ----------------------- | -------------------------------------------------------- |
+| Set passcode    | User's new passcode     | MSK re-wrapped from clientId-LWK to passcode-LWK         |
+| Change passcode | User's new passcode     | MSK re-wrapped from old passcode-LWK to new passcode-LWK |
+| Remove passcode | `conditions.clientId`   | MSK re-wrapped from passcode-LWK to clientId-LWK         |
 
 In all cases, the MSK is unwrapped with the current LWK and re-wrapped with the new one. Tokens are never re-encrypted. After the operation, `isUserPasscodeSet` is updated and the app re-locks if the passcode was removed.
 
@@ -238,7 +243,7 @@ All previous tokens are lost. Recovery is only possible via cloud mnemonic backu
 
 | File                                                | Role                                                                   |
 | --------------------------------------------------- | ---------------------------------------------------------------------- |
-| `src/lib/state/key-manager.svelte.js`               | KeyManager singleton: unlock, lock, changePasscode, testPasskey, purge |
+| `src/lib/state/key-manager.svelte.js`               | KeyManager singleton: unlock, lock, changePasskey, testPasskey, purge  |
 | `src/lib/state/storage.svelte.js`                   | Vault orchestration: initStorage, clearStorage, purgeStorage, adoptMSK |
 | `src/lib/state/conditions.svelte.js`                | Conditions context: isAppLocked, isUserPasscodeSet, clientId           |
 | `src/lib/state/passcode.svelte.js`                  | Runtime passcode state (session memory, not persisted)                 |

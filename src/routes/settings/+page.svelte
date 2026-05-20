@@ -63,7 +63,7 @@
 			if (keyManager.hasWrappedKey && conditions.isUserPasscodeSet)
 				throw new Error('An existing passcode was found. Perhaps you want to change your passcode instead?');
 
-			await keyManager.changePasscode(passcode);
+			await keyManager.changePasskey(passcode);
 
 			conditionsContext.updateCondition('isUserPasscodeSet', true);
 
@@ -88,7 +88,7 @@
 		try {
 			if (!isStorageAvailable()) throw new Error('App must be unlocked to change passcode.');
 
-			await keyManager.changePasscode(newPasscode);
+			await keyManager.changePasskey(newPasscode);
 		} catch (err) {
 			devconsole.error('[Settings > Passcode] Change failed:', err);
 			alert('Failed to change passcode. Your data is unchanged — please try again.');
@@ -110,7 +110,7 @@
 
 			if (!isStorageAvailable()) throw new Error('App must be unlocked to remove passcode.');
 
-			await keyManager.changePasscode(conditions.clientId);
+			await keyManager.changePasskey(conditions.clientId);
 
 			conditionsContext.updateCondition('isUserPasscodeSet', false);
 		} catch (err) {
