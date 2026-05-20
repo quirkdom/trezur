@@ -1,5 +1,5 @@
 <script>
-	import '../app.css';
+	import '../../app.css';
 	import { browser } from '$app/environment';
 	import FooterNav from '$lib/components/nav/FooterNav.svelte';
 	import { createSettingsContext } from '$lib/state/settings.svelte';
