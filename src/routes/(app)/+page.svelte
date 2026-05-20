@@ -175,18 +175,22 @@
 			</button> button.
 		</p>
 		<p>
-			Or import tokens from another app in the <a href={resolve('/settings')}>Settings </a>
-			<a
-				href={resolve('/settings')}
-				class="inline-flex items-center align-middle transition duration-800 ease-in-out hover:rotate-90 hover:text-[#EB3912]"
-				aria-label="Settings page"
-			>
-				{#if isAppleDevice}
-					<Cog class="inline-block h-[1em] w-[1em]" />
-				{:else}
-					<Settings class="inline-block h-[1em] w-[1em]" />
-				{/if}
-			</a> page.
+			Or import tokens from another app in the
+			<span class="group inline gap-1">
+				<a href={resolve('/settings')} class="transition-colors ease-in-out group-hover:text-[#EB3912]">Settings</a>
+				<a
+					href={resolve('/settings')}
+					class="inline-flex items-center align-sub transition duration-500 ease-in-out group-hover:rotate-90 group-hover:text-[#EB3912]"
+					aria-label="Settings page"
+				>
+					{#if isAppleDevice}
+						<Cog class="inline-block h-[1em] w-[1em]" />
+					{:else}
+						<Settings class="inline-block h-[1em] w-[1em]" />
+					{/if}
+				</a>
+			</span>
+			page.
 		</p>
 	</div>
 {/snippet}
