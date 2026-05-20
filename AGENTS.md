@@ -1,99 +1,112 @@
 # Trezur Development Guide
 
-## Commands
+This guide provides a concise, high-level map of Trezur's architecture, state management, security model, and developer commands for AI agents.
+
+## Developer Commands
 - **Dev server**: `npm run dev` (Vite dev server)
 - **Build**: `npm run build` (production build)
-- **Lint**: `npm run lint` (Prettier + ESLint)
-- **Type check**: `npm run check` (Svelte Check with JSDoc)
+- **Lint**: `npm run lint` (Prettier format check + ESLint)
+- **Type check**: `npm run check` (Svelte Check with JSDoc configurations)
 - **Format**: `npm run format` (Prettier auto-fix)
 
-## Architecture
+## Project Architecture & Directory Layout
 
-### Framework & Build
-- **Framework**: SvelteKit with Vite, TypeScript-like type hints via JSDoc
-- **Deployment**: Cloudflare Pages (adapter-cloudflare)
-- **Build Tool**: Vite with SvelteKit adapter for Cloudflare Pages
-- **Service Worker**: PWA capabilities for offline functionality
+### Tech Stack
+- **Framework**: Svelte 5 & SvelteKit (Vite-based)
+- **Styling**: Tailwind CSS v4 (via `@tailwindcss/vite`)
+- **Type safety**: JSDoc type hints with Svelte Check (`/src/lib/types.ts` contains key interfaces)
+- **Deployment**: Cloudflare Pages (`adapter-cloudflare`)
+- **PWA**: Service worker for offline capability
 
 ### Application Structure
-- **Pages**: `/src/routes/` - SvelteKit routes (`+page.svelte`, `+layout.svelte`)
-- **Components**: `/src/lib/components/` - Reusable UI components organized by feature
-- **State Management**: `/src/lib/state/` - Reactive stores using Svelte 5 runes
-- **Utilities**: `/src/lib/utils/` - Helper functions and shared logic
-- **Types**: `/src/types.ts` - TypeScript interfaces and type definitions
+- **Routes & Pages**: `/src/routes/(app)/` (core pages: `+layout.svelte`, `+page.svelte`, `settings/`) and `/src/routes/(legalese)/` (privacy/terms).
+- **State Management**: `/src/lib/state/` - Svelte 5 runes (`$state`, `$derived`, `$effect`) in `.svelte.js` context singletons.
+- **Sync Engine**: `/src/lib/sync/` - Google Drive OAuth integration, sync timing, and conflict resolution.
+- **Components**: `/src/lib/components/` - Reusable Svelte components categorized by feature (`nav`, `tokens`, `sync`, `passcode`, `ui`).
+- **Utilities**: `/src/lib/utils/` - Encryption wrappers, BIP39 helper, legacy migration, and utility functions.
 
-### State Management Setup
+---
 
-#### Encrypted Storage Layer (`storage.svelte.js`)
-- **Purpose**: Secure client-side storage for sensitive token data
-- **Implementation**: Custom encrypted localStorage wrapper with AES encryption
-- **Key Management**:
-  - Device-specific `clientId` for basic encryption (no passcode)
-  - User `passcode` for enhanced encryption when set
-  - Automatic migration between encryption keys
-- **Initialization**: Explicit via `initStorageAndTokens()` in `init.js` (called from layout cold start, unlock, reset flows)
-- **See**: [TEST_FLOWS.md](TEST_FLOWS.md) flows 1-11 for storage initialization testing
+## State Management & Storage Orchestration
 
-#### Token State (`tokens.svelte.js`)
-- **Purpose**: Manages TOTP/HOTP token collection with CRUD operations
-- **Implementation**: Singleton context pattern with reactive token array
-- **Features**:
-  - Token validation and deduplication
-  - Automatic persistence to encrypted storage
-  - Migration support for encryption changes
-- **Initialization**: Requires encrypted storage to be ready first
-- **Context**: `tokensContext` provides app-wide token management
+State is managed via Svelte 5 reactive context classes. The central coordinator is the storage layer.
 
-#### Settings State (`settings.svelte.js`)
-- **Purpose**: User preferences and app configuration
-- **Implementation**: Context pattern with localStorage persistence
-- **Settings**: `showNextCode`, `useBiometricUnlock`, `sortOrder`
-- **Persistence**: Direct localStorage (not encrypted, as settings are non-sensitive)
+### 1. Key Manager (`src/lib/state/key-manager.svelte.js`)
+- **Purpose**: Handles key derivation, MSK wrapping/unwrapping, and passcode updates.
+- **In-memory cache**: Holds `#cryptoKey` (payload key) and `#passcode` as private fields. Never exposes them.
+- **Needs Migration flag**: Set to `true` if a legacy v0 database is detected (triggers a backup download + migration flow on the main page).
 
-#### Passcode State (`passcode.svelte.js`)
-- **Purpose**: Runtime passcode management and app lock state
-- **Implementation**: Session-based reactive store
-- **Features**: Passcode validation, session clearing, lock state management
-- **Documentation**: See `docs/passcode-management.md` for detailed flow of locking, unlocking, and session initialization
+### 2. Encrypted Storage Layer (`src/lib/state/storage.svelte.js`)
+- **Purpose**: Global lifecycle orchestration for the local vault (`LocalKVVault`), payload keys, token contexts, and sync service.
+- **State**: Exposes `localVault` (encrypted LocalKVVault wrapper) and `cryptoKey`.
+- **Initialization**: `initStorage(passkeyParam)` derives keys, instantiates the vault, loads tokens, and starts the sync service.
+- **Teardown**: `clearStorage()` stops sync and wipes in-memory tokens/keys (used for locking). `purgeStorage()` performs a full wipe (forgot passcode / delete all data).
 
-#### Conditions State (`conditions.svelte.js`)
-- **Purpose**: Device and app state conditions
-- **Implementation**: Reactive store for device detection and app flags
-- **Conditions**: `isAppLocked`, `isUserPasscodeSet`, `isAppleDevice`, `clientId`
+### 3. Token State (`src/lib/state/tokens.svelte.js`)
+- **Purpose**: Collection management for TOTP/HOTP tokens.
+- **Context**: `tokensContext` contains the active `TokensCtx` instance.
+- **Conflict Resolution**: Last-Writer-Wins (LWW) per-field merge logic using four timestamps in `updatedAt` (`account`, `issuer`, `secret`, `params`).
+- **Tombstones**: Records deleted token IDs to prevent stale cloud backups from resurrecting them during sync merges.
 
-### App Operation Flow
+### 4. Settings State (`src/lib/state/settings.svelte.js`)
+- **Purpose**: User preferences (`showNextCode`, `useBiometricUnlock`, `sortOrder`).
+- **Persistence**: Plaintext in `T_settings` localStorage (not sensitive).
 
-#### 1. Initial Load (`+layout.svelte`)
-- **Storage Init**: Explicit one-shot call to `initStorageAndTokens(clientId)` on cold start (no passcode case)
-- **Context Setup**: All state contexts are initialized
-- **Lock Check**: App locks if passcode is set and not unlocked
-- **Passcode Init**: Handled by `UnlockScreen.handleUnlock()` which calls `initStorageAndTokens(passcode)`
+### 5. Conditions State (`src/lib/state/conditions.svelte.js`)
+- **Purpose**: Device/application flags (`isUserPasscodeSet`, `isAppLocked`, `isAppleDevice`, `clientId`).
+- **Persistence**: Persists `clientId` (fallback key/device ID) and `isUserPasscodeSet` to `T_conditions` localStorage.
 
-#### 2. Token Loading (`+page.svelte`)
-- **Dependency**: Tokens loaded as part of `initStorageAndTokens()` orchestration
-- **Display**: Tokens rendered in `TokenList` component
+---
 
-#### 3. User Interactions
-- **Token Management**: Add via form or QR scan, edit/delete existing tokens
-- **Import/Export**: JSON-based backup and restore from various authenticator apps
-- **Settings**: Passcode management, preferences, data purge
-- **Migration**: Automatic encryption upgrades with user confirmation
+## Security & Key Hierarchy
 
-#### 4. Security Features
-- **Encryption**: All tokens encrypted at rest using Web Crypto API
-- **Passcode Protection**: Optional additional encryption layer
-- **Offline-First**: No server communication, all data local
-- **Data Export**: Manual backup capability for user control
+Trezur uses a robust three-layer security model to encrypt all sensitive data at rest:
 
-### Testing
-- **Test Flows**: Comprehensive testing guide available in [TEST_FLOWS.md](TEST_FLOWS.md)
-- **Coverage**: Storage initialization, token operations, import/export, security features
-- **Browser Tools**: Use dev tools for storage inspection and state debugging
+```
+Passcode / Device clientId
+    │
+    ▼ PBKDF2 (600,000 iterations, SHA-256, 16-byte salt)
+Local Wrapping Key (LWK, AES-256-GCM)
+    │
+    ├── wrap/unwrap ──► Master Secret Key (MSK, 32 random bytes)
+    │                        │
+    │                        ▼ importRawKey
+    │                   Payload CryptoKey (AES-256-GCM)
+    │                        │
+    │                        ├── Encrypts LocalKVVault (localStorage: `T_ES_*`)
+    │                        └── Encrypts CloudFileVault (Google Drive: `tokens.trzr`)
+    │
+    └── MSK is convertible to a 24-word BIP39 mnemonic for recovery
+```
+
+- Changing the passcode re-wraps the same MSK using a new LWK. Token data is **never** re-encrypted.
+- If no passcode is set, the device-specific `clientId` is used as the passkey fallback.
+
+---
+
+## Cloud Sync & Recovery
+
+- **Backup Target**: Google Drive `appDataFolder` as `tokens.trzr` (binary TRZR format).
+- **Verification**: Cloud backups are verified using BIP39 recovery phrases via a header auth tag, enabling key matching without downloading the full backup.
+- **Synchronization**: Managed by `CloudSyncService` (`src/lib/sync/cloud-sync.svelte.js`). Scheduled automatically on unlock (10s), token edits (30s batching), tab focus, or manually.
+- **Conflict Resolution**: `sync-engine.js` merges local and cloud states atomically using LWW field-level timestamps and tombstones.
+
+---
 
 ## Code Style
-- **Formatting**: Prettier with tabs, single quotes, 100 char width, Tailwind plugin
-- **Imports**: Use `$lib/` and `$app/` aliases, group by source (lib, app, external)
-- **Types**: JSDoc type hints preferred over TypeScript files (except interfaces in `types.ts`)
-- **Components**: PascalCase files, use Svelte 5 runes (`$state`, `$derived`, `$effect`)
-- **State**: Context pattern with `.svelte.js` files for reactive stores
-- **No tests**: Project has no test framework configured
+- **Formatting**: Prettier with tabs, single quotes, 120 char print width, and tailwind/svelte plugins.
+- **Imports**: Use `$lib/` and `$app/` aliases, group by source (lib, app, external).
+- **Types**: JSDoc type hints preferred over TypeScript files (except interfaces in `src/lib/types.ts`).
+- **Components**: PascalCase files, Svelte 5 runes (`$state`, `$derived`, `$effect`).
+- **State**: Context pattern with `.svelte.js` files for reactive stores.
+- **No tests**: Project has no test framework configured.
+
+---
+
+## Detailed Documentation Map
+
+For detailed walk-throughs of specific flows, refer to:
+- [passcode-and-keys.md](docs/passcode-and-keys.md) — Deep dive into KeyManager, storage adoption, and passcode transition.
+- [token-storage.md](docs/token-storage.md) — In-depth look at LWW timestamps, LocalKVVault, and token model definitions.
+- [cloud-sync.md](docs/cloud-sync.md) — Breakdown of the binary TRZR file format, sync loops, and Google Drive OAuth integration.
+- [TEST_FLOWS.md](docs/TEST_FLOWS.md) — Complete list of 40 manual test scenarios covering authentication, tokens, imports, and sync.
