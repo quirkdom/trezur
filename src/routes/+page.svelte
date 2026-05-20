@@ -105,6 +105,7 @@
 			<h2 class="px-4 text-2xl font-semibold">
 				Trezur is a web-app to generate <abbr title="Time-based One-Time Password">TOTP</abbr> and
 				<abbr title="HMAC-based One-Time Password">HOTP</abbr>
+				<sup class="align-super text-tiny text-zinc-500">(soon)</sup>
 				codes for <abbr title="Two-Factor Authentication">2FA</abbr>.
 			</h2>
 
