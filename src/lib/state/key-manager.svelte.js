@@ -101,6 +101,10 @@ class KeyManager {
 		return !!localStorage.getItem(T_KM_WRAPPED_MSK) || !!localStorage.getItem('BAK_KEYMAN');
 	}
 
+	get hasBackup() {
+		return !!localStorage.getItem('BAK_KEYMAN');
+	}
+
 	#reset(shouldPurge = false) {
 		this.#cryptoKey = null;
 		this.#passcode = null;
@@ -276,15 +280,18 @@ class KeyManager {
 	}
 
 	/**
-	 * @param {Uint8Array} newMSK
-	 * @param {string} passkey
+	 * Prepare MSK adoption by backing up current keys to BAK_KEYMAN.
+	 *
+	 * @param {Uint8Array} newMSK The new MSK.
+	 * @returns {Promise<CryptoKey>}
 	 */
-	async replaceMSK(newMSK, passkey) {
-		let metadataStr = localStorage.getItem(T_ES_KDF_META);
+	async prepareAdoptMSKTxn(newMSK) {
+		if (!this.#passcode) throw new Error('App must be unlocked to adopt MSK');
+
+		let metadataStr = localStorage.getItem(T_KM_KDF_META);
 		let metadata;
 		if (metadataStr) {
 			metadata = JSON.parse(metadataStr);
-			// Upgrade metadata to v1 if it was legacy v0
 			if (metadata.v === 0) {
 				const salt = crypto.getRandomValues(new Uint8Array(16));
 				metadata = generateKDFMetadata(salt);
@@ -294,25 +301,56 @@ class KeyManager {
 			metadata = generateKDFMetadata(salt);
 		}
 
-		const lwk = await deriveLWK(passkey, metadata);
+		const lwk = await deriveLWK(this.#passcode, metadata);
 		const wrapped = await wrapMSK(newMSK, lwk);
 
-		localStorage.setItem(T_ES_WRAPPED_MSK_BAK, localStorage.getItem(T_ES_WRAPPED_MSK) || '');
-		localStorage.setItem(T_ES_KDF_META, JSON.stringify(metadata));
-		localStorage.setItem(T_ES_WRAPPED_MSK, JSON.stringify(wrapped));
-		localStorage.removeItem(T_ES_WRAPPED_MSK_BAK);
+		// 1. Write consolidated backup to localStorage (unencrypted)
+		const oldWrappedMSK = localStorage.getItem(T_KM_WRAPPED_MSK);
+		const oldKDFMeta = localStorage.getItem(T_KM_KDF_META);
+		const backup = {
+			WRAPPED_MSK: oldWrappedMSK ? JSON.parse(oldWrappedMSK) : null,
+			KDF_META: oldKDFMeta ? JSON.parse(oldKDFMeta) : null
+		};
+		localStorage.setItem('BAK_KEYMAN', JSON.stringify(backup));
 
-		this.#cryptoKey = await importPayloadKey(newMSK);
-		this.#passcode = passkey;
+		// 2. Write new key material to active locations
+		localStorage.setItem(T_KM_KDF_META, JSON.stringify(metadata));
+		localStorage.setItem(T_KM_WRAPPED_MSK, JSON.stringify(wrapped));
+
+		// 3. Save old in-memory state for rollback
+		this.#backupCryptoKey = this.#cryptoKey;
+		this.#backupPasscode = this.#passcode;
+
+		// 4. Update in-memory to new key
+		const tempCryptoKey = await importPayloadKey(newMSK);
+		this.#cryptoKey = tempCryptoKey;
+
+		return tempCryptoKey;
 	}
 
 	/**
-	 * @param {Uint8Array} newMSK
+	 * Commit MSK adoption by removing backup.
 	 */
-	async adoptMSK(newMSK) {
-		if (!this.#passcode) throw new Error('App must be unlocked to adopt MSK');
-		await this.replaceMSK(newMSK, this.#passcode);
-		return this.#cryptoKey;
+	async commitAdoptMSKTxn() {
+		localStorage.removeItem('BAK_KEYMAN');
+		this.#backupCryptoKey = null;
+		this.#backupPasscode = null;
+	}
+
+	/**
+	 * Roll back MSK adoption by restoring from BAK_KEYMAN and resetting in-memory states.
+	 */
+	async rollbackAdoptMSKTxn() {
+		tryRestoreFromKeymanBackup();
+
+		if (this.#backupCryptoKey) {
+			this.#cryptoKey = this.#backupCryptoKey;
+			this.#backupCryptoKey = null;
+		}
+		if (this.#backupPasscode) {
+			this.#passcode = this.#backupPasscode;
+			this.#backupPasscode = null;
+		}
 	}
 }
 
