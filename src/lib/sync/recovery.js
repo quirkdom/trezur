@@ -39,7 +39,6 @@ export async function verifyCloudBackupMnemonic(words) {
  */
 export async function adoptCloudBackup(words) {
 	const newMsk = mnemonicToMSK(words.join(' '));
-	await tokensContext.purgeTokens();
 	await adoptMSK(newMsk);
 	await cloudSyncService.enable();
 }
