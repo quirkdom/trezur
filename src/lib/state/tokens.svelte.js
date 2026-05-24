@@ -353,47 +353,59 @@ export function getMaxTimestamp(token) {
 }
 
 /**
- * Merges two tokens using LWW-per-field logic.
- * Incoming (tokenB) wins on tie-break.
+ * Merges two tokens using Last-Writer-Wins (LWW) per-field logic.
+ * Incoming (tokenB) wins on a tie-break (using >=).
  * @param {Token} tokenA
  * @param {Token} tokenB
  * @returns {Token}
  */
 export function mergeTokens(tokenA, tokenB) {
 	/** @type {(t: Token, key: 'account' | 'issuer' | 'secret' | 'params') => number} */
-	const getTs = (t, key) => t.updatedAt?.[key] ?? 0;
+	const getUpdatedAtTs = (t, key) => t.updatedAt?.[key] ?? 0;
 
 	const merged = { ...tokenA };
-	const mergedUp = {
-		account: getTs(tokenA, 'account'),
-		issuer: getTs(tokenA, 'issuer'),
-		secret: getTs(tokenA, 'secret'),
-		params: getTs(tokenA, 'params')
+	const mergedUpdatedAt = {
+		account: getUpdatedAtTs(tokenA, 'account'),
+		issuer: getUpdatedAtTs(tokenA, 'issuer'),
+		secret: getUpdatedAtTs(tokenA, 'secret'),
+		params: getUpdatedAtTs(tokenA, 'params')
 	};
 
-	const upB = tokenB.updatedAt || {};
+	const tokenBUpdatedAt = {
+		account: getUpdatedAtTs(tokenB, 'account'),
+		issuer: getUpdatedAtTs(tokenB, 'issuer'),
+		secret: getUpdatedAtTs(tokenB, 'secret'),
+		params: getUpdatedAtTs(tokenB, 'params')
+	};
 
-	if ((upB.account || 0) >= mergedUp.account) {
+	// 1. Account field merge
+	if (tokenBUpdatedAt.account >= mergedUpdatedAt.account) {
 		merged.account = tokenB.account;
-		mergedUp.account = upB.account || 0;
+		mergedUpdatedAt.account = tokenBUpdatedAt.account;
 	}
-	if ((upB.issuer || 0) >= mergedUp.issuer) {
+
+	// 2. Issuer field merge
+	if (tokenBUpdatedAt.issuer >= mergedUpdatedAt.issuer) {
 		merged.issuer = tokenB.issuer;
-		mergedUp.issuer = upB.issuer || 0;
+		mergedUpdatedAt.issuer = tokenBUpdatedAt.issuer;
 	}
-	if ((upB.secret || 0) >= mergedUp.secret) {
+
+	// 3. Secret field merge
+	if (tokenBUpdatedAt.secret >= mergedUpdatedAt.secret) {
 		merged.secret = tokenB.secret;
-		mergedUp.secret = upB.secret || 0;
+		mergedUpdatedAt.secret = tokenBUpdatedAt.secret;
 	}
-	if ((upB.params || 0) >= mergedUp.params) {
+
+	// 4. Params field merge (covers digits, period, algorithm, type, and counter)
+	if (tokenBUpdatedAt.params >= mergedUpdatedAt.params) {
 		merged.digits = tokenB.digits;
 		merged.period = tokenB.period;
 		merged.algorithm = tokenB.algorithm;
 		merged.type = tokenB.type;
 		merged.counter = tokenB.counter;
-		mergedUp.params = upB.params || 0;
+		mergedUpdatedAt.params = tokenBUpdatedAt.params;
 	}
 
-	merged.updatedAt = mergedUp;
+	merged.updatedAt = mergedUpdatedAt;
 	return merged;
 }
