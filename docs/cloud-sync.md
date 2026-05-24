@@ -129,7 +129,7 @@ Cloud wins ties. Legacy tokens without `updatedAt` are treated as timestamp 0.
 
 1. **Merge tombstones**: For each cloud tombstone, keep the higher of local vs cloud timestamp.
 2. **Merge tokens**: For each cloud token:
-   - Not in local → adopt it (iff its max timestamp > its tombstone timestamp)
+   - Not in local → adopt it (iff its max timestamp ≥ its tombstone timestamp)
    - In local → `mergeTokens(local[id], cloud[id])`
 3. **Re-apply tombstones**: Delete any token whose tombstone timestamp ≥ its max field timestamp.
 

@@ -60,7 +60,10 @@ export function resolveSyncConflicts(local, cloud) {
 		const tombTs = mergedTombstones[id] || 0;
 
 		if (!mergedTokens[id]) {
-			if (getMaxTimestamp(cloudToken) > tombTs) {
+			// Token only exists in cloud
+			const maxCloudTokenTimestamp = getMaxTimestamp(cloudToken); // 0 for legacy, > 0 for modern
+			if (maxCloudTokenTimestamp >= tombTs) {
+				// when maxCloudTokenTimestamp is 0 (legacy), this condition allows adoption if no tombstone exists (tombTs=0), ensuring legacy tokens are not erroneously discarded
 				mergedTokens[id] = cloudToken;
 			}
 		} else {
