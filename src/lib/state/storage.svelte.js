@@ -62,8 +62,9 @@ export async function initStorage(passkeyParam) {
 			await localVault.commitRekeyTxn();
 		}
 
+		// 5. Initialize the services with the new vault instance and factory callback
 		await tokensContext.iMake(localVault);
-		await cloudSyncService.init();
+		await cloudSyncService.init(localVault, createCloudVault);
 		return true;
 	} catch (err) {
 		console.error('[storage] initStorage failed:', err);
@@ -112,7 +113,7 @@ export async function adoptMSK(newMSK) {
 
 		// Reinitialize cloud sync service and tokens context
 		await tokensContext.iMake(localVault);
-		await cloudSyncService.init();
+		await cloudSyncService.init(localVault, createCloudVault);
 	} catch (err) {
 		console.error('[storage] MSK adoption failed, rolling back coordinated transaction...', err);
 
