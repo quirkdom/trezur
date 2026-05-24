@@ -227,7 +227,18 @@ class KeyManager {
 	 * @param {string} passkey
 	 */
 	async testPasskey(passkey) {
-		const storedWrappedMSK = localStorage.getItem(T_KM_WRAPPED_MSK);
+		let storedWrappedMSK = localStorage.getItem(T_KM_WRAPPED_MSK);
+
+		if (!storedWrappedMSK) {
+			// Seamless auto-upgrade fallback from T_ES_ to T_KM_ key manager keys
+			storedWrappedMSK = tryUpgradeKeymanNamespace();
+		}
+
+		if (!storedWrappedMSK) {
+			// Secondary defensive fallback: if primary is missing but transaction backup exists, restore it.
+			storedWrappedMSK = tryRestoreFromKeymanBackup();
+		}
+
 		const storedMetadata = JSON.parse(localStorage.getItem(T_KM_KDF_META) || 'null');
 
 		if (storedWrappedMSK && storedMetadata?.v >= 1) {
