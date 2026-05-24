@@ -2,12 +2,14 @@ import { getMaxTimestamp, mergeTokens } from '$lib/state/tokens.svelte';
 import { driveClient } from '$lib/sync/gdrive';
 
 /** @typedef {import('$lib/types').Token} Token */
+/** @typedef {import('$lib/types').SyncState} SyncState */
 
 export const BACKUP_FILENAME = 'tokens.trzr';
 export const BACKUP_FILE_TYPE = 'TOKN';
 
 /**
  * @param {import('$lib/utils/cloud-file-vault').CloudFileVault} vault
+ * @returns {Promise<{ state: SyncState, etag: string | null }>}
  */
 export async function fetchCloudState(vault) {
 	try {
@@ -15,12 +17,13 @@ export async function fetchCloudState(vault) {
 		const arrayBuffer = typeof buffer === 'string' ? new TextEncoder().encode(buffer).buffer : buffer;
 		const { payload: cloudPayload } = await vault.unpack(new Uint8Array(arrayBuffer));
 
-		/** @type {Record<string, Token>} */
-		const cloudTokens = {};
+		/** @type {Token[]} */
+		const cloudTokens = [];
 		const rawCloudTokens = /** @type {any} */ (cloudPayload).tokens || {};
-		for (const [id, val] of Object.entries(rawCloudTokens)) {
+		for (const val of Object.values(rawCloudTokens)) {
 			// Handle legacy wrapper if present
-			cloudTokens[id] = val.data ? { ...val.data, updatedAt: val.updatedAt } : val;
+			const token = val.data ? { ...val.data, updatedAt: val.updatedAt } : val;
+			cloudTokens.push(token);
 		}
 
 		return {
@@ -32,31 +35,43 @@ export async function fetchCloudState(vault) {
 		};
 	} catch (/** @type {any} */ err) {
 		if (err.message !== 'File not found') throw err;
-		return { state: { tokens: {}, tombstones: {} }, etag: null };
+		return { state: { tokens: [], tombstones: {} }, etag: null };
 	}
 }
 
 /**
- * @param {{tokens: Token[], tombstones: Record<string, number>}} local
- * @param {{tokens: Record<string, Token>, tombstones: Record<string, number>}} cloud
+ * Merge local and cloud token states, resolving conflicts based on timestamps and tombstones.
+ *
+ * Conflict Resolution Algorithm:
+ * 1. Merge Tombstones: Union local and cloud tombstones, keeping the latest deletion timestamp for each token ID.
+ * 2. Merge Tokens:
+ *    - If a cloud token is not in local: adopt it if its max field timestamp is equal to or greater than the tombstone timestamp (ensuring legacy tokens with timestamp 0 are adopted when no tombstone exists).
+ *    - If a cloud token is also local: merge individual fields using Last-Writer-Wins (LWW) logic, where the incoming cloud token wins tie-breakers.
+ * 3. Re-apply Tombstones: Delete any token whose tombstone timestamp is greater than or equal to its maximum field timestamp.
+ *
+ * Token Ordering:
+ * - Local tokens retain their original relative order because the merged collection is initialized with `local.tokens`.
+ * - Cloud-exclusive tokens (new tokens not present locally) are appended to the end in the order they appear in the cloud payload.
+ * - This insertion-based merge preserves relative local consistency, though clients with mutually exclusive, unsynced
+ *   tokens may end up with different array sequences (which are resolved visually in the UI by sort settings).
+ *
+ * @param {SyncState} local Local token state
+ * @param {SyncState} cloud Cloud token state
+ * @returns {SyncState} Merged token state after resolving conflicts
  */
 export function resolveSyncConflicts(local, cloud) {
-	/** @type {Record<string, number>} */
-	const mergedTombstones = { ...local.tombstones };
+	/** @type {Record<string, number>} */ const mergedTombstones = { ...local.tombstones };
 
-	// 1. Merge tombstones
-	for (const [id, ts] of Object.entries(cloud.tombstones)) {
-		if (!mergedTombstones[id] || mergedTombstones[id] < ts) {
-			mergedTombstones[id] = ts;
-		}
-	}
+	// 1. Merge tombstones: take the latest deletion timestamp
+	for (const [id, ts] of Object.entries(cloud.tombstones))
+		mergedTombstones[id] = Math.max(mergedTombstones[id] || 0, ts);
 
 	/** @type {Record<string, Token>} */
-	const mergedTokens = {};
-	for (const t of local.tokens) mergedTokens[t.id] = t;
+	const mergedTokens = Object.fromEntries(local.tokens.map((t) => [t.id, t]));
 
-	// 2. Merge tokens
-	for (const [id, cloudToken] of Object.entries(cloud.tokens)) {
+	// 2. Merge tokens: resolve conflict for each cloud token
+	for (const cloudToken of cloud.tokens) {
+		const id = cloudToken.id;
 		const tombTs = mergedTombstones[id] || 0;
 
 		if (!mergedTokens[id]) {
@@ -71,11 +86,9 @@ export function resolveSyncConflicts(local, cloud) {
 		}
 	}
 
-	// 3. Re-apply tombstones
+	// 3. Re-apply tombstones: ensure any token newer than or equal to a deletion is kept, else deleted
 	for (const [id, ts] of Object.entries(mergedTombstones)) {
-		if (mergedTokens[id] && ts >= getMaxTimestamp(mergedTokens[id])) {
-			delete mergedTokens[id];
-		}
+		if (mergedTokens[id] && ts >= getMaxTimestamp(mergedTokens[id])) delete mergedTokens[id];
 	}
 
 	return {
@@ -101,26 +114,28 @@ export async function uploadCloudState(vault, payload, snapshotTime, etag) {
 
 /**
  * Compare local merged state with cloud state to determine if an upload is necessary.
- * @param {Token[]} mergedTokens
- * @param {Record<string, number>} mergedTombstones
- * @param {{tokens: Record<string, Token>, tombstones: Record<string, number>}} cloudState
+ * @param {SyncState} merged
+ * @param {SyncState} cloud
+ * @returns {boolean}
  */
-export function isStateEqual(mergedTokens, mergedTombstones, cloudState) {
-	const cloudTokenIds = Object.keys(cloudState.tokens);
-	if (mergedTokens.length !== cloudTokenIds.length) return false;
+export function areSyncStatesEquivalent(merged, cloud) {
+	if (merged.tokens.length !== cloud.tokens.length) return false;
 
-	for (const t of mergedTokens) {
-		const cloudT = cloudState.tokens[t.id];
+	// Build a map of cloud tokens for O(1) lookup
+	const cloudTokenMap = new Map(cloud.tokens.map((t) => [t.id, t]));
+
+	for (const t of merged.tokens) {
+		const cloudT = cloudTokenMap.get(t.id);
 		if (!cloudT) return false;
 		if (getMaxTimestamp(t) !== getMaxTimestamp(cloudT)) return false;
 	}
 
-	const mergedTombIds = Object.keys(mergedTombstones);
-	const cloudTombIds = Object.keys(cloudState.tombstones);
+	const mergedTombIds = Object.keys(merged.tombstones);
+	const cloudTombIds = Object.keys(cloud.tombstones);
 	if (mergedTombIds.length !== cloudTombIds.length) return false;
 
 	for (const id of mergedTombIds) {
-		if (mergedTombstones[id] !== cloudState.tombstones[id]) return false;
+		if (merged.tombstones[id] !== cloud.tombstones[id]) return false;
 	}
 
 	return true;

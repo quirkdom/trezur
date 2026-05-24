@@ -4,7 +4,7 @@ import { tokensContext } from '$lib/state/tokens.svelte';
 import { driveClient } from '$lib/sync/gdrive';
 import {
 	fetchCloudState,
-	isStateEqual,
+	areSyncStatesEquivalent,
 	resolveSyncConflicts,
 	uploadCloudState,
 	BACKUP_FILENAME
@@ -89,7 +89,7 @@ class CloudSyncService {
 				});
 
 				// 4. Push to cloud (only if something changed)
-				if (!isStateEqual(merged.tokens, merged.tombstones, cloudState)) {
+				if (!areSyncStatesEquivalent(merged, cloudState)) {
 					const finalPayload = {
 						tokens: Object.fromEntries(merged.tokens.map((t) => [t.id, t])),
 						tombstones: merged.tombstones

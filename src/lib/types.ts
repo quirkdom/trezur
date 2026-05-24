@@ -47,3 +47,8 @@ export interface KVStorage {
 	delete(key: string): Promise<void>;
 	clear(): Promise<void>;
 }
+
+export interface SyncState {
+	tokens: Token[];
+	tombstones: Record<string, number>;
+}
