@@ -137,10 +137,8 @@ class CloudSyncService {
 
 		this.autoSyncEnabled = true;
 		await this.#persistState();
-		this.#startAutoSync();
-
 		await this.sync();
-		this.#scheduleTimer(SYNC_INTERVAL); // schedule next auto-sync
+		this.#startAutoSync();
 	}
 
 	async disable() {
