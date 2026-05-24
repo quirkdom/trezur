@@ -144,8 +144,12 @@ class CloudSyncService {
 	}
 
 	async disable() {
+		await this.storage?.delete(T_CLOUD_SYNC_STATE);
+
 		this.autoSyncEnabled = false;
-		await this.#persistState();
+		this.lastError = null;
+		this.lastSyncTime = 0;
+
 		this.stopAutoSync();
 	}
 
@@ -204,7 +208,7 @@ class CloudSyncService {
 	}
 
 	/**
-	 * @param {number} delay
+	 * @param {number} delay in milliseconds
 	 */
 	#scheduleTimer(delay) {
 		this.#clearTimer();
@@ -229,14 +233,11 @@ class CloudSyncService {
 	}
 
 	async #persistState() {
-		const vault = getLocalVault();
-		if (vault) {
-			await vault.set(T_BACKUP_STATE, {
-				autoSyncEnabled: this.autoSyncEnabled,
-				lastError: this.lastError,
-				lastSyncTime: this.lastSyncTime
-			});
-		}
+		await this.storage?.set(T_CLOUD_SYNC_STATE, {
+			autoSyncEnabled: this.autoSyncEnabled,
+			lastError: this.lastError,
+			lastSyncTime: this.lastSyncTime
+		});
 	}
 }
 
