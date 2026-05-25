@@ -34,33 +34,11 @@ class TokensCtx {
 
 	/**
 	 * @param {KVStorage} storage
-	 * @param {Object} [options]
-	 * @param {Token[] | null | undefined} [options.extraTokens]
 	 */
-	static async make(storage, options) {
+	static async make(storage) {
 		const instance = new TokensCtx(storage, ANTI_CTOR_TOKEN);
 
 		await instance.#load(); // first, load any tokens from storage
-
-		if (options?.extraTokens?.length) {
-			// Merge and deduplicate
-			const tokenMap = new SvelteMap();
-
-			// Add existing tokens
-			for (const token of instance.#tokens) {
-				const key = `${token.id}:${token.secret}`;
-				tokenMap.set(key, token);
-			}
-
-			// Merge in extra tokens (will overwrite if duplicate)
-			for (const token of options.extraTokens) {
-				const key = `${token.id}:${token.secret}`;
-				tokenMap.set(key, token);
-			}
-
-			instance.#tokens = [...tokenMap.values()];
-			await instance.#persist(); // Ensure changes are persisted
-		}
 
 		return instance;
 	}
@@ -73,8 +51,16 @@ class TokensCtx {
 		const loadedTombstones = (await this.storage.get(T_TOMBSTONES)) || {};
 		this.#tombstones = loadedTombstones;
 
-		// Deduplication logic: Handles edge cases where local storage might have duplicate
-		// tokens. We use LWW merge to pick the freshest one if duplicates are found.
+		/**
+		 * Deduplication logic: Handles edge cases where local storage might have duplicate
+		 * tokens. We use LWW merge to pick the freshest one if duplicates are found.
+		 *
+		 * @todo This is a temporary stop-gap mitigation for potential duplicate tokens in storage, which can occur due to
+		 * interrupted transactions or bugs or user-error. Ideally, we should bulletproof all sources of tokens ingestions
+		 * and mutations, so that duplicates can never occur in the first place, and then remove this deduplication logic entirely.
+		 *
+		 * @todo Dedupe is by `id` only currently. More sophisticated logic required.
+		 */
 		const tokenMap = new SvelteMap();
 
 		for (const token of loadedTokens) {
@@ -269,33 +255,42 @@ class TokensContext {
 	}
 
 	/**
-	 * (Intelligently) Make a new Tokens context.
-	 * - Scenario 1: Create a new Tokens context instance, loading existing tokens from provided storage.
-	 * - Scenario 2: Storage is changing. Merge any existing in-memory tokens into new storage.
+	 * Initialize the Tokens context with the provided storage.
 	 * @param {KVStorage} storage
 	 */
-	async iMake(storage) {
+	async init(storage) {
 		// artificial delay to simulate loading (for testing)
 		// await new Promise((resolve) => setTimeout(resolve, 1500));
 
-		if (this.#current) {
-			const existingTokens = $state.snapshot(this.#current.getTokens());
-			this.#current = await TokensCtx.make(storage, { extraTokens: existingTokens });
-		} else this.#current = await TokensCtx.make(storage);
+		this.#current = await TokensCtx.make(storage);
+	}
+
+	/**
+	 * Migrates token state to a new storage instance, such as during KDF migration.
+	 * @param {KVStorage} newStorage
+	 */
+	async migrateToNewStorage(newStorage) {
+		if (!this.#current) throw new Error('No active Tokens context to migrate');
+
+		const newCtx = new TokensCtx(newStorage, ANTI_CTOR_TOKEN);
+		await newCtx.setTokensAndTombstones(this.#current.getTokens(), this.#current.getTombstones(), {
+			skipSyncNotify: true
+		});
+		this.#current = newCtx;
 	}
 
 	/**
 	 * Evict in-memory token state only, leaving persistent storage intact.
 	 *
 	 * **CAUTION:** This leaves the app without a valid tokens context; subsequent token operations will fail
-	 * until re-initialized via `iMake`.
+	 * until re-initialized via `init`.
 	 */
 	resetTokens() {
 		this.#current?.clearTokens(false);
 		this.#current = null;
 
 		devconsole.warn(
-			'[Tokens] App without valid Tokens context; subsequent token operations will fail. Call iMake() to re-initialize.'
+			'[Tokens] App without valid Tokens context; subsequent token operations will fail. Call init() to re-initialize.'
 		);
 	}
 
@@ -353,47 +348,59 @@ export function getMaxTimestamp(token) {
 }
 
 /**
- * Merges two tokens using LWW-per-field logic.
- * Incoming (tokenB) wins on tie-break.
+ * Merges two tokens using Last-Writer-Wins (LWW) per-field logic.
+ * Incoming (tokenB) wins on a tie-break (using >=).
  * @param {Token} tokenA
  * @param {Token} tokenB
  * @returns {Token}
  */
 export function mergeTokens(tokenA, tokenB) {
 	/** @type {(t: Token, key: 'account' | 'issuer' | 'secret' | 'params') => number} */
-	const getTs = (t, key) => t.updatedAt?.[key] ?? 0;
+	const getUpdatedAtTs = (t, key) => t.updatedAt?.[key] ?? 0;
 
 	const merged = { ...tokenA };
-	const mergedUp = {
-		account: getTs(tokenA, 'account'),
-		issuer: getTs(tokenA, 'issuer'),
-		secret: getTs(tokenA, 'secret'),
-		params: getTs(tokenA, 'params')
+	const mergedUpdatedAt = {
+		account: getUpdatedAtTs(tokenA, 'account'),
+		issuer: getUpdatedAtTs(tokenA, 'issuer'),
+		secret: getUpdatedAtTs(tokenA, 'secret'),
+		params: getUpdatedAtTs(tokenA, 'params')
 	};
 
-	const upB = tokenB.updatedAt || {};
+	const tokenBUpdatedAt = {
+		account: getUpdatedAtTs(tokenB, 'account'),
+		issuer: getUpdatedAtTs(tokenB, 'issuer'),
+		secret: getUpdatedAtTs(tokenB, 'secret'),
+		params: getUpdatedAtTs(tokenB, 'params')
+	};
 
-	if ((upB.account || 0) >= mergedUp.account) {
+	// 1. Account field merge
+	if (tokenBUpdatedAt.account >= mergedUpdatedAt.account) {
 		merged.account = tokenB.account;
-		mergedUp.account = upB.account || 0;
+		mergedUpdatedAt.account = tokenBUpdatedAt.account;
 	}
-	if ((upB.issuer || 0) >= mergedUp.issuer) {
+
+	// 2. Issuer field merge
+	if (tokenBUpdatedAt.issuer >= mergedUpdatedAt.issuer) {
 		merged.issuer = tokenB.issuer;
-		mergedUp.issuer = upB.issuer || 0;
+		mergedUpdatedAt.issuer = tokenBUpdatedAt.issuer;
 	}
-	if ((upB.secret || 0) >= mergedUp.secret) {
+
+	// 3. Secret field merge
+	if (tokenBUpdatedAt.secret >= mergedUpdatedAt.secret) {
 		merged.secret = tokenB.secret;
-		mergedUp.secret = upB.secret || 0;
+		mergedUpdatedAt.secret = tokenBUpdatedAt.secret;
 	}
-	if ((upB.params || 0) >= mergedUp.params) {
+
+	// 4. Params field merge (covers digits, period, algorithm, type, and counter)
+	if (tokenBUpdatedAt.params >= mergedUpdatedAt.params) {
 		merged.digits = tokenB.digits;
 		merged.period = tokenB.period;
 		merged.algorithm = tokenB.algorithm;
 		merged.type = tokenB.type;
 		merged.counter = tokenB.counter;
-		mergedUp.params = upB.params || 0;
+		mergedUpdatedAt.params = tokenBUpdatedAt.params;
 	}
 
-	merged.updatedAt = mergedUp;
+	merged.updatedAt = mergedUpdatedAt;
 	return merged;
 }

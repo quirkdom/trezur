@@ -1,5 +1,4 @@
 import { adoptMSK } from '$lib/state/storage.svelte';
-import { tokensContext } from '$lib/state/tokens.svelte';
 import { cloudSyncService } from '$lib/sync/cloud-sync.svelte';
 import { driveClient } from '$lib/sync/gdrive';
 import { BACKUP_FILENAME } from '$lib/sync/sync-engine';
@@ -24,8 +23,7 @@ export async function verifyCloudBackupMnemonic(words) {
 		});
 		const arrayBuffer = typeof buffer === 'string' ? new TextEncoder().encode(buffer).buffer : buffer;
 
-		await vault.verifyHeader(new Uint8Array(arrayBuffer));
-		return true;
+		return await vault.verifyHeader(new Uint8Array(arrayBuffer));
 	} catch (e) {
 		devconsole.warn('[Backup] Mnemonic verification failed', e);
 		return false;
@@ -39,7 +37,6 @@ export async function verifyCloudBackupMnemonic(words) {
  */
 export async function adoptCloudBackup(words) {
 	const newMsk = mnemonicToMSK(words.join(' '));
-	await tokensContext.purgeTokens();
 	await adoptMSK(newMsk);
 	await cloudSyncService.enable();
 }

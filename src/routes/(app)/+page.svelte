@@ -10,7 +10,7 @@
 	import { exportTokensDownload } from '$lib/components/tokens/ExportTokens.svelte';
 	import { useConditionsContext } from '$lib/state/conditions.svelte';
 	import { useSettingsContext } from '$lib/state/settings.svelte';
-	import { getLocalVault, initStorage } from '$lib/state/storage.svelte';
+	import { getLocalVault, initStorageForKDFMigration } from '$lib/state/storage.svelte';
 	import { keyManager } from '$lib/state/key-manager.svelte';
 	import { tokenize, tokensContext } from '$lib/state/tokens.svelte';
 	import { devconsole } from '$lib/utils';
@@ -64,7 +64,7 @@
 		const filename = `trezur_backup_${new Date().toISOString().split('T')[0]}.json`;
 		exportTokensDownload(tokens, filename);
 
-		if (conditions.clientId) await initStorage(conditions.clientId);
+		if (conditions.clientId) await initStorageForKDFMigration(conditions.clientId);
 	}
 
 	/** @type {import('./$types').Snapshot<string>} */

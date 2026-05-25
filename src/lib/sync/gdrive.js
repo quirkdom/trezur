@@ -356,10 +356,10 @@ class DriveClient {
 	 * @param {string | Blob | Uint8Array} content
 	 * @param {Object} [options]
 	 * @param {string} [options.mimeType='application/json']
-	 * @param {string} [options.etag]
+	 * @param {string} [options.etag] - Ignored in Google Drive API v3
 	 */
 	async upload(filename, content, options = {}) {
-		const { mimeType = 'application/json', etag } = options;
+		const { mimeType = 'application/json' } = options;
 		const file = await this.findFile(filename);
 		const token = this.accessToken;
 
@@ -384,9 +384,6 @@ class DriveClient {
 		if (file) {
 			url = `https://www.googleapis.com/upload/drive/v3/files/${file.id}?uploadType=multipart`;
 			method = 'PATCH';
-			if (etag) {
-				headers['If-Match'] = etag;
-			}
 		}
 
 		const res = await this.#fetchWithTimeout(url, {
@@ -397,9 +394,6 @@ class DriveClient {
 
 		if (!res.ok) {
 			const err = await res.text();
-			if (res.status === 412) {
-				throw new Error('Precondition Failed: File changed on server');
-			}
 			throw new Error(`Upload failed: ${err}`);
 		}
 
@@ -431,7 +425,6 @@ class DriveClient {
 
 		if (!res.ok) throw new Error('Download failed');
 
-		const etag = res.headers.get('ETag');
 		let data;
 
 		if (responseType === 'arraybuffer') {
@@ -440,7 +433,7 @@ class DriveClient {
 			data = await res.text();
 		}
 
-		return { data, etag };
+		return { data, etag: null };
 	}
 }
 

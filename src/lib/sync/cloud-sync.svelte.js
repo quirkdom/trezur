@@ -1,10 +1,9 @@
 import { keyManager } from '$lib/state/key-manager.svelte';
-import { createCloudVault, getLocalVault, isStorageAvailable } from '$lib/state/storage.svelte';
 import { tokensContext } from '$lib/state/tokens.svelte';
 import { driveClient } from '$lib/sync/gdrive';
 import {
 	fetchCloudState,
-	isStateEqual,
+	areSyncStatesEquivalent,
 	resolveSyncConflicts,
 	uploadCloudState,
 	BACKUP_FILENAME
@@ -13,7 +12,7 @@ import { devconsole } from '$lib/utils';
 
 /** @typedef {import('$lib/types').Token} Token */
 
-const T_BACKUP_STATE = 'T_backup_state';
+const T_CLOUD_SYNC_STATE = 'T_cloud_sync_state';
 const SYNC_INTERVAL = 3_600_000; // 1 hour — between auto syncs
 const UNLOCK_DELAY = 10_000; // 10 seconds — initial delay on unlock
 const USER_ACTION_DELAY = 30_000; // 30 seconds — batch window for user actions
@@ -37,31 +36,47 @@ class CloudSyncService {
 	/** @type {(() => void) | null} */
 	#visibilityHandler = null;
 
+	// --- Storage & Keys Dependencies (Explicitly Injected) ---
+	/** @type {import('$lib/utils/local-kv-vault').LocalKVVault | null} */
+	storage = null;
+	/** @type {(() => import('$lib/utils/cloud-file-vault').CloudFileVault) | null} */
+	createCloudVault = null;
+
 	/**
 	 * Initialize sync service: restore state from vault, start auto sync if enabled.
 	 * Called deterministically after storage init (initStorage / adoptMSK).
+	 *
+	 * @param {import('$lib/utils/local-kv-vault').LocalKVVault} storage
+	 * @param {() => import('$lib/utils/cloud-file-vault').CloudFileVault} cloudVaultFactory
 	 */
-	async init() {
-		const vault = getLocalVault();
-		if (!vault) return;
+	async init(storage, cloudVaultFactory) {
+		this.storage = storage;
+		this.createCloudVault = cloudVaultFactory;
 
-		const saved = await vault.get(T_BACKUP_STATE);
-		if (saved) {
-			this.autoSyncEnabled = saved.autoSyncEnabled ?? false;
-			this.lastError = saved.lastError ?? null;
-			this.lastSyncTime = saved.lastSyncTime ?? 0;
+		let saved = await storage.get(T_CLOUD_SYNC_STATE);
+		if (!saved) {
+			// Transparent upgrade hook from T_backup_state
+			saved = await storage.get('T_backup_state');
+			if (saved) {
+				devconsole.log('[Sync] Upgrading sync state key from `T_backup_state` to `T_cloud_sync_state`...');
+
+				await storage.set(T_CLOUD_SYNC_STATE, saved);
+				await storage.delete('T_backup_state');
+			}
 		}
 
-		if (this.autoSyncEnabled) {
-			this.#startAutoSync();
-		}
+		this.autoSyncEnabled = saved?.autoSyncEnabled ?? false;
+		this.lastError = saved?.lastError ?? null;
+		this.lastSyncTime = saved?.lastSyncTime ?? 0;
+
+		if (this.autoSyncEnabled) this.#startAutoSync();
 	}
 
 	/**
 	 * Perform a full sync with the cloud provider.
 	 */
 	async sync() {
-		if (this.isSyncing || !tokensContext.current || !isStorageAvailable()) return;
+		if (this.isSyncing || !tokensContext.current || !this.storage || !this.createCloudVault) return;
 
 		this.isSyncing = true;
 		devconsole.log('[Sync] Starting sync...');
@@ -70,7 +85,7 @@ class CloudSyncService {
 		const MAX_RETRIES = 3;
 
 		try {
-			const vault = createCloudVault();
+			const vault = this.createCloudVault();
 
 			while (retryCount <= MAX_RETRIES) {
 				// 1. Fetch cloud state
@@ -89,7 +104,7 @@ class CloudSyncService {
 				});
 
 				// 4. Push to cloud (only if something changed)
-				if (!isStateEqual(merged.tokens, merged.tombstones, cloudState)) {
+				if (!areSyncStatesEquivalent(merged, cloudState)) {
 					const finalPayload = {
 						tokens: Object.fromEntries(merged.tokens.map((t) => [t.id, t])),
 						tombstones: merged.tombstones
@@ -132,20 +147,21 @@ class CloudSyncService {
 	}
 
 	async enable() {
-		const vault = getLocalVault();
-		if (!vault || !isStorageAvailable()) throw new Error('Storage not ready or locked');
+		if (!this.storage || !this.createCloudVault) throw new Error('Storage not ready or locked');
 
 		this.autoSyncEnabled = true;
 		await this.#persistState();
-		this.#startAutoSync();
-
 		await this.sync();
-		this.#scheduleTimer(SYNC_INTERVAL); // schedule next auto-sync
+		this.#startAutoSync();
 	}
 
 	async disable() {
+		await this.storage?.delete(T_CLOUD_SYNC_STATE);
+
 		this.autoSyncEnabled = false;
-		await this.#persistState();
+		this.lastError = null;
+		this.lastSyncTime = 0;
+
 		this.stopAutoSync();
 	}
 
@@ -155,6 +171,8 @@ class CloudSyncService {
 			document.removeEventListener('visibilitychange', this.#visibilityHandler);
 			this.#visibilityHandler = null;
 		}
+		this.storage = null;
+		this.createCloudVault = null;
 	}
 
 	async clearError() {
@@ -204,7 +222,7 @@ class CloudSyncService {
 	}
 
 	/**
-	 * @param {number} delay
+	 * @param {number} delay in milliseconds
 	 */
 	#scheduleTimer(delay) {
 		this.#clearTimer();
@@ -229,14 +247,11 @@ class CloudSyncService {
 	}
 
 	async #persistState() {
-		const vault = getLocalVault();
-		if (vault) {
-			await vault.set(T_BACKUP_STATE, {
-				autoSyncEnabled: this.autoSyncEnabled,
-				lastError: this.lastError,
-				lastSyncTime: this.lastSyncTime
-			});
-		}
+		await this.storage?.set(T_CLOUD_SYNC_STATE, {
+			autoSyncEnabled: this.autoSyncEnabled,
+			lastError: this.lastError,
+			lastSyncTime: this.lastSyncTime
+		});
 	}
 }
 
