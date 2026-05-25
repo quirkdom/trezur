@@ -6,6 +6,7 @@
 import { cip, pic } from '$lib/utils/salada';
 
 const T_ES_ = 'T_ES_';
+const BAK_LOCALVAULT = 'BAK_LOCALVAULT';
 
 /**
  * Pack and encrypt a value into a wrapped ciphertext structure.
@@ -105,15 +106,27 @@ export class LocalKVVault {
 		localStorage.removeItem(cip(T_ES_ + key));
 	}
 
+	static #keys() {
+		return Object.keys(localStorage)
+			.map((key) => pic(key))
+			.filter((key) => key.startsWith(T_ES_))
+			.map((key) => key.slice(T_ES_.length));
+	}
+
+	/**
+	 * Static method to wipe all vault entries directly from persistent storage without requiring an instance.
+	 */
+	static clear() {
+		this.#keys().forEach((key) => localStorage.removeItem(cip(T_ES_ + key)));
+		localStorage.removeItem(cip(BAK_LOCALVAULT));
+	}
+
 	/**
 	 * Returns all active keys in this vault (excluding backup keys).
 	 * @returns {string[]}
 	 */
 	keys() {
-		return Object.keys(localStorage)
-			.map((key) => pic(key))
-			.filter((key) => key.startsWith(T_ES_))
-			.map((key) => key.slice(T_ES_.length));
+		return LocalKVVault.#keys();
 	}
 
 	/**
@@ -122,9 +135,7 @@ export class LocalKVVault {
 	 * @alias purge
 	 */
 	async clear() {
-		this.keys().forEach((key) => localStorage.removeItem(cip(T_ES_ + key)));
-
-		localStorage.removeItem(cip('BAK_LOCALVAULT'));
+		LocalKVVault.clear();
 	}
 
 	/**
@@ -140,7 +151,7 @@ export class LocalKVVault {
 			.then((valid) => Object.fromEntries(valid));
 
 		const wrapped = await pack(backupData, this.#cryptoKey);
-		localStorage.setItem(cip('BAK_LOCALVAULT'), JSON.stringify(wrapped));
+		localStorage.setItem(cip(BAK_LOCALVAULT), JSON.stringify(wrapped));
 
 		return backupData;
 	}
@@ -150,7 +161,7 @@ export class LocalKVVault {
 	 * restores the primary entries to active storage, and cleans up the journal.
 	 */
 	async #restoreVault() {
-		const stored = localStorage.getItem(cip('BAK_LOCALVAULT'));
+		const stored = localStorage.getItem(cip(BAK_LOCALVAULT));
 		if (!stored) return;
 
 		const backupData = await unpack(JSON.parse(stored), this.#cryptoKey);
@@ -158,7 +169,7 @@ export class LocalKVVault {
 			for (const [key, value] of Object.entries(backupData)) await this.set(key, value);
 		}
 
-		localStorage.removeItem(cip('BAK_LOCALVAULT'));
+		localStorage.removeItem(cip(BAK_LOCALVAULT));
 	}
 
 	/**
@@ -188,7 +199,7 @@ export class LocalKVVault {
 			this.#cryptoKey = this.#nextCryptoKey;
 			this.#nextCryptoKey = null;
 		}
-		localStorage.removeItem(cip('BAK_LOCALVAULT'));
+		localStorage.removeItem(cip(BAK_LOCALVAULT));
 	}
 
 	/**

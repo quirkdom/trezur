@@ -128,7 +128,7 @@
 		)
 			return;
 
-		purgeStorage();
+		await purgeStorage();
 
 		settingsContext.resetSettings();
 		conditionsContext.resetConditions();

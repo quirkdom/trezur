@@ -45,7 +45,7 @@
 
 		const { clientId } = conditions;
 
-		purgeStorage();
+		await purgeStorage();
 
 		conditionsContext.updateConditions({
 			isAppLocked: false,

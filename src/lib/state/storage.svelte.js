@@ -171,9 +171,9 @@ export function clearStorage() {
  * Does not touch the `isAppLocked` condition — callers own that responsibility.
  */
 export async function purgeStorage() {
-	cloudSyncService.stopAutoSync();
-	tokensContext.purgeTokens();
-	localVault?.clear();
+	await cloudSyncService.disable();
+	await tokensContext.purgeTokens();
+	LocalKVVault.clear();
 	localVault = null;
 	cryptoKey = null;
 	keyManager.purge();

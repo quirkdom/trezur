@@ -4,6 +4,7 @@ import { pic, getLegacySalt, generateKDFMetadata } from '$lib/utils/salada';
 
 const T_KM_KDF_META = 'T_KM_KDF_META';
 const T_KM_WRAPPED_MSK = 'T_KM_WRAPPED_MSK';
+const BAK_KEYMAN = 'BAK_KEYMAN';
 
 /**
  * Attempts to upgrade the key manager namespace from the old T_ES_ to the new T_KM_ namespace
@@ -46,7 +47,7 @@ function tryUpgradeKeymanNamespace() {
  * @returns Wrapped MSK read from storage, after restoration from backup
  */
 function tryRestoreFromKeymanBackup() {
-	const keymanBackup = localStorage.getItem('BAK_KEYMAN');
+	const keymanBackup = localStorage.getItem(BAK_KEYMAN);
 
 	if (keymanBackup) {
 		devconsole.log('[KeyManager] Restoring from KeyManager backup `BAK_KEYMAN`');
@@ -58,7 +59,7 @@ function tryRestoreFromKeymanBackup() {
 			else localStorage.removeItem('T_KM_' + k);
 		}
 
-		localStorage.removeItem('BAK_KEYMAN');
+		localStorage.removeItem(BAK_KEYMAN);
 	}
 
 	return localStorage.getItem(T_KM_WRAPPED_MSK);
@@ -98,11 +99,11 @@ class KeyManager {
 	}
 
 	get hasWrappedKey() {
-		return !!localStorage.getItem(T_KM_WRAPPED_MSK) || !!localStorage.getItem('BAK_KEYMAN');
+		return !!localStorage.getItem(T_KM_WRAPPED_MSK) || !!localStorage.getItem(BAK_KEYMAN);
 	}
 
 	get hasBackup() {
-		return !!localStorage.getItem('BAK_KEYMAN');
+		return !!localStorage.getItem(BAK_KEYMAN);
 	}
 
 	#reset(shouldPurge = false) {
@@ -112,7 +113,7 @@ class KeyManager {
 		if (shouldPurge) {
 			localStorage.removeItem(T_KM_KDF_META);
 			localStorage.removeItem(T_KM_WRAPPED_MSK);
-			localStorage.removeItem('BAK_KEYMAN');
+			localStorage.removeItem(BAK_KEYMAN);
 		}
 	}
 
@@ -275,7 +276,7 @@ class KeyManager {
 			WRAPPED_MSK: JSON.parse(storedWrapped),
 			KDF_META: metadata
 		};
-		localStorage.setItem('BAK_KEYMAN', JSON.stringify(backup));
+		localStorage.setItem(BAK_KEYMAN, JSON.stringify(backup));
 
 		// Re-wrap with new passcode
 		const newSalt = crypto.getRandomValues(new Uint8Array(16));
@@ -285,7 +286,7 @@ class KeyManager {
 
 		localStorage.setItem(T_KM_KDF_META, JSON.stringify(newMetadata));
 		localStorage.setItem(T_KM_WRAPPED_MSK, JSON.stringify(newWrapped));
-		localStorage.removeItem('BAK_KEYMAN');
+		localStorage.removeItem(BAK_KEYMAN);
 
 		this.#passcode = newPasskey;
 	}
@@ -322,7 +323,7 @@ class KeyManager {
 			WRAPPED_MSK: oldWrappedMSK ? JSON.parse(oldWrappedMSK) : null,
 			KDF_META: oldKDFMeta ? JSON.parse(oldKDFMeta) : null
 		};
-		localStorage.setItem('BAK_KEYMAN', JSON.stringify(backup));
+		localStorage.setItem(BAK_KEYMAN, JSON.stringify(backup));
 
 		// 2. Write new key material to active locations
 		localStorage.setItem(T_KM_KDF_META, JSON.stringify(metadata));
@@ -343,7 +344,7 @@ class KeyManager {
 	 * Commit MSK adoption by removing backup.
 	 */
 	async commitAdoptMSKTxn() {
-		localStorage.removeItem('BAK_KEYMAN');
+		localStorage.removeItem(BAK_KEYMAN);
 		this.#backupCryptoKey = null;
 		this.#backupPasscode = null;
 	}
