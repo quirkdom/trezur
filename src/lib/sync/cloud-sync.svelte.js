@@ -50,36 +50,26 @@ class CloudSyncService {
 	 * @param {() => import('$lib/utils/cloud-file-vault').CloudFileVault} cloudVaultFactory
 	 */
 	async init(storage, cloudVaultFactory) {
-		if (this.storage) {
-			if (this.storage === storage) {
-				this.createCloudVault = cloudVaultFactory;
-				return;
+		this.storage = storage;
+		this.createCloudVault = cloudVaultFactory;
+
+		let saved = await storage.get(T_CLOUD_SYNC_STATE);
+		if (!saved) {
+			// Transparent upgrade hook from T_backup_state
+			saved = await storage.get('T_backup_state');
+			if (saved) {
+				devconsole.log('[Sync] Upgrading sync state key from `T_backup_state` to `T_cloud_sync_state`...');
+
+				await storage.set(T_CLOUD_SYNC_STATE, saved);
+				await storage.delete('T_backup_state');
 			}
-			this.storage = storage;
-			this.createCloudVault = cloudVaultFactory;
-			await this.#persistState();
-		} else {
-			this.storage = storage;
-			this.createCloudVault = cloudVaultFactory;
-
-			let saved = await storage.get(T_CLOUD_SYNC_STATE);
-			if (!saved) {
-				// Transparent upgrade hook from T_backup_state
-				saved = await storage.get('T_backup_state');
-				if (saved) {
-					devconsole.log('[Sync] Upgrading sync state key from `T_backup_state` to `T_cloud_sync_state`...');
-
-					await storage.set(T_CLOUD_SYNC_STATE, saved);
-					await storage.delete('T_backup_state');
-				}
-			}
-
-			this.autoSyncEnabled = saved?.autoSyncEnabled ?? false;
-			this.lastError = saved?.lastError ?? null;
-			this.lastSyncTime = saved?.lastSyncTime ?? 0;
-
-			if (this.autoSyncEnabled) this.#startAutoSync();
 		}
+
+		this.autoSyncEnabled = saved?.autoSyncEnabled ?? false;
+		this.lastError = saved?.lastError ?? null;
+		this.lastSyncTime = saved?.lastSyncTime ?? 0;
+
+		if (this.autoSyncEnabled) this.#startAutoSync();
 	}
 
 	/**

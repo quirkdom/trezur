@@ -63,13 +63,30 @@ export async function initStorage(passkeyParam) {
 		}
 
 		// 5. Initialize the services with the new vault instance and factory callback
-		await tokensContext.iMake(localVault);
+		await tokensContext.init(localVault);
 		await cloudSyncService.init(localVault, createCloudVault);
 		return true;
 	} catch (err) {
 		console.error('[storage] initStorage failed:', err);
 		return false;
 	}
+}
+
+/**
+ * Perform KDF migration from v0 to v1
+ *
+ * @param {string} passkeyParam
+ */
+export async function initStorageForKDFMigration(passkeyParam) {
+	if (!keyManager.needsMigration) throw new Error('KDF migration not needed or already performed!');
+
+	cryptoKey = await keyManager.unlock(passkeyParam);
+	if (!cryptoKey) throw new Error('Failed to generate new key material');
+
+	localVault = new LocalKVVault(cryptoKey);
+
+	await tokensContext.migrateToNewStorage(localVault);
+	await cloudSyncService.init(localVault, createCloudVault);
 }
 
 /**
@@ -111,8 +128,8 @@ export async function adoptMSK(newMSK) {
 		// 4. Update coordinator state
 		cryptoKey = tempCryptoKey;
 
-		// Reinitialize cloud sync service and tokens context
-		await tokensContext.iMake(localVault);
+		// 5. Reinitialize cloud sync service and tokens context
+		await tokensContext.init(localVault);
 		await cloudSyncService.init(localVault, createCloudVault);
 	} catch (err) {
 		console.error('[storage] MSK adoption failed, rolling back coordinated transaction...', err);

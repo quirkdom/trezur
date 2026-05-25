@@ -34,33 +34,11 @@ class TokensCtx {
 
 	/**
 	 * @param {KVStorage} storage
-	 * @param {Object} [options]
-	 * @param {Token[] | null | undefined} [options.extraTokens]
 	 */
-	static async make(storage, options) {
+	static async make(storage) {
 		const instance = new TokensCtx(storage, ANTI_CTOR_TOKEN);
 
 		await instance.#load(); // first, load any tokens from storage
-
-		if (options?.extraTokens?.length) {
-			// Merge and deduplicate
-			const tokenMap = new SvelteMap();
-
-			// Add existing tokens
-			for (const token of instance.#tokens) {
-				const key = `${token.id}:${token.secret}`;
-				tokenMap.set(key, token);
-			}
-
-			// Merge in extra tokens (will overwrite if duplicate)
-			for (const token of options.extraTokens) {
-				const key = `${token.id}:${token.secret}`;
-				tokenMap.set(key, token);
-			}
-
-			instance.#tokens = [...tokenMap.values()];
-			await instance.#persist(); // Ensure changes are persisted
-		}
 
 		return instance;
 	}
@@ -73,8 +51,16 @@ class TokensCtx {
 		const loadedTombstones = (await this.storage.get(T_TOMBSTONES)) || {};
 		this.#tombstones = loadedTombstones;
 
-		// Deduplication logic: Handles edge cases where local storage might have duplicate
-		// tokens. We use LWW merge to pick the freshest one if duplicates are found.
+		/**
+		 * Deduplication logic: Handles edge cases where local storage might have duplicate
+		 * tokens. We use LWW merge to pick the freshest one if duplicates are found.
+		 *
+		 * @todo This is a temporary stop-gap mitigation for potential duplicate tokens in storage, which can occur due to
+		 * interrupted transactions or bugs or user-error. Ideally, we should bulletproof all sources of tokens ingestions
+		 * and mutations, so that duplicates can never occur in the first place, and then remove this deduplication logic entirely.
+		 *
+		 * @todo Dedupe is by `id` only currently. More sophisticated logic required.
+		 */
 		const tokenMap = new SvelteMap();
 
 		for (const token of loadedTokens) {
@@ -269,33 +255,42 @@ class TokensContext {
 	}
 
 	/**
-	 * (Intelligently) Make a new Tokens context.
-	 * - Scenario 1: Create a new Tokens context instance, loading existing tokens from provided storage.
-	 * - Scenario 2: Storage is changing. Merge any existing in-memory tokens into new storage.
+	 * Initialize the Tokens context with the provided storage.
 	 * @param {KVStorage} storage
 	 */
-	async iMake(storage) {
+	async init(storage) {
 		// artificial delay to simulate loading (for testing)
 		// await new Promise((resolve) => setTimeout(resolve, 1500));
 
-		if (this.#current) {
-			const existingTokens = $state.snapshot(this.#current.getTokens());
-			this.#current = await TokensCtx.make(storage, { extraTokens: existingTokens });
-		} else this.#current = await TokensCtx.make(storage);
+		this.#current = await TokensCtx.make(storage);
+	}
+
+	/**
+	 * Migrates token state to a new storage instance, such as during KDF migration.
+	 * @param {KVStorage} newStorage
+	 */
+	async migrateToNewStorage(newStorage) {
+		if (!this.#current) throw new Error('No active Tokens context to migrate');
+
+		const newCtx = new TokensCtx(newStorage, ANTI_CTOR_TOKEN);
+		await newCtx.setTokensAndTombstones(this.#current.getTokens(), this.#current.getTombstones(), {
+			skipSyncNotify: true
+		});
+		this.#current = newCtx;
 	}
 
 	/**
 	 * Evict in-memory token state only, leaving persistent storage intact.
 	 *
 	 * **CAUTION:** This leaves the app without a valid tokens context; subsequent token operations will fail
-	 * until re-initialized via `iMake`.
+	 * until re-initialized via `init`.
 	 */
 	resetTokens() {
 		this.#current?.clearTokens(false);
 		this.#current = null;
 
 		devconsole.warn(
-			'[Tokens] App without valid Tokens context; subsequent token operations will fail. Call iMake() to re-initialize.'
+			'[Tokens] App without valid Tokens context; subsequent token operations will fail. Call init() to re-initialize.'
 		);
 	}
 
