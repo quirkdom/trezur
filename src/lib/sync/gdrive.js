@@ -1,7 +1,7 @@
 /* global google */
 
 import { browser } from '$app/environment';
-import { env } from '$env/dynamic/public';
+import { PUBLIC_GOOGLE_CLIENT_ID } from '$env/static/public';
 import { devconsole } from '$lib/utils';
 import { ExpiringMap } from '$lib/utils/cache';
 
@@ -9,14 +9,7 @@ const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 const GSI_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const CACHE_TTL = 300_000; // 5 minutes - enough for a sync session but expires between autosyncs
 
-/**
- * @todo Use static imports from `$env/dynamic/static` once we migrate to CF Workers and can define build variables in `wrangler.toml`.
- *
- * CF Pages only support dynamic env vars at build time. See: https://developers.cloudflare.com/pages/configuration/build-configuration/#environment-variables
- *
- * CF Workers possibly support static public env vars at build time, defined in `wrangler.toml`. See: https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables -> Wrangler
- */
-const GOOGLE_CLIENT_ID = env.PUBLIC_GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_ID = PUBLIC_GOOGLE_CLIENT_ID;
 
 /**
  * @typedef {Object} DriveFile

@@ -10,5 +10,14 @@
 	},
 	"observability": {
 		"enabled": true
+	},
+	"routes": [
+		{
+			"pattern": "trezur.quirkdom.com",
+			"custom_domain": true
+		}
+	],
+	"vars": {
+		"PUBLIC_GOOGLE_CLIENT_ID": "184615541002-eant0pf6hoi5nn9u0gksv0lnjocrht5n.apps.googleusercontent.com"
 	}
 }
