@@ -25,24 +25,24 @@ The MSK is generated once and never changes through passcode changes. Changing t
 
 ### localStorage Keys
 
-| Key                    | Purpose                                                   |
-| ---------------------- | --------------------------------------------------------- |
-| `T_ES_KDF_META`        | KDF parameters: `{ v, name, salt, iterations, hash }`     |
-| `T_ES_WRAPPED_MSK`     | MSK wrapped with LWK: `{ iv, data }`                      |
-| `T_ES_WRAPPED_MSK_BAK` | Backup of wrapped MSK during passcode change (temporary)  |
-| `T_conditions`         | `{ clientId, isUserPasscodeSet }` — plaintext, persistent |
+| Key                | Purpose                                                                |
+| ------------------ | ---------------------------------------------------------------------- |
+| `T_KM_KDF_META`    | KDF parameters: `{ v, name, salt, iterations, hash }` — plaintext JSON |
+| `T_KM_WRAPPED_MSK` | MSK wrapped with LWK: `{ iv, data }` — plaintext JSON                  |
+| `BAK_KEYMAN`       | Plaintext JSON backup of KDF metadata & wrapped MSK during key changes |
+| `T_conditions`     | `{ clientId, isUserPasscodeSet }` — plaintext, persistent              |
+
+_Note: The actual token vault entries (`T_tokens`, `T_tombstones`, and `T_cloud_sync_state`) are stored in `localStorage` with a `T_ES_`prefix and fully obfuscated under XOR-hex ciphered keys (e.g.,`cip('T*ES_T_tokens')`).*
 
 ## Cold Start
 
-On first page load, `+layout.js` runs client-side:
+On first page load, SvelteKit's server load function `+layout.server.js` runs to detect request-level details (e.g., `isAppleDevice` from the `User-Agent` header) and passes this data to the client.
 
-1. Loads `settings` and `conditions` from localStorage.
-2. Generates a `clientId` (nanoid) if none exists — this is both a device identifier and the fallback encryption passkey when no user passcode is set.
-3. Passes everything to `+layout.svelte`.
+Then, in `+layout.svelte` (client-side):
 
-`+layout.svelte` then evaluates:
-
-**No passcode set, storage not yet initialized:**
+1. `createSettingsContext()` and `createConditionsContext()` are initialized.
+2. The `ConditionsCtx` constructor automatically generates a fallback `clientId` (using `nanoid`) if none exists in `T_conditions` in `localStorage` — this is both a device identifier and the fallback encryption passkey when no user passcode is set.
+3. If no passcode is set and `clientId` is present but storage is not yet initialized, the app calls:
 
 ```js
 if (!isUserPasscodeSet && clientId && !isStorageAvailable()) {
@@ -77,8 +77,8 @@ User long-presses lock icon
            → unwraps MSK with LWK
            → imports MSK as AES-GCM CryptoKey
          → creates LocalKVVault(cryptoKey)
-         → tokensContext.iMake(localVault)  // load tokens from vault
-         → cloudSyncService.init()          // restore sync state
+         → tokensContext.init(localVault)              // load tokens from vault
+         → cloudSyncService.init(localVault, factory)  // restore sync state
        → conditionsContext.updateCondition('isAppLocked', false)
   → App renders main content with tokens
 ```
@@ -104,28 +104,28 @@ conditionsContext.updateCondition('isAppLocked', true);
 
 Three branches depending on what's stored and the current app state:
 
-**Branch A — Normal (wrapped MSK + v1 KDF metadata exist):**
+**Branch A — Normal (wrapped MSK + KDF metadata exist in T*KM*\*):**
 
-- Reads `T_ES_WRAPPED_MSK` and `T_ES_KDF_META`.
+- Reads `T_KM_WRAPPED_MSK` and `T_KM_KDF_META`.
 - Verifies metadata version is 1 or higher.
 - Derives LWK from passkey + metadata, unwraps MSK, imports as CryptoKey.
-- Sets `#needsMigration = false`.
+- Sets `needsMigration` flag in KeyManager to `false`.
 - Returns the CryptoKey.
 
-**Branch B — Legacy detection (no wrapped MSK, but legacy data exists):**
+**Branch B — Legacy detection (no modern T*KM*\* keys, but legacy data exists):**
 
-- Detected if no wrapped MSK exists AND (no metadata exists OR metadata version < 1) AND legacy `T_ES_` keys are present in localStorage.
+- Detected if no wrapped MSK exists in `T_KM_WRAPPED_MSK` AND (no metadata exists OR metadata version < 1) AND legacy `T_ES_` keys are present in localStorage.
 - Derives salt from passkey using legacy method, creates v0 metadata.
-- Sets `#needsMigration = true` — this flags the app to perform an automatic migration.
+- Sets `needsMigration` in KeyManager to `true` — this flags the app to perform an automatic migration.
 - Returns the derived LWK directly as the payload key (temporary access to legacy tokens).
 
 **Branch C — Fresh start or Migration execution:**
 
-- Triggered if no legacy data is found (fresh install) OR if the app is already flagged for migration (`#needsMigration` is true).
+- Triggered if no legacy data is found (fresh install) OR if the app is already flagged for migration (`needsMigration` is true).
 - Generates random 16-byte salt, modern KDF metadata (v1, PBKDF2, 600K iter, SHA-256).
 - Derives LWK, generates a brand new 32-byte MSK, and wraps it with the LWK.
-- Stores metadata + wrapped MSK.
-- Sets `#needsMigration = false`.
+- Stores metadata in `T_KM_KDF_META` + wrapped MSK in `T_KM_WRAPPED_MSK`.
+- Sets `needsMigration` in KeyManager to `false`.
 - Imports MSK as CryptoKey and returns it.
 
 In the migration case, this branch effectively rotates the key material from the legacy "passkey-is-payload-key" model to the modern "wrapped-MSK" model. Any existing tokens in the vault are then re-encrypted using the new MSK when the storage layer initializes.
@@ -137,11 +137,11 @@ Read-only check: derives LWK from passkey + stored metadata, attempts to unwrap 
 ### changePasskey(newPasskey)
 
 1. Unwraps MSK with current LWK.
-2. Backs up current wrapped MSK to `T_ES_WRAPPED_MSK_BAK` (safety net).
+2. Backs up current wrapped MSK and KDF metadata to `BAK_KEYMAN` (safety net).
 3. Generates new salt, new KDF metadata.
 4. Derives new LWK from new passkey.
-5. Re-wraps MSK with new LWK, stores it.
-6. Deletes backup.
+5. Re-wraps MSK with new LWK, stores it in `T_KM_WRAPPED_MSK`.
+6. Deletes backup `BAK_KEYMAN`.
 
 This is also used to "remove" a passcode — `changePasskey(clientId)` re-wraps the MSK from the user passcode to the device clientId. The MSK and all tokens remain intact.
 
@@ -151,7 +151,7 @@ Clears `#cryptoKey` and `#passcode` from memory. Does not touch persistent stora
 
 ### purge()
 
-Clears in-memory state and removes `T_ES_KDF_META`, `T_ES_WRAPPED_MSK`, `T_ES_WRAPPED_MSK_BAK` from localStorage.
+Clears in-memory state and removes `T_KM_KDF_META`, `T_KM_WRAPPED_MSK`, and `BAK_KEYMAN` from localStorage.
 
 ## Storage Orchestration
 
@@ -163,8 +163,8 @@ Clears in-memory state and removes `T_ES_KDF_META`, `T_ES_WRAPPED_MSK`, `T_ES_WR
 initStorage(passkeyParam)
   → keyManager.unlock(passkeyParam) → CryptoKey
   → create LocalKVVault(cryptoKey)
-  → tokensContext.iMake(localVault)  // load tokens from vault
-  → cloudSyncService.init()          // restore sync state + auto-sync
+  → tokensContext.init(localVault)                   // load tokens from vault
+  → cloudSyncService.init(localVault, factory)       // restore sync state + auto-sync
   → return true (or false if unlock failed)
 ```
 
@@ -185,9 +185,9 @@ Full wipe:
 
 - `cloudSyncService.stopAutoSync()`
 - `tokensContext.purgeTokens()` — deletes from vault + clears memory
-- `localVault.clear()` — removes all `T_ES_*` localStorage items
+- `LocalKVVault.clear()` — removes all active `T_ES_*` keys and backup local vaults
 - `localVault = null`, `cryptoKey = null`
-- `keyManager.purge()` — clears memory + removes stored MSK/metadata
+- `keyManager.purge()` — clears memory + removes stored MSK/metadata/backups
 
 Used for "Forgot Passcode" and "Delete All Data".
 
@@ -209,13 +209,13 @@ All three operations use `keyManager.changePasskey()` — the only difference is
 | Change passcode | User's new passcode     | MSK re-wrapped from old passcode-LWK to new passcode-LWK |
 | Remove passcode | `conditions.clientId`   | MSK re-wrapped from passcode-LWK to clientId-LWK         |
 
-In all cases, the MSK is unwrapped with the current LWK and re-wrapped with the new one. Tokens are never re-encrypted. After the operation, `isUserPasscodeSet` is updated and the app re-locks if the passcode was removed.
+In all cases, the MSK is unwrapped with the current LWK and re-wrapped with the new one. Tokens are never re-encrypted. After the operation, `isUserPasscodeSet` is updated.
 
-## Forgot Passcode
+## Forgot Passcode Flow Detail
 
 1. User taps "Forgot passcode?" in PasscodeDialog.
 2. Confirms by typing "YES".
-3. `purgeStorage()` — wipes all encrypted data and key material.
+3. `purgeStorage()` — wipes all encrypted data and key material (`T_KM_*`, `BAK_KEYMAN`, `T_ES_*`, `BAK_LOCALVAULT`).
 4. `isAppLocked = false`, `isUserPasscodeSet = false`.
 5. `initStorage(clientId)` — generates a fresh MSK, creates empty vault.
 6. Navigates to `/`.

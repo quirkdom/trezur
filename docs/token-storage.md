@@ -42,10 +42,11 @@ localStorage value: { iv: number[], data: number[] }
 - `iv`: 12-byte AES-GCM nonce (as array of numbers for JSON serialization)
 - `data`: AES-GCM ciphertext + 16-byte auth tag
 
-The vault holds multiple entries:
+The vault obfuscates and holds multiple entries in `localStorage`:
 
-- `T_ES_tokens` — the serialized tokens and tombstones JSON
-- `T_ES_backup_state` — cloud sync metadata (autoSyncEnabled, lastSyncTime, lastError)
+- `cip('T_ES_T_tokens')` — the serialized tokens array JSON.
+- `cip('T_ES_T_tombstones')` — the serialized deleted token tombstones dictionary JSON.
+- `cip('T_ES_T_cloud_sync_state')` — cloud sync metadata (`autoSyncEnabled`, `lastSyncTime`, `lastError`), upgraded seamlessly from legacy `T_backup_state`.
 
 ### API
 
@@ -62,10 +63,10 @@ Encryption happens at write time, decryption at read time. The vault holds a ref
 
 `TokensCtx` (`src/lib/state/tokens.svelte.js`) is the reactive token store. It's accessed via the singleton `tokensContext`.
 
-### Initialization (iMake)
+### Initialization (init)
 
 ```js
-tokensContext.iMake(storage)
+tokensContext.init(storage)
   → creates new TokensCtx(localVault)
     → loads tokens + tombstones from vault
     → deduplicates by id:secret key

@@ -196,12 +196,13 @@ sync()
   ├─ Loop (up to 4 attempts):
   │   ├─ fetchCloudState: download & decrypt tokens.trzr
   │   ├─ resolveSyncConflicts(local, cloud)
-  │   ├─ tokensContext.setTokensAndTombstones(merged)
+  │   ├─ tokensContext.current.setTokensAndTombstones(merged.tokens, merged.tombstones)
   │   ├─ State unchanged? → done
-  │   └─ uploadCloudState: encrypt & upload with If-Match ETag
-  │       └─ 412 Precondition Failed → retry with jitter (100–250ms)
+  │   └─ uploadCloudState: encrypt & upload (ignores ETag concurrency)
   └─ Persist local vault
 ```
+
+_Note on Optimistic Concurrency: Although the sync service contains retry logic for `Precondition Failed` (412) errors, Google Drive API v3 does not natively support ETag concurrency checks via standard multipart uploads in our current `DriveClient` configuration. Downloads currently return `{ data, etag: null }` and upload requests do not pass an `If-Match` header. The retry-loop remains purely as a code-level fallback._
 
 ## Google Drive Integration
 
@@ -216,11 +217,11 @@ sync()
 
 ### API Operations
 
-| Method                      | Endpoint                                    | Notes                                                           |
-| --------------------------- | ------------------------------------------- | --------------------------------------------------------------- |
-| `findFile(filename)`        | `GET /drive/v3/files?q=name='...'`          | Cached for 5 minutes                                            |
-| `download(filename)`        | `GET /drive/v3/files/{id}?alt=media`        | Returns `{ data, etag }`, supports Range headers                |
-| `upload(filename, content)` | `POST` (create) or `PATCH` (update with id) | Multipart upload, `If-Match: {etag}` for optimistic concurrency |
+| Method                      | Endpoint                                    | Notes                                                             |
+| --------------------------- | ------------------------------------------- | ----------------------------------------------------------------- |
+| `findFile(filename)`        | `GET /drive/v3/files?q=name='...'`          | Cached for 5 minutes                                              |
+| `download(filename)`        | `GET /drive/v3/files/{id}?alt=media`        | Returns `{ data, etag: null }`, supports Range headers            |
+| `upload(filename, content)` | `POST` (create) or `PATCH` (update with id) | Multipart upload, ETag concurrency parameter is currently ignored |
 
 ### Token Lifecycle
 

@@ -58,6 +58,8 @@ sequenceDiagram
     end
 ```
 
+_Note on Storage Journal Naming: `BAK_KEYMAN` is written as a plaintext key in `localStorage` (containing the KDF metadata and wrapped MSK backup JSON). `BAK_LOCALVAULT` is obfuscated via the vault's XOR-hex cipher and stored under the key `cip('BAK_LOCALVAULT')` (containing the consolidated active vault entries encrypted under the old payload key)._
+
 ### Unhandled Runtime Errors
 
 If any step in the `try` block of the coordinator throws an error, the coordinator immediately transitions into the **Rollback Phase**:

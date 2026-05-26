@@ -44,7 +44,7 @@ State is managed via Svelte 5 reactive context classes. The central coordinator 
 
 ### 3. Token State (`src/lib/state/tokens.svelte.js`)
 - **Purpose**: Collection management for TOTP/HOTP tokens.
-- **Context**: `tokensContext` contains the active `TokensCtx` instance.
+- **Context**: `tokensContext` is a `TokensContext` singleton whose `.current` property holds the active `TokensCtx` instance.
 - **Conflict Resolution**: Last-Writer-Wins (LWW) per-field merge logic using four timestamps in `updatedAt` (`account`, `issuer`, `secret`, `params`).
 - **Tombstones**: Records deleted token IDs to prevent stale cloud backups from resurrecting them during sync merges.
 
@@ -73,13 +73,13 @@ Local Wrapping Key (LWK, AES-256-GCM)
     │                        ▼ importRawKey
     │                   Payload CryptoKey (AES-256-GCM)
     │                        │
-    │                        ├── Encrypts LocalKVVault (localStorage: `T_ES_*`)
+    │                        ├── Encrypts LocalKVVault (localStorage keys: cip('T_ES_*'))
     │                        └── Encrypts CloudFileVault (Google Drive: `tokens.trzr`)
     │
     └── MSK is convertible to a 24-word BIP39 mnemonic for recovery
 ```
 
-- Changing the passcode re-wraps the same MSK using a new LWK. Token data is **never** re-encrypted.
+- Changing the passcode re-wraps the same MSK using a new LWK. Staged wrapping data is stored in `T_KM_WRAPPED_MSK` alongside KDF metadata in `T_KM_KDF_META`. Token data is **never** re-encrypted.
 - If no passcode is set, the device-specific `clientId` is used as the passkey fallback.
 
 ---
